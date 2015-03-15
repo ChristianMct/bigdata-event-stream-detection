@@ -7,7 +7,7 @@ tmp/
 *.swp
 *~.nib
 local.properties
-.settings/
+#.settings/ <== Leaving this here, lets see
 .loadpath
 
 # Maven
