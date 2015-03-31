@@ -1,10 +1,17 @@
-package org.epfl.bigdataevs;
+package org.epfl.bigdataevs.eminput;
 
-/**
-*	Team: Matias et Christian
-*
-*	InputParser: Parse les données lues depuis HDFS, clean, et calcule le background model pour le EM algorithm
+
+/**Team: Matias and Christian.
+*InputParser: parses the data read from HDFS, clean them, 
+*and compute background model for the EM algorithm
 **/
 public class InputParser {
-
+ 
+  public EmInput getEMInput(TimePeriod timePeriode) {
+    
+    if (timePeriode == null) {
+      return null; 
+    }
+    return null;
+  }
 }
