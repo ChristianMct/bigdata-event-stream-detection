@@ -2,6 +2,8 @@ package org.epfl.bigdataevs.eminput;
 
 import java.util.Date;
 
+
+/**Team: Matias and Christian**/
 public class TimePeriod {
   
   public final Date from;
