@@ -8,6 +8,7 @@ public class KLDivergence {
 
   public class ThemeCouple{
     public Theme a, b;
+    
     public ThemeCouple(Theme a, Theme b){
 	    this.a = a;
 	    this.b = b;
