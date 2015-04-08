@@ -14,12 +14,17 @@ public class KLDivergence {
 	    this.b = b;
     }
   }
-    
-  public static float compute(Theme theme1, Theme theme2){
-    return 0.f;
+
+  private double threshold;
+  
+  KLDivergence(double threshold){
+    this.threshold = threshold;
   }
     
-  public static JavaPairRDD<Float, ThemeCouple> compute(JavaRDD<Theme> theme_partition1, JavaRDD<Theme> theme_partition2){
+    
+  public static JavaPairRDD<Double, ThemeCouple> compute(JavaRDD<Theme> theme_partition1, JavaRDD<Theme> theme_partition2){
+
+    
     return null;
   }
 }
