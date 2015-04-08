@@ -13,4 +13,8 @@ public class TimePeriod {
     this.from = from;
     this.to = to;
   }
+  
+  public boolean lessThan(TimePeriod p){
+    return (this.to.compareTo(p.from) <= 0); 
+  }
 }

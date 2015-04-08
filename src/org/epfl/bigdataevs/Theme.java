@@ -1,19 +1,18 @@
 package org.epfl.bigdataevs;
 
-import java.io.Serializable;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.epfl.bigdataevs.eminput.TimePeriod;
 
 
-public class Theme {
-
+public class Theme extends TimePeriod{
     public Map<String, Double> wordsProbability;
-    public TimePeriod timeSpan;
 	
-    public Theme(Map<String, Double> wordsProbability, TimePeriod timeSpan){
-      this.wordsProbability = wordsProbability;
-      this.timeSpan = timeSpan;
+    public Theme( Date from, Date to){
+      super(from, to);
+      this.wordsProbability = new HashMap<String, Double>();
     }
     
     public double divergence(Theme t){
