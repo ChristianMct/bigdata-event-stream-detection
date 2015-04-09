@@ -25,15 +25,15 @@ public class Theme extends TimePeriod{
     @SuppressWarnings("unchecked")
     public void initialization(EmInput input) {
     
-      JavaRDD temp = input.parsedArticles.flatMapValues(new Function<ParsedArticle, Iterable<String>>() {
+      JavaRDD wordsOfPartition = input.parsedArticles.flatMapValues(new Function<ParsedArticle, Iterable<String>>() {
         @Override
         public Iterable<String> call(ParsedArticle article) throws Exception {
           return (Iterable<String>) article.words.keys().distinct();
         }
       }).values().distinct();
       
-      long numberOfElement = temp.count();
-      this.wordsProbability = temp.mapToPair(new PairFunction<String, String, Fraction>() {
+      long numberOfElement = wordsOfPartition.count();
+      this.wordsProbability = wordsOfPartition.mapToPair(new PairFunction<String, String, Fraction>() {
         
         @Override
         public Tuple2<String, Fraction> call(String word) throws Exception {
