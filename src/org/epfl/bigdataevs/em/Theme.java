@@ -5,30 +5,40 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import scala.Tuple2;
+
 import org.apache.spark.api.java.*;
 import org.apache.spark.api.java.function.*;
 import org.epfl.bigdataevs.eminput.EmInput;
 import org.epfl.bigdataevs.eminput.ParsedArticle;
 import org.epfl.bigdataevs.eminput.TimePeriod;
 
-
 public class Theme extends TimePeriod{
-    public Map<String, Double> wordsProbability;
+    public JavaPairRDD<String, Double> wordsProbability;
 	
     public Theme( Date from, Date to){
       super(from, to);
-      this.wordsProbability = new HashMap<String, Double>();
     }
     
     
     //initiate theme probabilities
+    @SuppressWarnings("unchecked")
     public void initialization(EmInput input) {
     
-      input.parsedArticles.flatMap(new FlatMapFunction2<Date, ParsedArticle, >() {
+      JavaRDD temp = input.parsedArticles.flatMapValues(new Function<ParsedArticle, Iterable<String>>() {
         @Override
-        public Iterable<ParsedArticle> call(Date date) throws Exception {
+        public Iterable<String> call(ParsedArticle article) throws Exception {
+          return (Iterable<String>) article.words.keys().distinct();
+        }
+      }).values().distinct();
+      
+      long numberOfElement = temp.count();
+      this.wordsProbability = temp.mapToPair(new PairFunction<String, String, Fraction>() {
+        
+        @Override
+        public Tuple2<String, Fraction> call(String word) throws Exception {
           // TODO Auto-generated method stub
-          return null;
+          return new Tuple2<String, Fraction>(word, new Fraction(1, numberOfElement));
         }
       });
     }
