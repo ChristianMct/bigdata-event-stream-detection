@@ -1,6 +1,7 @@
 package org.epfl.bigdataevs.eminput;
 
 import java.io.Serializable;
+import java.util.Date;
 
 /**This class represents a raw article read from the XML stream.
  * It is immutable and provide a builder so it can be instanciated
@@ -15,8 +16,8 @@ public class RawArticle implements Serializable {
   public final int wordCount;
   public final String fullText;
   public final String id;
-  public final String issueDate;
   public final String name;
+  public final Date issueDate;
   public final ArticleStream stream;
 
 
@@ -31,7 +32,7 @@ public class RawArticle implements Serializable {
    * @param stream the enum type of the stream article comes from
    */
   public RawArticle(int charCount, int pageNumber, int wordCount, 
-          String fullText, String id, String issueDate, String name, 
+          String fullText, String id, Date issueDate, String name, 
           ArticleStream stream) {
     this.charCount = charCount;
     this.pageNumber = pageNumber;
@@ -54,8 +55,8 @@ public class RawArticle implements Serializable {
     public int wordCount;
     public String fullText;
     public String id;
-    public String issueDate;
     public String name;
+    public Date issueDate;
     public ArticleStream stream;
 
     public RawArticleBuilder() {
