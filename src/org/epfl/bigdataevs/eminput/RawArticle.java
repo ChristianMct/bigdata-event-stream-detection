@@ -74,17 +74,10 @@ public class RawArticle implements Serializable {
               && issueDate != null
               && name != null
               && stream != null) {
-        int bcharCount = charCount;
-        int bpageNumber = pageNumber;
-        int bwordCount = wordCount;
-        String bfullText = fullText;
-        String bid = id;
-        String bissueDate = issueDate;
-        String bname = name;
-        ArticleStream bstream = stream;
+        RawArticle art = new RawArticle(charCount, pageNumber, 
+                wordCount, fullText, id, issueDate, name,stream);
         this.reset();
-        return new RawArticle(bcharCount, bpageNumber, 
-                bwordCount, bfullText, bid, bissueDate, bname,bstream);
+        return art;
       } else {
         return null;
       }
