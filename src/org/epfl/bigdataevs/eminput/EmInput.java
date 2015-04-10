@@ -1,8 +1,17 @@
 package org.epfl.bigdataevs.eminput;
 
+import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+
 import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.function.VoidFunction;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.math3.fraction.Fraction;
+import org.epfl.bigdataevs.em.Theme;
+
+import scala.Tuple2;
 
 /**Team: Matias and Christian.
 *EmInput: container for the RDDs representing the background
@@ -12,18 +21,62 @@ import org.apache.commons.math3.fraction.Fraction;
 *TODO: should the background model be per-stream?
 **/
 
-public class EmInput {
+public class EmInput implements Serializable {
   /** RDD containing tuples of words and their 
    * distribution in the streams. **/
-  public final JavaPairRDD<String, Fraction> backgroundModel;
+  public HashMap<String, Fraction> backgroundModel;
   /** RDD containing tuples of timestamps and the (processed)
    * articles published at that time. **/
-  public final JavaPairRDD<Date,ParsedArticle> parsedArticles;
+  public ArrayList<ParsedArticle> parsedArticles;
   
-  public EmInput(JavaPairRDD<String, Fraction> backgroundModel,
-          JavaPairRDD<Date,ParsedArticle> parsedArticles) {
+  
+  public ArrayList<Theme> themesOfPartition;
+  
+  
+  
+  
+  public EmInput(HashMap<String, Fraction> backgroundModel,
+          ArrayList<ParsedArticle> parsedArticles) {
     
     this.backgroundModel = backgroundModel;
     this.parsedArticles = parsedArticles;
+  }
+  
+  public void addTheme(Theme theme) {
+    this.themesOfPartition.add(theme);
+  }
+  
+  public void initializeArticlesProbabilities() {
+    for (ParsedArticle article : this.parsedArticles) {
+      article.initializeProbabilities(themesOfPartition);
+    }
+  }
+  
+  /**
+   * Update probabilities word belongs to theme
+   */
+  public Fraction subUpdateProbabilitiesOfWordsGivenTheme(String word, Theme theme) {
+    Fraction value  = Fraction.ZERO;
+    for (ParsedArticle parsedArticle : parsedArticles) {
+      value.add(new Fraction(parsedArticle.words.get(word)).multiply(
+              Fraction.ONE.subtract(parsedArticle.probabilitiesHiddenVariablesBackgroundModel.get(word))).multiply(
+                      parsedArticle.probabilitiesHiddenVariablesThemes.get(Pair.of(word, theme))));
+    }
+    return value;
+  }
+  
+  public void updateProbabilitiesOfWordsGivenTheme(ArrayList<Theme> themes) {
+   
+    for (Theme theme : themes) {
+      Fraction denominator = Fraction.ZERO;
+      for(String word : theme.wordsProbability.keySet()) {
+        denominator.add(subUpdateProbabilitiesOfWordsGivenTheme(word, theme));
+      }
+      for (String word : theme.wordsProbability.keySet()) {
+        Fraction numerator = subUpdateProbabilitiesOfWordsGivenTheme(word, theme);
+        theme.wordsProbability.put(word, numerator.divide(denominator));
+      }
+    }
+    
   }
 }
