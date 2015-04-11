@@ -43,58 +43,58 @@ public class RawArticle implements Serializable {
     this.name = name;
     this.stream = stream;
   }
+}
 
-  /**The Builder of RawArticle used to provide an incremental way of building RawArticle instances.
-   * @author Christian
-   *
+/**The Builder of RawArticle used to provide an incremental way of building RawArticle instances.
+ * @author Christian
+ *
+ */
+class RawArticleBuilder {
+
+  public int charCount;
+  public int pageNumber;
+  public int wordCount;
+  public String fullText;
+  public String id;
+  public String name;
+  public Date issueDate;
+  public ArticleStream stream;
+
+  public RawArticleBuilder() {
+    reset();
+  }
+
+  /** Builds an instance of RawArticle and resets this builder
+   * @return an instance of RawArticle if all fields were set, null otherwise.
    */
-  class RawArticleBuilder {
-
-    public int charCount;
-    public int pageNumber;
-    public int wordCount;
-    public String fullText;
-    public String id;
-    public String name;
-    public Date issueDate;
-    public ArticleStream stream;
-
-    public RawArticleBuilder() {
-      reset();
+  public RawArticle build() {
+    if ( charCount != -1
+            && pageNumber != -1
+            && wordCount != -1
+            && fullText != null
+            && id != null
+            && issueDate != null
+            && name != null
+            && stream != null) {
+      RawArticle art = new RawArticle(charCount, pageNumber, 
+              wordCount, fullText, id, issueDate, name,stream);
+      this.reset();
+      return art;
+    } else {
+      return null;
     }
+  }
 
-    /** Builds an instance of RawArticle and resets this builder
-     * @return an instance of RawArticle if all fields were set, null otherwise.
-     */
-    public RawArticle build() {
-      if ( charCount != -1
-              && pageNumber != -1
-              && wordCount != -1
-              && fullText != null
-              && id != null
-              && issueDate != null
-              && name != null
-              && stream != null) {
-        RawArticle art = new RawArticle(charCount, pageNumber, 
-                wordCount, fullText, id, issueDate, name,stream);
-        this.reset();
-        return art;
-      } else {
-        return null;
-      }
-    }
-
-    /**Resets the builder instance.
-     */
-    public void reset() {
-      charCount = -1;
-      pageNumber = -1;
-      wordCount = -1;
-      fullText = null;
-      id = null;
-      issueDate = null;
-      name = null;
-      stream = null;
-    }
+  /**Resets the builder instance.
+   */
+  public void reset() {
+    charCount = -1;
+    pageNumber = -1;
+    wordCount = -1;
+    fullText = null;
+    id = null;
+    issueDate = null;
+    name = null;
+    stream = null;
   }
 }
