@@ -28,8 +28,10 @@ public class ParsedArticle {
    * */
   public HashMap<Theme, Fraction> probabilitiesDocumentBelongsToThemes = new HashMap<>();
   
+  /** Hidden variable regarding themes**/
   public HashMap<Pair<String, Theme>, Fraction> probabilitiesHiddenVariablesThemes = new HashMap<>();
   
+  /**Hidden variable regarding background model **/
   public HashMap<String, Fraction> probabilitiesHiddenVariablesBackgroundModel = new HashMap<>();
   
   public ParsedArticle( HashMap<String, Integer> words, ArticleStream stream) {

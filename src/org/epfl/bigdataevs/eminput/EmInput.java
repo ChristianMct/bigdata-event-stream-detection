@@ -22,17 +22,14 @@ import scala.Tuple2;
 **/
 
 public class EmInput implements Serializable {
-  /** RDD containing tuples of words and their 
+  /** HashMap containing tuples of words and their 
    * distribution in the streams. **/
   public HashMap<String, Fraction> backgroundModel;
-  /** RDD containing tuples of timestamps and the (processed)
-   * articles published at that time. **/
+  /** List containing articles published at that time. **/
   public ArrayList<ParsedArticle> parsedArticles;
   
-  
+  /** List of the themes appearing in this input*/
   public ArrayList<Theme> themesOfPartition;
-  
-  
   
   
   public EmInput(HashMap<String, Fraction> backgroundModel,

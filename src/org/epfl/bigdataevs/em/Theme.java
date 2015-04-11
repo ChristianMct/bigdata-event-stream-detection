@@ -24,7 +24,6 @@ public class Theme extends TimePeriod{
       super(from, to);
     }
     
-    
     /**
      * Initialize the probabilities that describes a theme
      * At the beginning, the probabilities are randomly distributed

@@ -62,9 +62,6 @@ public class EmAlgo {
       }
     });
     
-
-    
-    
     /**Loop of Algorithm*/    
     JavaPairRDD result = partitions.flatMapToPair(new PairFlatMapFunction<EmInput, Theme, Double>() {
       
