@@ -1,20 +1,13 @@
 package org.epfl.bigdataevs.em;
 
+import org.apache.commons.math3.fraction.Fraction;
+import org.epfl.bigdataevs.eminput.ParsedArticle;
+import org.epfl.bigdataevs.eminput.TimePeriod;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.Random;
-
-import scala.Tuple2;
-
-import org.apache.commons.math3.fraction.Fraction;
-import org.apache.spark.api.java.*;
-import org.apache.spark.api.java.function.*;
-import org.epfl.bigdataevs.eminput.EmInput;
-import org.epfl.bigdataevs.eminput.ParsedArticle;
-import org.epfl.bigdataevs.eminput.TimePeriod;
 
 public class Theme extends TimePeriod{
     public HashMap<String, Fraction> wordsProbability;
@@ -51,23 +44,6 @@ public class Theme extends TimePeriod{
       for (int i = 0; i < wordsOfPartitions.size(); i++) {
         this.wordsProbability.put(wordsOfPartitions.get(i), new Fraction(numerators.get(i), total));
       }
-    }
-    
-    public double divergence(Theme t){
-      double result = 0.;
-      
-      for(String word : t.wordsProbability.keySet()){
-        if(wordsProbability.containsKey(word)){
-          Fraction p1 = t.wordsProbability.get(word);
-          Fraction p2 = wordsProbability.get(word);
-          
-          if(p1 > 0.f){
-            result += p2*Math.log(p2/p1);
-          }
-        }
-      }
-      
-      return(result);
     }
     
 }

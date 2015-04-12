@@ -1,5 +1,6 @@
 package org.epfl.bigdataevs;
 
+import org.apache.commons.math3.fraction.Fraction;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
@@ -27,8 +28,13 @@ public class KLDivergence {
     this.threshold = threshold;
   }
     
-    
-  public JavaRDD<ThemeCouple> compute(final JavaRDD<Theme> themes){
+  /**
+   * @author antoinexp & lfaucon
+   * 
+   * @param themes A JavaRDD of all the extracted themes
+   * @return A JavaRDD of all the Evolutionary Transition
+   */
+  public JavaRDD<ThemeCouple> compute(final JavaRDD<Theme> themes) {
     JavaPairRDD<Theme, Theme> pairs;
     
     pairs = themes.cartesian(themes);
@@ -39,7 +45,7 @@ public class KLDivergence {
         Theme theme1 = theme._1();
         Theme theme2 = theme._2();
         
-        if(theme1.lessThan(theme2)){
+        if(theme1.lessThan(theme2)) {
           /* TODO */
         }
         
@@ -50,5 +56,29 @@ public class KLDivergence {
     });
     
     return null;
+  }
+  
+  /**
+   * @author antoinexp & lfaucon
+   * 
+   * @param t1 A theme
+   * @param t2 An other them
+   * @return returns the Kullback divergence D(t1||t2)
+   */
+  public double divergence(Theme t1, Theme t2){
+    double result = 0.;
+    
+    for(String word : t1.wordsProbability.keySet()){
+      if(t2.wordsProbability.containsKey(word)){
+        double p1 = t1.wordsProbability.get(word).doubleValue();
+        double p2 = t2.wordsProbability.get(word).doubleValue();
+        
+        if(p1 > 0.f){
+          result += p2*Math.log(p2/p1);
+        }
+      }
+    }
+    
+    return(result);
   }
 }
