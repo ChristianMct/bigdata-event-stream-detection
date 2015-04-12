@@ -1,16 +1,9 @@
 package org.epfl.bigdataevs.em;
 
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.math3.fraction.Fraction;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.FlatMapFunction;
-import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.VoidFunction;
-import org.epfl.bigdataevs.*;
-import org.epfl.bigdataevs.eminput.EmInput;
 import org.epfl.bigdataevs.eminput.ParsedArticle;
 
 import scala.Tuple2;
@@ -18,7 +11,6 @@ import scala.Tuple2;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.LinkedList;
 
 public class EmAlgo {
   public JavaRDD<EmInput> partitions;
