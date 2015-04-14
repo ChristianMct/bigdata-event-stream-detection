@@ -1,14 +1,12 @@
 package org.epfl.bigdataevs.eminput;
 
-import org.apache.hadoop.fs.Path;
-
-import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 
 
-/**Team: Matias and Christian.**/
+/**Represent an interval in time.
+ * Team: Matias and Christian.**/
 public class TimePeriod {
   
   public final Date from;
@@ -19,15 +17,18 @@ public class TimePeriod {
     this.to = to;
   }
   
-  public boolean lessThan(TimePeriod p) {
-    return (this.to.compareTo(p.from) <= 0); 
+  public boolean lessThan(TimePeriod other) {
+    return (this.to.compareTo(other.from) <= 0); 
   }
 
+  /**Generates the list of file names concerned by the time period.
+   * @return a List of filenames of the forme "articles1XXX.xml"
+   */
   public List<String> getFilesNames() {
     List<String> names = new LinkedList<String>();
 
     for (int year = from.getYear(); year <= to.getYear();  year++) {
-      names.add("articles"+(year+1900)+".xml");
+      names.add("articles" + (year + 1900) + ".xml");
     }
     
     return names;

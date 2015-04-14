@@ -38,12 +38,20 @@ public class RawArticleInputStream {
   private boolean shouldSkipArticle;
 
 
-  public RawArticleInputStream(TimePeriod timePeriod, List<String> articleFolders, Configuration config) {
+  /**An input stream that reads all the file from a given period from the given
+   * input folders.
+   * @param timePeriod the TimePeriod object corresponding to the period
+   * @param articleFolders The absolute paths of all the folders containing article
+   *        files. Can be hdfs:// or local path. Without trailing /.
+   * @param config A configuration object from Hadoop
+   */
+  public RawArticleInputStream(TimePeriod timePeriod, 
+          List<String> articleFolders, Configuration config) {
     this.timePeriod = timePeriod;
     this.builder = new RawArticleBuilder();
     this.sourcePaths = new LinkedList<Path>();
     for (String folder: articleFolders) {
-      for (String fileName: timePeriod.getFilesNames()){
+      for (String fileName: timePeriod.getFilesNames()) {
         sourcePaths.add(new Path(folder + '/' + fileName));
       }
     }
@@ -52,6 +60,14 @@ public class RawArticleInputStream {
     this.factory = XMLInputFactory.newInstance();
   }
 
+  /**Reads the next RawArticle from the current file. If the file is done, loads the new one.
+   * Order in which the RawArticle arrive is not garanted.
+   * @return a new RawArticle, or null if there is no more files to parse.
+   * @throws XMLStreamException if xml parsing error.
+   * @throws NumberFormatException if a xml node should contain an int but contains something else
+   * @throws ParseException sometimes
+   * @throws IOException sometime
+   */
   public RawArticle read() throws XMLStreamException, NumberFormatException, 
     ParseException, IOException {
     if (!initCompleted) {
