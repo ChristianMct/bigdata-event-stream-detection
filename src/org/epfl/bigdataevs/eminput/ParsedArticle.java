@@ -1,24 +1,19 @@
 package org.epfl.bigdataevs.eminput;
 
-import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.math3.fraction.Fraction;
 import org.epfl.bigdataevs.em.Theme;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
-
-import org.apache.commons.math3.*;
-import org.apache.commons.math3.fraction.Fraction;
-import org.apache.commons.lang3.tuple.*;
-import org.apache.hadoop.util.hash.Hash;
 
 /**Team: Matias and Christian.
  * Container for the data of processed articles. An instance 
  * of this class contains the cleaned words and their count
  * in this article, as well as the stream identifier.**/
-public class ParsedArticle {
+public class ParsedArticle implements Serializable{
   /**Maps a word to the number of times it appears in this article.**/
   public final Map<String, Integer> words;
   /**This article's stream identifier. **/
