@@ -57,6 +57,8 @@ public class ArticleProcessorTest {
         System.out.println(word + ": " + output.words.get(word) + " occurrences.");
       }
     }
+    
+    ctx.close();
 
   }
 
