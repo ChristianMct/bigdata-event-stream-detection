@@ -1,5 +1,9 @@
 package org.epfl.bigdataevs.eminput;
 
+import org.apache.spark.api.java.JavaPairRDD;
+
+import java.util.List;
+
 
 /**Team: Matias and Christian.
 *InputParser: parses the data read from HDFS, clean them, 
@@ -15,7 +19,7 @@ public class InputParser {
     *     for the streams.
     * @return container for the background model and word 
     *     count of every individual article in each stream**/
-  public EmInput getEmInput(TimePeriod timePeriod) {
+  public JavaPairRDD<TimePeriod,TimePartition> getEmInput(List<TimePeriod> timePeriod) {
     
     if (timePeriod == null) {
       return null; 

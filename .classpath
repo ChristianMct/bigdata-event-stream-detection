@@ -16,7 +16,5 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="/Users/abastien/Downloads/spark-core_2.10-1.2.1.jar"/>
-	<classpathentry kind="lib" path="/Users/abastien/Downloads/scala-library-2.11.6.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>
