@@ -1,10 +1,18 @@
 package org.epfl.bigdataevs.eminput;
 
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
@@ -17,17 +25,31 @@ public class RawArticleInputStream {
   private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
   private final RawArticleBuilder builder;
   private final TimePeriod timePeriod;
+  private final List<Path> sourcePaths;
+  private final Iterator<Path> sourcePathsIt;
+  private final Configuration config;
+  private final XMLInputFactory factory;
+  
+  private FileSystem fileSystem;
   private XMLStreamReader reader;
-  private InputStream inputStream;
 
   private boolean initCompleted;
   private boolean articleCompleted;
   private boolean shouldSkipArticle;
 
-  public RawArticleInputStream(TimePeriod timePeriod, InputStream inputStream) {
+
+  public RawArticleInputStream(TimePeriod timePeriod, List<String> articleFolders, Configuration config) {
     this.timePeriod = timePeriod;
     this.builder = new RawArticleBuilder();
-    this.inputStream = inputStream;
+    this.sourcePaths = new LinkedList<Path>();
+    for (String folder: articleFolders) {
+      for (String fileName: timePeriod.getFilesNames()){
+        sourcePaths.add(new Path(folder + '/' + fileName));
+      }
+    }
+    this.sourcePathsIt = sourcePaths.iterator();
+    this.config = config;
+    this.factory = XMLInputFactory.newInstance();
   }
 
   public RawArticle read() throws XMLStreamException, NumberFormatException, 
@@ -39,7 +61,7 @@ public class RawArticleInputStream {
     
     articleCompleted = false;
     shouldSkipArticle = false;
-    while (reader.hasNext()) {
+    while (reader != null && reader.hasNext()) {
       int event = reader.next();
 
       switch (event) {
@@ -52,6 +74,9 @@ public class RawArticleInputStream {
         case XMLStreamConstants.END_ELEMENT:
           endElement(reader.getLocalName());
           break;
+        case XMLStreamConstants.END_DOCUMENT:
+          closeStreamAndOpenNext();
+          break;
         default:
           break;
       }   
@@ -63,8 +88,20 @@ public class RawArticleInputStream {
   }
 
   private void init() throws IOException, XMLStreamException {
-    XMLInputFactory factory = XMLInputFactory.newInstance();
-    reader = factory.createXMLStreamReader(inputStream);
+    this.fileSystem = FileSystem.get(config);
+    if (this.sourcePathsIt.hasNext()) {      
+      InputStream fileStream = this.fileSystem.open(this.sourcePathsIt.next());
+      reader = factory.createXMLStreamReader(fileStream);
+    }
+  }
+  
+  private void closeStreamAndOpenNext() throws XMLStreamException, IOException {
+    reader.close();
+    reader = null;
+    if (sourcePathsIt.hasNext()) {
+      InputStream fileStream = this.fileSystem.open(sourcePathsIt.next());
+      reader = this.factory.createXMLStreamReader(fileStream);
+    }
   }
 
   private void startElement(String type) {
