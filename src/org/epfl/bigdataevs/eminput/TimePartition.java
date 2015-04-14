@@ -1,24 +1,40 @@
 package org.epfl.bigdataevs.eminput;
 
-import org.apache.commons.math3.fraction.Fraction;
-
 import java.util.Collection;
+import java.util.Date;
 import java.util.Map;
 
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.commons.math3.fraction.Fraction;
+
+/**Team: Matias and Christian.
+*TimePartition: container representing the background
+*model and the word distribution of every article, for all streams.
+*TODO: assert that the size of these data structure is not problematic
+**/
 public class TimePartition {
   
-  /**Map containing the distribution of each word in the whole time period, for every stream. **/
+  /** Map containing tuples of words and their 
+   * distribution in the streams. */
   public final Map<String, Fraction> backgroundModel;
-  /** Collection of ParsedArticle, containing a map linking each word from this article to
-   * its number of occurrences in this article.**/
+  
+  /** Collection containing tuples of timestamps and the (processed)
+   * articles published at that time. */
   public final Collection<ParsedArticle> parsedArticles;
   
-  /** Creates a new TimePartition instance (I put the javadoc because checkstyle wants me to). **/
+  /** The time period on which this TimePartition is based. */
+  public final TimePeriod timePeriod;
+  
+  /**Initializer from a background model and a collection of ParsedArticle.
+   * @param backgroundModel the background model based on all article in the TimePeriod
+   * @param parsedArticles all the ParsedArticles in the TimePeriod.
+   * @param forTimePeriod the TimePeriod on which this TimePartition is based
+   */
   public TimePartition(Map<String, Fraction> backgroundModel,
-          Collection<ParsedArticle> parsedArticles) {
-    
+          Collection<ParsedArticle> parsedArticles,
+          TimePeriod forTimePeriod) {
+    this.timePeriod = forTimePeriod;
     this.backgroundModel = backgroundModel;
     this.parsedArticles = parsedArticles;
   }
-
 }
