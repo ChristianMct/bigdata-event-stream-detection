@@ -11,11 +11,11 @@ import java.util.Map;
  * in this article, as well as the stream identifier.**/
 public class ParsedArticle implements Serializable {
   /**Maps a word to the number of times it appears in this article.**/
-  public final JavaPairRDD<String, Integer> words;
+  public final Map<String, Integer> words;
   /**This article's stream identifier. **/
   public final ArticleStream stream;
   
-  public ParsedArticle( JavaPairRDD<String, Integer> words, ArticleStream stream) {
+  public ParsedArticle( Map<String, Integer> words, ArticleStream stream) {
     this.words = words;
     this.stream = stream;
   }
