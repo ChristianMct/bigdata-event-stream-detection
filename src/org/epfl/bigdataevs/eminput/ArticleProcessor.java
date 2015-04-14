@@ -25,7 +25,7 @@ public class ArticleProcessor {
    * @input the JavaRDD of RawArticle instances, contains every articles with their full text
    * @return a TimePartition containing the background model for this time frame and the word
    *     count of every individual article. **/
-  public static TimePartition generateTimePartitionModel(JavaRDD<RawArticle> input) {
+  public static TimePartition generateTimePartitionModel(JavaRDD<RawArticle> input, TimePeriod period) {
   
     //Turn RawArticle RDD into ParsedArticle RDD (see ProcessArticle.call() below)
     JavaRDD<ParsedArticle> processedArticles = input.map(new ProcessArticle());
@@ -56,7 +56,7 @@ public class ArticleProcessor {
        }     
      });
      
-    return new TimePartition(backgroundModelRdd.collectAsMap(), processedArticles.collect());  
+    return new TimePartition(backgroundModelRdd.collectAsMap(), processedArticles.collect(), period);  
   }
 
 }
