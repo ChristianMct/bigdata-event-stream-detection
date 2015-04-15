@@ -21,10 +21,6 @@ public class EmAlgo {
     this.partitions = partitions;
   }
   
-  public void initialization() {
-    // Initialize probabilities to all documents
-    
-  }
   
   public JavaPairRDD<Theme, Double> algo() {
     // Creation of RDD
@@ -56,13 +52,19 @@ public class EmAlgo {
     
     /**Loop of Algorithm*/    
     JavaPairRDD result = partitions.flatMapToPair(new PairFlatMapFunction<EmInput, Theme, Double>() {
+      public int iterations = 0;
+      public final static int MAX_ITERATIONS = 1000;
+      
+      public boolean checkStoppingCondition() {
+        return this.iterations >= MAX_ITERATIONS;
+      }
       
       @Override
       public Iterable<Tuple2<Theme, Double>> call(EmInput input) throws Exception {
         ArrayList<ParsedArticle> documents = input.parsedArticles;
         
-        boolean stoppingCondition = false;
-        while(!stoppingCondition) {
+        while(!checkStoppingCondition()) {
+          this.iterations += 1;
           for (ParsedArticle parsedArticle : documents) {
             parsedArticle.updateHiddenVariablesThemes();
             parsedArticle.updateHiddenVariableBackgroundModel(input.backgroundModel, lambdaB);
@@ -78,6 +80,7 @@ public class EmAlgo {
             sum += parsedArticle.probabilitiesDocumentBelongsToThemes.get(theme).doubleValue();
           }
           double average = sum/documents.size();
+          themesWithAverageProbability.put(theme, average);
         }
         return (Iterable<Tuple2<Theme, Double>>) themesWithAverageProbability;
       }
