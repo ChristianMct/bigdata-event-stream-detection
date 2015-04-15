@@ -26,7 +26,7 @@ public class RawArticleStreamTest {
     TimePeriod period = new TimePeriod(begin, end);
     
     System.out.println("Files :");
-    for(String name:period.getFilesNames()) {
+    for (String name:period.getFilesNames()) {
       System.out.println(name);
     }
     

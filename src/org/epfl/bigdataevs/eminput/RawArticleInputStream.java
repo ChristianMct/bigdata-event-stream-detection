@@ -146,7 +146,8 @@ public class RawArticleInputStream {
         builder.stream = ArticleStream.valueOf(current);
         break;
       case "issue_date":
-        builder.issueDate = dateFormat.parse(current+"-12");
+      //Append 12 so that the article date corresponds to noon of the issue date
+        builder.issueDate = dateFormat.parse(current + "-12"); 
         break;
       case "word_count":
         builder.wordCount = Integer.parseInt(current);
