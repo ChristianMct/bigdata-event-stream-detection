@@ -102,6 +102,14 @@ public class Hmm {
     double[] piStar = new double[n];
     double[][] aaStar = new double[n][n];
     
+    // variables tracking convergence
+    double piDiff = Double.POSITIVE_INFINITY;
+    double aaDiff = Double.POSITIVE_INFINITY;
+    // thresholds for convergence
+    // TODO tune these parameters
+    double piThreshold = 0.5;
+    double aaThreshold = 0.5;
+    
     // Temporary variables used in every iteration
     double[] prevAlphas = new double[n];
     double[] alphas = new double[n];
@@ -210,7 +218,20 @@ public class Hmm {
         }
       }
       
-      // TODO Check convergence here
+      // Check convergence here
+      piDiff = 0.0;
+      aaDiff = 0.0;
+      for ( int i = 0; i < n; i++ ) {
+        piDiff += Math.abs(piStar[i] - pi[i]);
+        for ( int j = 0; j < n; j++ ) {
+          aaDiff += Math.abs(aaStar[i][j] - aaStar[i][j]);
+        }
+      }
+      
+      // break when both criterium have been  met
+      if ( piDiff < piThreshold && aaDiff < aaThreshold ) {
+        break;
+      }
       
       // Copy back piStar and aaStar
       double[] temp1 = pi;
