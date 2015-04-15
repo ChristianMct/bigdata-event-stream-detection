@@ -1,12 +1,15 @@
 package org.epfl.bigdataevs.hmm;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map.Entry;
 
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.commons.collections.list.TreeList;
+
+import scala.Array;
 
 /**
  * A Hidden Markov Model (HMM) built to perform analysis of theme life cycles (paper section 4). An
@@ -82,7 +85,142 @@ public class Hmm {
    *          the full text of the concatenated articles
    */
   public void train(JavaRDD<String> fullArticleStream) {
-    // TODO implement train
+    /*
+     * First convert the fullAtircleStream into a
+     * an array of indices as used in the observation probability
+     * matrix
+     */
+    List<String> wordSequence = fullArticleStream.collect();
+    int sequenceLength = wordSequence.size();
+    
+    int[] observedSequence = new int[sequenceLength];
+    
+    for ( int wordIndex = 0; wordIndex < sequenceLength; wordIndex++ ) {
+      observedSequence[wordIndex] = outputAlphabet.indexOf(wordSequence.get(wordIndex));
+    }
+    // Variables in which we store the next iteration results
+    double[] piStar = new double[n];
+    double[][] aaStar = new double[n][n];
+    
+    // Temporary variables used in every iteration
+    double[] prevAlphas = new double[n];
+    double[] alphas = new double[n];
+    double[] betas = new double[n * sequenceLength];
+    double[] gammas = new double[n];
+    double[] gammasSums = new double[n];
+    
+    // Iterate until convergence of the transition probabilities
+    int maxSteps = 100;
+    for ( int iterationStep = 0; iterationStep < maxSteps; iterationStep++ ) {
+      
+      /*
+       * Generate all the betas coefficients
+       * The alphas are generated on the fly. 
+       */
+      for (int startStateIndex = 0; startStateIndex < n; startStateIndex++) {
+        betas[(sequenceLength - 1) * n + startStateIndex] = 1.0f;
+      }
+
+      for (int t = sequenceLength - 1; t >= 1; t--) {
+        for (int i = 0; i < n; i++) {
+          double res = 0.0;
+          for (int j = 0; j < n; j++) {
+            res += betas[t * n + j] * a[i][j]
+                   * b[i][observedSequence[t]];
+          }
+
+          betas[(t - 1) * n + i] = res;
+        }
+      }
+      
+      // reset temporary variables
+      Arrays.fill(gammasSums, 0.0d);
+      for ( int stateIndex = 0; stateIndex < n; stateIndex++ ) {
+        Arrays.fill(aaStar[stateIndex], 0.0);
+      }
+      
+      // initialize the first alphas
+      for ( int i = 0; i < n; i++ ) {
+        alphas[i] = pi[i] * b[i][observedSequence[0]];
+      }
+      
+      // as we don't need to update b, we can stop at
+      // sequenceLength-1
+      for ( int t = 0; t < sequenceLength - 1; t++ ) {
+        
+        // denGamma will be sum(k, alpha(k,t)*beta(k,t) ) in the end
+        double denGamma = 0.0;
+        
+        // compute the terms alpha(i,t)*beta(i,t) and incrementally the sum of them
+        for (int i = 0; i < n; i++) {
+          double tempVal = alphas[i] * betas[t * n + i];
+          denGamma += tempVal;
+          gammas[i] = tempVal;
+        }
+
+        // compute gamma(i,t), and incrementally gamma_sums(i)
+        for (int i = 0; i < n; i++) {
+          double tempVal = gammas[i] / denGamma;
+          gammas[i] = tempVal;
+          gammasSums[i] += tempVal;
+        }
+        
+        // we have now gamma(i,t) in gammas[], and sum( k, alpha(k, t)*beta(k, t) ) in denGamma */
+        /* compute khi(i,j) incrementally, put it in aaStar */
+        if (t != sequenceLength - 1) {
+          for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+              double khi = (alphas[i] * a[i][j] * betas[(t + 1) * n + j])
+                      * b[j][observedSequence[t + 1]] / denGamma;
+              aaStar[i][j] += khi;
+            }
+          }
+        }
+
+        /* copy in Pi_star if that's the moment */
+        if (t == 0) {
+          System.arraycopy(gammas, 0, piStar, 0, n);
+        }
+        
+        // swap alphas and prevAlphas
+        double[] temp = prevAlphas;
+        prevAlphas = alphas;
+        alphas = temp;
+        
+        // compute the next alphas coefficients
+        if ( t < sequenceLength - 1 ) {
+          for (int i = 0; i < n; i++) {
+            double res = 0.0;
+            for (int j = 0; j < n; j++) {
+              res += prevAlphas[j] * a[i][j];
+            }
+
+            res *= b[i][observedSequence[t + 1]];
+            alphas[i] = res;
+          }
+        }
+        
+      }
+      
+      // Scale aaStar
+      for (int i = 0; i < n; i++) {
+        double den = gammasSums[i];
+        for (int j = 0; j < n; j++) {
+          aaStar[i][j] /= den;
+        }
+      }
+      
+      // TODO Check convergence here
+      
+      // Copy back piStar and aaStar
+      double[] temp1 = pi;
+      pi = piStar;
+      piStar = temp1;
+      
+      double[][] temp2 = a;
+      a = aaStar;
+      aaStar = temp2;
+    }
 
   }
 
