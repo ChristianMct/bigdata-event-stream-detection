@@ -36,12 +36,18 @@ public class RawArticle implements Serializable {
           ArticleStream stream) {
     this.charCount = charCount;
     this.pageNumber = pageNumber;
-    this.wordCount = pageNumber;
+    this.wordCount = wordCount;
     this.fullText = fullText;
     this.id = id;
     this.issueDate = issueDate;
     this.name = name;
     this.stream = stream;
+  }
+  
+  
+  @Override
+  public String toString() {
+    return "RawArticle for article id:" + this.id + " Date: " + this.issueDate.toString();
   }
 }
 

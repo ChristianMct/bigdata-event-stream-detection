@@ -22,7 +22,7 @@ import javax.xml.stream.XMLStreamReader;
 public class RawArticleInputStream {
 
   private String current;
-  private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+  private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy-HH");
   private final RawArticleBuilder builder;
   private final TimePeriod timePeriod;
   private final List<Path> sourcePaths;
@@ -121,12 +121,16 @@ public class RawArticleInputStream {
   }
 
   private void startElement(String type) {
+//    //if ("article".equals(type))
+//    System.out.println("<"+type+">");
     return;
   }
 
   private void endElement(String type) throws ParseException, NumberFormatException {
+//    //if ("article".equals(type))
+//    System.out.println("</"+type+">");
     switch (type) {
-      case "article":
+      case "entity":
         articleCompleted = true;
         break;
       case "name":
@@ -135,14 +139,14 @@ public class RawArticleInputStream {
       case "id":
         builder.id = current;
         break;
-      case "page_number":
+      case "page_no":
         builder.pageNumber = Integer.parseInt(current);
         break;
       case "publication":
         builder.stream = ArticleStream.valueOf(current);
         break;
       case "issue_date":
-        builder.issueDate = dateFormat.parse(current);
+        builder.issueDate = dateFormat.parse(current+"-12");
         break;
       case "word_count":
         builder.wordCount = Integer.parseInt(current);

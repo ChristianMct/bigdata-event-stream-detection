@@ -28,7 +28,8 @@ public class TimePeriod {
     List<String> names = new LinkedList<String>();
 
     for (int year = from.getYear(); year <= to.getYear();  year++) {
-      names.add("articles" + (year + 1900) + ".xml");
+      int yearFull = year+1900;
+      names.add("articles" + yearFull + ".xml");
     }
     
     return names;

@@ -1,17 +1,16 @@
 package exec;
 
-import java.util.ArrayList;
-import java.util.Date;
-
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.epfl.bigdataevs.eminput.ArticleProcessor;
 import org.epfl.bigdataevs.eminput.ArticleStream;
 import org.epfl.bigdataevs.eminput.ParsedArticle;
 import org.epfl.bigdataevs.eminput.RawArticle;
 import org.epfl.bigdataevs.eminput.TimePartition;
 import org.epfl.bigdataevs.eminput.TimePeriod;
+
+import java.util.ArrayList;
+import java.util.Date;
 
 public class ArticleProcessorTest {
 
@@ -39,7 +38,7 @@ public class ArticleProcessorTest {
     JavaRDD<RawArticle> rawDocs = ctx.parallelize(data);
     
     System.out.println("Processing RDD...");
-    TimePartition result = ArticleProcessor
+    TimePartition result = TimePartition
             .generateTimePartitionModel(rawDocs, new TimePeriod(testInput1.issueDate, testInput2.issueDate));
     
     System.out.println("======Background model's content======");
