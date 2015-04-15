@@ -50,6 +50,26 @@ public class EmInput implements Serializable {
   }
   
   /**
+   * Compute the log-likelihood of the mixture model
+   * @return log-likelohood
+   */
+  public double computeLogLikelihood(double lambdaBackgroundModel) {
+    double logLikelihood = 0.0;
+    for (ParsedArticle parsedArticle : parsedArticles) {
+      for (String word : backgroundModel.keySet()) {
+        Fraction temp = Fraction.ZERO;
+        for (Theme theme : themesOfPartition) {
+          temp.add(parsedArticle.probabilitiesDocumentBelongsToThemes.get(theme).multiply(theme.wordsProbability.get(word)));
+        }
+        logLikelihood += parsedArticle.words.get(word)*Math.log(
+                new Fraction(lambdaBackgroundModel).multiply(backgroundModel.get(word)).add(
+                new Fraction(1-lambdaBackgroundModel).multiply(temp)).doubleValue());
+      }
+    }
+    return logLikelihood;
+  }
+  
+  /**
    * Update probabilities word belongs to theme
    */
   public Fraction subUpdateProbabilitiesOfWordsGivenTheme(String word, Theme theme) {

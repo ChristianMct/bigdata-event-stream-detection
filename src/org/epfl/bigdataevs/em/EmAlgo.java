@@ -17,18 +17,17 @@ public class EmAlgo {
   public int numberOfThemes;
   public double lambdaBackgroundModel;
   
-  public EmAlgo(JavaRDD<EmInput> partitions) {
+  public EmAlgo(JavaRDD<EmInput> partitions, int numThemes, double lambda) {
     this.partitions = partitions;
+    this.numberOfThemes = numThemes;
+    this.lambdaBackgroundModel = lambda;
   }
   
   
   public JavaPairRDD<Theme, Double> algo() {
     // Creation of RDD
-    final int num = numberOfThemes;
-    final double lambdaB = lambdaBackgroundModel;
     
     /**Initialize the themes*/
-    ArrayList<Theme> themesList = new ArrayList<Theme>();
     this.partitions.zipWithIndex().foreach(new VoidFunction<Tuple2<EmInput,Long>>(){
 
       @Override
@@ -72,6 +71,7 @@ public class EmAlgo {
     JavaPairRDD result = partitions.flatMapToPair(new PairFlatMapFunction<EmInput, Theme, Double>() {
       public int iterations = 0;
       public final static int MAX_ITERATIONS = 1000;
+      public ArrayList<Double> logLikelihoods = new ArrayList<>();
       
       public boolean checkStoppingCondition() {
         return this.iterations >= MAX_ITERATIONS;
@@ -85,10 +85,11 @@ public class EmAlgo {
           this.iterations += 1;
           for (ParsedArticle parsedArticle : documents) {
             parsedArticle.updateHiddenVariablesThemes();
-            parsedArticle.updateHiddenVariableBackgroundModel(input.backgroundModel, lambdaB);
+            parsedArticle.updateHiddenVariableBackgroundModel(input.backgroundModel, lambdaBackgroundModel);
             parsedArticle.updateProbabilitiesDocumentBelongsToThemes();
           }
           input.updateProbabilitiesOfWordsGivenTheme(input.themesOfPartition);
+          logLikelihoods.add(input.computeLogLikelihood(lambdaBackgroundModel));
         }
         
         HashMap<Theme, Double> themesWithAverageProbability = new HashMap<>();
