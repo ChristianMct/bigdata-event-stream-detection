@@ -29,6 +29,23 @@ public class EmAlgo {
     
     /**Initialize the themes*/
     ArrayList<Theme> themesList = new ArrayList<Theme>();
+    this.partitions.zipWithIndex().foreach(new VoidFunction<Tuple2<EmInput,Long>>(){
+
+      @Override
+      public void call(Tuple2<EmInput, Long> arg) throws Exception {
+        EmInput inputPartition = arg._1();
+        Long index = arg._2();
+        for (int i = 0; i < numberOfThemes; i++) {
+          Theme theme = new Theme(new Date(), new Date());
+          theme.initialization(inputPartition);
+          inputPartition.addTheme(theme);
+          theme.partitionIndex = index;
+        }
+      }
+
+    });
+    
+    /*
     this.partitions.foreach(new VoidFunction<EmInput>() {
 
       @Override
@@ -40,9 +57,10 @@ public class EmAlgo {
         }
       }
     });
+    */
     
     
-    /**Initialize probabilities that document d belongs to theme j*/
+    /**Initialize probabilities that document d belongs to theme j*/    
     this.partitions.foreach(new VoidFunction<EmInput>() {
       @Override
       public void call(EmInput inputPartition) throws Exception {

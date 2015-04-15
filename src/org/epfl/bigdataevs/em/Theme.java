@@ -12,7 +12,8 @@ import java.util.Random;
 public class Theme extends TimePeriod{
     public HashMap<String, Fraction> wordsProbability;
     public final static int RANDOM_MAX = 100;
-	
+    public Long partitionIndex = 0L;
+    
     public Theme(Date from, Date to){
       super(from, to);
     }
