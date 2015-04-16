@@ -1,9 +1,9 @@
 package org.epfl.bigdataevs.eminput;
 
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.spark.api.java.JavaPairRDD;
@@ -77,21 +77,14 @@ public class TimePartition {
             }   
             });
 
-    //count total amount of words using fold (needed for background model)
-    Tuple2<String, Integer> initialValue = new Tuple2<String, Integer>("", 0);
-
-    @SuppressWarnings("serial")
-    final Tuple2<String, Integer> totalAmount = 
-        wordCountRddReduced.fold(initialValue,
-            new Function2<Tuple2<String,Integer>,// LHS
-            Tuple2<String, Integer>,// RHS
-            Tuple2<String, Integer>// Return
-        >() {  
-            public Tuple2<String, Integer> call(Tuple2<String, Integer> lhs,
-                    Tuple2<String, Integer> rhs) { 
-              return new Tuple2<String, Integer>("", lhs._2 + rhs._2);
-            } 
-          });
+    
+    List<Tuple2<String, Integer>> allWordCounts = wordCountRddReduced.collect();
+    int totalAmountCounter = 0;
+    for (Tuple2<String, Integer> tuple : allWordCounts) {
+      totalAmountCounter += tuple._2;
+    }
+    
+    final int totalAmount = totalAmountCounter;
 
     //turn wordCountRDDReduced into the final backgroundModelRDD (Map words to their distribution)
     //for each [word, word-count] pair, replace with [word, Fraction(word-count, total-word-count)]
@@ -99,7 +92,7 @@ public class TimePartition {
     JavaPairRDD<String, Fraction>
         backgroundModelRdd = wordCountRddReduced.mapValues(new Function<Integer, Fraction>() {
           public Fraction call(Integer count) {
-            return new Fraction(count, totalAmount._2);
+            return new Fraction(count, totalAmount);
           }     
           });
 
@@ -117,7 +110,8 @@ class ProcessArticle implements Function<RawArticle, ParsedArticle> {
    * in this article, and produce a new ParsedArticle. **/
   public ParsedArticle call(RawArticle article) {         
     HashMap<String, Integer> wordCount = new HashMap<String, Integer>();
-    String[] words = article.fullText.split("\\s+");
+    //Split on anything not a letter or decimal
+    String[] words = article.fullText.split("[^\\p{L}\\p{Nd}]+");
 
     for (String word : words) {
       //TODO: make actual cleaning!
