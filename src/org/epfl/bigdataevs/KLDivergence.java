@@ -110,10 +110,8 @@ public class KLDivergence {
         double p1 = t1.wordsProbability.get(word).doubleValue();
         double p2 = t2.wordsProbability.get(word).doubleValue();
         //smoothing
-        p1 = p1 + epsilon / (1 + numberOfWords * epsilon);
-        if (p1 > 0.f) {
-          result += p2 * Math.log(p2 / p1);
-        }
+        p1 = (p1 + epsilon) / (1. + numberOfWords * epsilon);
+        result += p2 * Math.log(p2 / p1);
       }
     }
     
