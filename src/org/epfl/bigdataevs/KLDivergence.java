@@ -1,13 +1,14 @@
 package org.epfl.bigdataevs;
 
-import java.util.LinkedList;
-
-import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.function.FlatMapFunction;
+import org.epfl.bigdataevs.em.Theme;
 
 import scala.Tuple2;
-import org.epfl.bigdataevs.em.Theme;
+
+import java.util.LinkedList;
+import java.util.Set;
 
 public class KLDivergence {
 
@@ -98,13 +99,18 @@ public class KLDivergence {
    * @return returns the Kullback divergence D(t1||t2)
    */
   public static double divergence(Theme t1, Theme t2) {
-    double result = 0.;
+    //This variable is used to smooth the probability distribution
+    double epsilon = 0.0001d;
     
-    for (String word : t1.wordsProbability.keySet()) {
+    double result = 0.;
+    Set<String> set = t1.wordsProbability.keySet();
+    int numberOfWords = set.size();
+    for (String word : set) {
       if (t2.wordsProbability.containsKey(word)) {
         double p1 = t1.wordsProbability.get(word).doubleValue();
         double p2 = t2.wordsProbability.get(word).doubleValue();
-        
+        //smoothing
+        p1 = p1 + epsilon / (1 + numberOfWords * epsilon);
         if (p1 > 0.f) {
           result += p2 * Math.log(p2 / p1);
         }
