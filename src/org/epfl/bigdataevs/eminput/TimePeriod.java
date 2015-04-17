@@ -21,7 +21,7 @@ public class TimePeriod {
     return (this.to.compareTo(other.from) <= 0); 
   }
   
-  /**Check if the given date is included in the TimePeriod
+  /**Check if the given date is included in the TimePeriod.
    * @param date the date to check
    * @return true if the date is included, false otherwise
    */
@@ -41,5 +41,20 @@ public class TimePeriod {
     }
     
     return names;
+  }
+  
+  /**Returns the englobing TimePeriod that includes all given TimePeriod(s) in the list
+   * @param allPeriods the list of all periods.
+   * @return the TimePeriod englobing all periods in allPeriods
+   */
+  public static TimePeriod getEnglobingTimePeriod(List<TimePeriod> allPeriods) {
+    TimePeriod first = allPeriods.remove(0);
+    Date minFrom = first.from;
+    Date maxTo = first.to;
+    for (TimePeriod period : allPeriods) {
+      minFrom = period.from.before(minFrom) ? period.from : minFrom;
+      maxTo = period.to.after(maxTo) ? period.to : maxTo;
+    }
+    return new TimePeriod(minFrom, maxTo);
   }
 }
