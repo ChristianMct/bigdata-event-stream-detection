@@ -77,6 +77,24 @@ public class Hmm {
     this.b = b;
 
   }
+  
+  /**
+   * Raw constructor for an HMM.
+   * Only use this constructor if using raw train/decode/generate sequence functions
+   * @param n Number of hidden states.
+   * @param m Number of observable states.
+   * @param pi Initial probability distribution
+   * @param a Hidden states transition probability matrix
+   * @param b Observed state probability matrix.
+   */
+  public Hmm(int n, int m, double[] pi, double[][] a, double[][] b) {
+    this.n = n;
+    this.k = n - 1;
+    this.m = m;
+    this.pi = pi;
+    this.a = a;
+    this.b = b;
+  }
 
   /**
    * This method trains the HMM by performing the Baum-Welch algorithm.
@@ -98,6 +116,20 @@ public class Hmm {
     for ( int wordIndex = 0; wordIndex < sequenceLength; wordIndex++ ) {
       observedSequence[wordIndex] = outputAlphabet.indexOf(wordSequence.get(wordIndex));
     }
+    
+    // And then do the training on this raw sequence.
+    rawTrain(observedSequence);
+  }
+  
+  /**
+   * This method trains the HMM by performing the Baum-Welch algorithm.
+   * 
+   * @param observedSequence
+   *          the list of observed output states indexes.
+   */
+  public void rawTrain(int[] observedSequence) {
+    int sequenceLength = observedSequence.length;
+
     // Variables in which we store the next iteration results
     double[] piStar = new double[n];
     double[][] aaStar = new double[n][n];
@@ -125,8 +157,8 @@ public class Hmm {
        * Generate all the betas coefficients
        * The alphas are generated on the fly. 
        */
-      for (int startStateIndex = 0; startStateIndex < n; startStateIndex++) {
-        betas[(sequenceLength - 1) * n + startStateIndex] = 1.0f;
+      for (int stateIndex = 0; stateIndex < n; stateIndex++) {
+        betas[(sequenceLength - 1) * n + stateIndex] = 1.0f;
       }
 
       for (int t = sequenceLength - 1; t >= 1; t--) {
@@ -134,7 +166,7 @@ public class Hmm {
           double res = 0.0;
           for (int j = 0; j < n; j++) {
             res += betas[t * n + j] * a[i][j]
-                   * b[i][observedSequence[t]];
+                   * b[j][observedSequence[t]];
           }
 
           betas[(t - 1) * n + i] = res;
@@ -200,7 +232,7 @@ public class Hmm {
           for (int i = 0; i < n; i++) {
             double res = 0.0;
             for (int j = 0; j < n; j++) {
-              res += prevAlphas[j] * a[i][j];
+              res += prevAlphas[j] * a[j][i];
             }
 
             res *= b[i][observedSequence[t + 1]];
@@ -269,24 +301,37 @@ public class Hmm {
    */
   public int[] decode(List<String> fullArticleStream) {
     int T = fullArticleStream.size();
+    int[] rawObservedSequence = new int[T];
+    for ( int t = 0; t < T; t++ ) {
+      rawObservedSequence[t] = outputAlphabet.indexOf(fullArticleStream.get(t));
+    }
+    return rawDecode(rawObservedSequence);
+  }
+
+  /**
+   * Single process version of decode (without spark).
+   * 
+   * @param rawObservedSequence
+   *          the observed states sequence
+   * @return the array representing the sequence of states
+   */
+  public int[] rawDecode(int[] rawObservedSequence) {
+    int T = rawObservedSequence.length;
     double[][] dynamicValue = new double[n][T];
     int[][] dynamicState = new int[n][T];
-    String firstWord = fullArticleStream.remove(0);
+    
+    int index = rawObservedSequence[0];
     for (int i = 0; i < n; i++) { // initialization
-      int index = outputAlphabet.indexOf(firstWord);
       dynamicValue[i][0] = pi[i] * b[i][index];
     }
 
-    int t = 0;
-    for (String word : fullArticleStream) {
-      t++;
-      int index = outputAlphabet.indexOf(word);
+    for ( int t = 1; t < T;t++) {
+      int observedState = rawObservedSequence[t];
       for (int i = 0; i < n; i++) {
-        double max = dynamicValue[0][t - 1] * a[0][i] * b[i][index];
+        double max = dynamicValue[0][t - 1] * a[0][i] * b[i][observedState];
         int argmax = 0;
-        double current = 0D;
         for (int j = 1; j < n; j++) {
-          current = dynamicValue[j][t - 1] * a[j][i] * b[i][index];
+          double current = dynamicValue[j][t - 1] * a[j][i] * b[i][observedState];
           if (current > max) {
             max = current;
             argmax = j;
@@ -296,7 +341,6 @@ public class Hmm {
         dynamicState[i][t] = argmax;
       }
     }
-    fullArticleStream.add(0, firstWord);
 
     int[] states = new int[T];
     double max = dynamicValue[0][T - 1];
@@ -317,7 +361,7 @@ public class Hmm {
     return states;
 
   }
-
+  
   /**
    * Generates an observation sequence of length "length" given a fully known HMM.
    * 
@@ -327,6 +371,23 @@ public class Hmm {
    */
   public List<String> generateObservationSequence(int length) {
     List<String> sequence = new ArrayList<String>(length);
+    int[] rawSequence = generateRawObservationSequence(length);
+    
+    for ( int t = 0; t < length; t++ ) {
+      sequence.add((String) outputAlphabet.get(rawSequence[t]));
+    }
+    return sequence;
+  }
+  
+  /**
+   * Generates a raw observation sequence of length "length" given a fully known HMM.
+   * 
+   * @param length
+   *          the length of the observation sequence to be generated
+   * @return the raw observation sequence i.e. a list of observation states indexes.
+   */
+  public int[] generateRawObservationSequence(int length) {
+    int[] sequence = new int[length];
     double initRandom = Math.random();
     int initialState = -1;
     while (initRandom > 0 && initialState < n) {
@@ -336,18 +397,18 @@ public class Hmm {
     int currentState = initialState;
     for (int t = 0; t < length; t++) {
       // System.out.print(currentState+"     ");
-      double rOutput = Math.random();
-      double rTransition = Math.random();
+      double randOutput = Math.random();
+      double randTransition = Math.random();
       int outIndex = -1;
-      while (rOutput > 0 && outIndex < n) {
+      while (randOutput > 0 && outIndex < n) {
         outIndex++;
-        rOutput -= b[currentState][outIndex];
+        randOutput -= b[currentState][outIndex];
       }
-      sequence.add((String) outputAlphabet.get(outIndex));
+      sequence[t] = outIndex;
       int nextState = -1;
-      while (rTransition > 0 && nextState < n) {
+      while (randTransition > 0 && nextState < n) {
         nextState++;
-        rTransition -= a[currentState][nextState];
+        randTransition -= a[currentState][nextState];
       }
       currentState = nextState;
     }
@@ -365,4 +426,23 @@ public class Hmm {
     return outputAlphabet;
   }
 
+  public int getN() {
+    return n;
+  }
+  
+  public int getM() {
+    return m;
+  }
+  
+  public double[] getPi() {
+    return pi;
+  }
+  
+  public double[][] getA() {
+    return a;
+  }
+  
+  public double[][] getB() {
+    return b;
+  }
 }

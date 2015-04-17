@@ -26,6 +26,45 @@ public class mainTestHmm {
     List<String> observationSequence = hmm.generateObservationSequence(20000000);
     int[] hiddenSequence = hmm.decode(observationSequence);
     System.out.println("done decoding");
+    
+    // Test HMM training
+    int n = pi.length;
+    int m = 5;
+    double[] initialPi = {0.4,0.2,0.2,0.2};
+    double[][] initialA = { { 0.2, 0.2, 0.4, 0.2 }, { 0.0, 0.3, 0.3, 0.4 }, { 0.0, 0.6, 0.3, 0.1 },
+            { 0.0, 0.3, 0.4, 0.3 } };
+    Hmm trainedHmm = new Hmm(n, m, initialPi, initialA, b);
+    
+    int[] rawSequence = hmm.generateRawObservationSequence(1000000);
+    trainedHmm.rawTrain(rawSequence);
+    
+    // Print Pi first
+    double[] trainedPi = trainedHmm.getPi();
+    System.out.println("Pi: ");
+    for ( int i = 0; i < n; i++ ) {
+      System.out.print(" " + trainedPi[i]);
+    }
+    System.out.println("");
+    
+    //  Print A then
+    double[][] trainedA = trainedHmm.getA();
+    System.out.println("A: ");
+    for ( int i = 0; i < n; i++ ) {
+      for (int j = 0; j < n; j++ ) {
+        System.out.print(" " + trainedA[i][j]);
+      }
+      System.out.println("");
+    }
+    
+    //  Print B
+    double[][] trainedB = trainedHmm.getB();
+    System.out.println("B: ");
+    for ( int i = 0; i < n; i++ ) {
+      for (int j = 0; j < m; j++ ) {
+        System.out.print(" " + trainedB[i][j]);
+      }
+      System.out.println("");
+    }
     /*
     String concat = "";
     for(String os : observationSequence)
