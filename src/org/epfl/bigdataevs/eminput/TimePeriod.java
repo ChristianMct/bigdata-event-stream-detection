@@ -20,6 +20,14 @@ public class TimePeriod {
   public boolean lessThan(TimePeriod other) {
     return (this.to.compareTo(other.from) <= 0); 
   }
+  
+  /**Check if the given date is included in the TimePeriod
+   * @param date the date to check
+   * @return true if the date is included, false otherwise
+   */
+  public boolean includeDates(Date date) {
+    return from.before(date) && to.after(date);
+  }
 
   /**Generates the list of file names concerned by the time period.
    * @return a List of filenames of the forme "articles1XXX.xml"
@@ -28,7 +36,7 @@ public class TimePeriod {
     List<String> names = new LinkedList<String>();
 
     for (int year = from.getYear(); year <= to.getYear();  year++) {
-      int yearFull = year+1900;
+      int yearFull = year + 1900;
       names.add("articles" + yearFull + ".xml");
     }
     
