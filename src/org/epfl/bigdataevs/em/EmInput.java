@@ -31,16 +31,23 @@ public class EmInput implements Serializable {
   /** List of the themes appearing in this input*/
   public ArrayList<Theme> themesOfPartition;
   
+  public Date startDate;
+  public Date endDate;
+  
   
   public EmInput(HashMap<String, Fraction> backgroundModel,
-          ArrayList<ParsedArticle> parsedArticles) {
+          ArrayList<ParsedArticle> parsedArticles, Date start, Date end) {
     
     this.backgroundModel = backgroundModel;
     this.parsedArticles = parsedArticles;
+    this.themesOfPartition = new ArrayList<>();
+    this.startDate = start;
+    this.endDate = end;
   }
   
   public void addTheme(Theme theme) {
     this.themesOfPartition.add(theme);
+    System.out.println("Theme added");
   }
   
   public void initializeArticlesProbabilities() {
@@ -56,7 +63,7 @@ public class EmInput implements Serializable {
   public double computeLogLikelihood(double lambdaBackgroundModel) {
     double logLikelihood = 0.0;
     for (ParsedArticle parsedArticle : parsedArticles) {
-      for (String word : backgroundModel.keySet()) {
+      for (String word : parsedArticle.words.keySet()) {
         Fraction temp = Fraction.ZERO;
         for (Theme theme : themesOfPartition) {
           temp.add(parsedArticle.probabilitiesDocumentBelongsToThemes.get(theme).multiply(theme.wordsProbability.get(word)));
@@ -75,9 +82,11 @@ public class EmInput implements Serializable {
   public Fraction subUpdateProbabilitiesOfWordsGivenTheme(String word, Theme theme) {
     Fraction value  = Fraction.ZERO;
     for (ParsedArticle parsedArticle : parsedArticles) {
-      value.add(new Fraction(parsedArticle.words.get(word)).multiply(
-              Fraction.ONE.subtract(parsedArticle.probabilitiesHiddenVariablesBackgroundModel.get(word))).multiply(
-                      parsedArticle.probabilitiesHiddenVariablesThemes.get(Pair.of(word, theme))));
+      if(parsedArticle.words.containsKey(word)) {
+        value = value.add(new Fraction(parsedArticle.words.get(word)).multiply(
+                Fraction.ONE.subtract(parsedArticle.probabilitiesHiddenVariablesBackgroundModel.get(word))).multiply(
+                        parsedArticle.probabilitiesHiddenVariablesThemes.get(Pair.of(word, theme))));
+      }
     }
     return value;
   }
@@ -87,7 +96,7 @@ public class EmInput implements Serializable {
     for (Theme theme : themes) {
       Fraction denominator = Fraction.ZERO;
       for(String word : theme.wordsProbability.keySet()) {
-        denominator.add(subUpdateProbabilitiesOfWordsGivenTheme(word, theme));
+        denominator = denominator.add(subUpdateProbabilitiesOfWordsGivenTheme(word, theme));
       }
       for (String word : theme.wordsProbability.keySet()) {
         Fraction numerator = subUpdateProbabilitiesOfWordsGivenTheme(word, theme);
