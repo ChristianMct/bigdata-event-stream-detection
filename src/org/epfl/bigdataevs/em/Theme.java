@@ -13,6 +13,7 @@ public class Theme extends TimePeriod{
     public HashMap<String, Fraction> wordsProbability;
     public final static int RANDOM_MAX = 100;
     public Long partitionIndex = 0L;
+    public Long id = 0L; // This variable is used for the output
     
     public Theme(Date from, Date to){
       super(from, to);
@@ -39,8 +40,6 @@ public class Theme extends TimePeriod{
           }
         }
       }
-      
-      
       
       for (int i = 0; i < wordsOfPartitions.size(); i++) {
         this.wordsProbability.put(wordsOfPartitions.get(i), new Fraction(numerators.get(i), total));
