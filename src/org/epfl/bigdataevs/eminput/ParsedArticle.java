@@ -1,16 +1,19 @@
 package org.epfl.bigdataevs.eminput;
 
 import org.apache.spark.api.java.JavaPairRDD;
+import org.epfl.bigdataevs.em.EmAlgo;
 import org.epfl.bigdataevs.em.Theme;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
 import org.apache.commons.math3.*;
-import org.apache.commons.math3.fraction.Fraction;
+import org.apache.commons.math3.fraction.BigFraction;
 import org.apache.commons.lang3.tuple.*;
 import org.apache.hadoop.util.hash.Hash;
 
@@ -18,7 +21,7 @@ import org.apache.hadoop.util.hash.Hash;
  * Container for the data of processed articles. An instance 
  * of this class contains the cleaned words and their count
  * in this article, as well as the stream identifier.**/
-public class ParsedArticle {
+public class ParsedArticle implements Serializable {
   /**Maps a word to the number of times it appears in this article.**/
   public final HashMap<String, Integer> words;
   /**This article's stream identifier. **/
@@ -26,13 +29,13 @@ public class ParsedArticle {
   /**
    * Probability that this document belongs to the themes, Pi(d,j)
    * */
-  public HashMap<Theme, Fraction> probabilitiesDocumentBelongsToThemes = new HashMap<>();
+  public HashMap<Theme, Double> probabilitiesDocumentBelongsToThemes = new HashMap<>();
   
   /** Hidden variable regarding themes**/
-  public HashMap<Pair<String, Theme>, Fraction> probabilitiesHiddenVariablesThemes = new HashMap<>();
+  public HashMap<Pair<String, Theme>, Double> probabilitiesHiddenVariablesThemes = new HashMap<>();
   
   /**Hidden variable regarding background model **/
-  public HashMap<String, Fraction> probabilitiesHiddenVariablesBackgroundModel = new HashMap<>();
+  public HashMap<String, Double> probabilitiesHiddenVariablesBackgroundModel = new HashMap<>();
   
   public ParsedArticle( HashMap<String, Integer> words, ArticleStream stream) {
     this.words = words;
@@ -45,7 +48,10 @@ public class ParsedArticle {
    **/
   public void initializeProbabilities(ArrayList<Theme> themes) {
     for (int i = 0; i < themes.size(); i++) {
-      this.probabilitiesDocumentBelongsToThemes.put(themes.get(i), new Fraction(1, themes.size()));
+      System.out.println(themes.size());
+      double value = (1.0 / themes.size());
+      
+      this.probabilitiesDocumentBelongsToThemes.put(themes.get(i), value);
       for(String word : this.words.keySet()) {
         probabilitiesHiddenVariablesThemes.put(Pair.of(word, themes.get(i)), null);
       }
@@ -64,29 +70,30 @@ public class ParsedArticle {
       String word = pair.getLeft();
       Theme theme = pair.getRight();
       
-      Fraction numerator = this.probabilitiesDocumentBelongsToThemes.get(theme).multiply(theme.wordsProbability.get(word));
-      Fraction denominator = Fraction.ZERO;
+      double numerator = this.probabilitiesDocumentBelongsToThemes.get(theme) * (theme.wordsProbability.get(word));
+      double denominator = 0.0;
       for (Theme otherTheme : probabilitiesDocumentBelongsToThemes.keySet()) {
-        denominator.add(this.probabilitiesDocumentBelongsToThemes.get(otherTheme).multiply(otherTheme.wordsProbability.get(word)));
+        double u1 = this.probabilitiesDocumentBelongsToThemes.get(otherTheme);
+        double u2 = otherTheme.wordsProbability.get(word);
+        denominator = denominator + u1*u2;
       }
-      
-      this.probabilitiesHiddenVariablesThemes.put(pair, numerator.divide(denominator));
+      this.probabilitiesHiddenVariablesThemes.put(pair, numerator / (denominator + EmAlgo.epsilon));
     }
   }
   
   /**
    * Update hidden variable regarding background model
    */
-  public void updateHiddenVariableBackgroundModel(HashMap<String, Fraction> backgroundModel, double lambdaB) {
+  public void updateHiddenVariableBackgroundModel(HashMap<String, Double> backgroundModel, double lambdaB) {
     for (String word : this.probabilitiesHiddenVariablesBackgroundModel.keySet()) {
-      Fraction numerator = backgroundModel.get(word).multiply(new Fraction(lambdaB));
-      Fraction temp = Fraction.ZERO;
+      double numerator = backgroundModel.get(word)*lambdaB;
+      double temp = 0.0;
       for (Theme otherTheme : probabilitiesDocumentBelongsToThemes.keySet()) {
-        temp.add(this.probabilitiesDocumentBelongsToThemes.get(otherTheme).multiply(otherTheme.wordsProbability.get(word)));
+        temp = temp + (this.probabilitiesDocumentBelongsToThemes.get(otherTheme) * (otherTheme.wordsProbability.get(word)));
       }
-      Fraction denominator = numerator.add((Fraction.ONE.subtract(new Fraction(lambdaB)).multiply(temp)));
+      double denominator = numerator + ((1.0 - lambdaB) * temp);
       
-      this.probabilitiesHiddenVariablesBackgroundModel.put(word, numerator.divide(denominator));
+      this.probabilitiesHiddenVariablesBackgroundModel.put(word, numerator / (denominator + EmAlgo.epsilon));
     }
   }
   
@@ -94,25 +101,25 @@ public class ParsedArticle {
    * Update probabilities document belongs to themes
    */
   
-  public Fraction subUpdateProbabilitiesDocumentBelongsToThemes(Theme theme) {
-    Fraction value = Fraction.ZERO;
+  public Double subUpdateProbabilitiesDocumentBelongsToThemes(Theme theme) {
+    double value = 0.0;
     for (String word : this.words.keySet()) {
-      value.add(new Fraction(this.words.get(word)).multiply(
-              Fraction.ONE.subtract(this.probabilitiesHiddenVariablesBackgroundModel.get(word))).multiply(
+      value = value + (new Double(this.words.get(word)) * 
+              (1.0 - this.probabilitiesHiddenVariablesBackgroundModel.get(word)) * (
                       this.probabilitiesHiddenVariablesThemes.get(Pair.of(word, theme))));
     }
     return value;
   }
   
   public void updateProbabilitiesDocumentBelongsToThemes() {
-    Fraction denominator = Fraction.ZERO;
+    double denominator = 0.0;
     for (Theme theme : this.probabilitiesDocumentBelongsToThemes.keySet()) {
-      denominator.add(subUpdateProbabilitiesDocumentBelongsToThemes(theme));  
+      denominator = denominator + subUpdateProbabilitiesDocumentBelongsToThemes(theme);  
     }
     
     for (Theme theme : this.probabilitiesDocumentBelongsToThemes.keySet()) {
-      Fraction numerator = subUpdateProbabilitiesDocumentBelongsToThemes(theme);
-      this.probabilitiesDocumentBelongsToThemes.put(theme, numerator.divide(denominator));
+      Double numerator = subUpdateProbabilitiesDocumentBelongsToThemes(theme);
+      this.probabilitiesDocumentBelongsToThemes.put(theme, numerator / (denominator + EmAlgo.epsilon));
     }
   }
 }
