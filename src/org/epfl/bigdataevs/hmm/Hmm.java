@@ -139,8 +139,8 @@ public class Hmm {
     double aaDiff = Double.POSITIVE_INFINITY;
     // thresholds for convergence
     // TODO tune these parameters
-    double piThreshold = 0.5;
-    double aaThreshold = 0.5;
+    double piThreshold = 0.005;
+    double aaThreshold = 0.005;
     
     // Temporary variables used in every iteration
     double[] prevAlphas = new double[n];
@@ -152,7 +152,7 @@ public class Hmm {
     // Iterate until convergence of the transition probabilities
     int maxSteps = 100;
     for ( int iterationStep = 0; iterationStep < maxSteps; iterationStep++ ) {
-      
+      System.out.println("Iteration " + iterationStep);
       /*
        * Generate all the betas coefficients
        * The alphas are generated on the fly. 
@@ -198,21 +198,23 @@ public class Hmm {
           gammas[i] = tempVal;
         }
 
-        // compute gamma(i,t), and incrementally gamma_sums(i)
-        for (int i = 0; i < n; i++) {
-          double tempVal = gammas[i] / denGamma;
-          gammas[i] = tempVal;
-          gammasSums[i] += tempVal;
-        }
-        
-        // we have now gamma(i,t) in gammas[], and sum( k, alpha(k, t)*beta(k, t) ) in denGamma */
-        /* compute khi(i,j) incrementally, put it in aaStar */
-        if (t != sequenceLength - 1) {
+        if ( denGamma > 0.0 ) {
+          // compute gamma(i,t), and incrementally gamma_sums(i)
           for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-              double khi = (alphas[i] * a[i][j] * betas[(t + 1) * n + j])
-                      * b[j][observedSequence[t + 1]] / denGamma;
-              aaStar[i][j] += khi;
+            double tempVal = gammas[i] / denGamma;
+            gammas[i] = tempVal;
+            gammasSums[i] += tempVal;
+          }
+
+          // we have now gamma(i,t) in gammas[], and sum( k, alpha(k, t)*beta(k, t) ) in denGamma */
+          /* compute khi(i,j) incrementally, put it in aaStar */
+          if (t != sequenceLength - 1) {
+            for (int i = 0; i < n; i++) {
+              for (int j = 0; j < n; j++) {
+                double khi = (alphas[i] * a[i][j] * betas[(t + 1) * n + j])
+                        * b[j][observedSequence[t + 1]] / denGamma;
+                aaStar[i][j] += khi;
+              }
             }
           }
         }
@@ -245,8 +247,10 @@ public class Hmm {
       // Scale aaStar
       for (int i = 0; i < n; i++) {
         double den = gammasSums[i];
-        for (int j = 0; j < n; j++) {
-          aaStar[i][j] /= den;
+        if ( den > 0.0 ) {
+          for (int j = 0; j < n; j++) {
+            aaStar[i][j] /= den;
+          }
         }
       }
       

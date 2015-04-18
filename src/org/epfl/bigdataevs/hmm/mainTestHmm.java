@@ -15,10 +15,10 @@ public class mainTestHmm {
     output.add("delta");
     output.add("epsil");
     double[] pi = {0.4,0.2,0.2,0.2};
-    double[][] a = { { 0.4, 0.2, 0.2, 0.2 }, { 0.8, 0.2, 0, 0 }, { 0.7, 0, 0.3, 0 },
+    double[][] a = { { 0.5, 0.3, 0.1, 0.1 }, { 0.8, 0.2, 0, 0 }, { 0.7, 0, 0.3, 0 },
             { 0.2, 0, 0, 0.8 } };
 
-    double[][] b = { { 0.2, 0.2, 0.2, 0.2, 0.2 }, { 0.8, 0.1, 0.1, 0, 0 },
+    double[][] b = { { 0.4, 0.3, 0.15, 0.05, 0.1 }, { 0.8, 0.1, 0.1, 0, 0 },
             { 0.1, 0.8, 0.1, 0.0, 0 }, { 0, 0, 0, 0.2, 0.8 } };
 
     Hmm hmm = new Hmm(output, pi,a, b);
@@ -30,12 +30,12 @@ public class mainTestHmm {
     // Test HMM training
     int n = pi.length;
     int m = 5;
-    double[] initialPi = {0.4,0.2,0.2,0.2};
-    double[][] initialA = { { 0.2, 0.2, 0.4, 0.2 }, { 0.0, 0.3, 0.3, 0.4 }, { 0.0, 0.6, 0.3, 0.1 },
-            { 0.0, 0.3, 0.4, 0.3 } };
+    double[] initialPi = {0.25,0.25,0.25,0.25};
+    double[][] initialA = { { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 },
+            { 0.25, 0.25, 0.25, 0.25 } };
     Hmm trainedHmm = new Hmm(n, m, initialPi, initialA, b);
     
-    int[] rawSequence = hmm.generateRawObservationSequence(1000000);
+    int[] rawSequence = hmm.generateRawObservationSequence(100);
     trainedHmm.rawTrain(rawSequence);
     
     // Print Pi first
