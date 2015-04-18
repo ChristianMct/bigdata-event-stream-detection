@@ -35,7 +35,7 @@ public class mainTestHmm {
             { 0.25, 0.25, 0.25, 0.25 } };
     Hmm trainedHmm = new Hmm(n, m, initialPi, initialA, b);
     
-    int[] rawSequence = hmm.generateRawObservationSequence(100);
+    int[] rawSequence = hmm.generateRawObservationSequence(1000);
     trainedHmm.rawTrain(rawSequence);
     
     // Print Pi first

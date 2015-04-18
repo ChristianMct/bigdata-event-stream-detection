@@ -260,13 +260,8 @@ public class Hmm {
       for ( int i = 0; i < n; i++ ) {
         piDiff += Math.abs(piStar[i] - pi[i]);
         for ( int j = 0; j < n; j++ ) {
-          aaDiff += Math.abs(aaStar[i][j] - aaStar[i][j]);
+          aaDiff += Math.abs(aaStar[i][j] - a[i][j]);
         }
-      }
-      
-      // break when both criterium have been  met
-      if ( piDiff < piThreshold && aaDiff < aaThreshold ) {
-        break;
       }
       
       // Copy back piStar and aaStar
@@ -277,6 +272,11 @@ public class Hmm {
       double[][] temp2 = a;
       a = aaStar;
       aaStar = temp2;
+      
+      // break when both criterium have been  met
+      if ( piDiff < piThreshold && aaDiff < aaThreshold ) {
+        break;
+      }
     }
 
   }
