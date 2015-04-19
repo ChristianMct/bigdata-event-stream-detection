@@ -1,5 +1,6 @@
 package org.epfl.bigdataevs.eminput;
 
+import java.io.Serializable;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
@@ -7,7 +8,7 @@ import java.util.List;
 
 /**Represent an interval in time.
  * Team: Matias and Christian.**/
-public class TimePeriod {
+public class TimePeriod implements Serializable {
   
   public final Date from;
   public final Date to;
@@ -19,6 +20,11 @@ public class TimePeriod {
   
   public boolean lessThan(TimePeriod other) {
     return (this.to.compareTo(other.from) <= 0); 
+  }
+  
+  /** Returns true if date is inside the range of that time period **/
+  public boolean dateWithinPeriod(Date date) {
+    return (from.before(date) && to.after(date));
   }
 
   /**Generates the list of file names concerned by the time period.

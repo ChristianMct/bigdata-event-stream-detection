@@ -6,6 +6,7 @@ import org.epfl.bigdataevs.em.Theme;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -18,6 +19,9 @@ public class ParsedArticle implements Serializable{
   public final Map<String, Integer> words;
   /**This article's stream identifier. **/
   public final ArticleStream stream;
+  /**Publication date**/
+  public final Date publication;
+  
   /**
    * Probability that this document belongs to the themes, Pi(d,j)
    * */
@@ -29,9 +33,10 @@ public class ParsedArticle implements Serializable{
   /**Hidden variable regarding background model **/
   public HashMap<String, Fraction> probabilitiesHiddenVariablesBackgroundModel = new HashMap<>();
   
-public ParsedArticle( Map<String, Integer> words, ArticleStream stream) {
+public ParsedArticle( Map<String, Integer> words, ArticleStream stream, Date publication) {
     this.words = words;
     this.stream = stream;
+    this.publication = publication;
   }
   
   /**

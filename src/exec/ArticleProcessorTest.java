@@ -6,6 +6,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.epfl.bigdataevs.eminput.ArticleStream;
 import org.epfl.bigdataevs.eminput.ParsedArticle;
 import org.epfl.bigdataevs.eminput.RawArticle;
+import org.epfl.bigdataevs.eminput.TextCollectionData;
 import org.epfl.bigdataevs.eminput.TimePartition;
 import org.epfl.bigdataevs.eminput.TimePeriod;
 
@@ -20,34 +21,61 @@ public class ArticleProcessorTest {
     SparkConf sparkConf = new SparkConf().setAppName("Test article processor");
     JavaSparkContext ctx = new JavaSparkContext(sparkConf);
     
-    String testText1 = "I am a computer scientist, and currently I'm programming"
-        + " a Big Data assignment like 99% of the time.";
-    String testText2 = "This time period is tough for a scientist, I'm considering"
-        + " to study in other big fields.";
+    /*Test set-up: 3 articles over two time partitions
+     * text 1 belongs to partition 1, text 3 to partition 2, and text 2
+     * to both partitions (overlap)
+     * 
+     * This makes sure we don't count twice the words in overlapping partitions
+     * in the background model*/
+    String testText1 = "word123 word1 word13";
+    String testText2 = "word123 word2 word23";
+    String testText3 = "word123 word3 word23 word13";
     
+    long now = System.currentTimeMillis();
+    Date issueDate1 = new Date(now);
+    Date issueDate2 = new Date(now + 100000);
+    Date issueDate3 = new Date(now + 200000);
     
-    RawArticle testInput1 = new RawArticle(testText1.length(), 1, 18, testText1, "0",
-        new Date(System.currentTimeMillis() - 100000), "Test text 1", ArticleStream.GDL);
-    RawArticle testInput2 = new RawArticle(testText1.length(), 1, 15, testText2, "1",
-        new Date(System.currentTimeMillis()), "Test text 2", ArticleStream.JDG);
+    //contains issueDate1 and issueDate2
+    TimePeriod partition1 = new TimePeriod(new Date(now - 1000), new Date(now + 150000));
+    //contains issueDate2 and issueDate3
+    TimePeriod partition2 = new TimePeriod(new Date(now + 50000), new Date(now + 250000));
+    
+    ArrayList<TimePeriod> partitions = new ArrayList<TimePeriod>(2);
+    partitions.add(0, partition1);
+    partitions.add(1, partition2);
+    
+    RawArticle testInput1 = new RawArticle(testText1.length(), 1, 3, testText1, "0",
+        issueDate1, "Test text 1", ArticleStream.GDL);
+    RawArticle testInput2 = new RawArticle(testText2.length(), 1, 3, testText2, "1",
+        issueDate2, "Test text 2", ArticleStream.JDG);
+    RawArticle testInput3 = new RawArticle(testText3.length(), 1, 3, testText3, "2",
+            issueDate3, "Test text 3", ArticleStream.JDG);
     
     System.out.println("Turning test data into RDD");
     ArrayList<RawArticle> data = new ArrayList<RawArticle>();
     data.add(0, testInput1);
     data.add(1, testInput2);
+    data.add(2, testInput3);
     JavaRDD<RawArticle> rawDocs = ctx.parallelize(data);
     
     System.out.println("Processing RDD...");
-    TimePartition result = TimePartition
-            .generateTimePartitionModel(rawDocs, new TimePeriod(testInput1.issueDate, testInput2.issueDate));
+    TextCollectionData result = TextCollectionData
+            .generateTextCollectionData(rawDocs, partitions);
     
     System.out.println("======Background model's content======");
-    for(String background_word : result.backgroundModel.keySet()) {
-      System.out.println(background_word + ": " 
+    for(int background_word_id : result.backgroundWordMap.keySet()) {
+      String background_word = result.backgroundWordMap.get(background_word_id);
+      System.out.println(background_word
+        + "(ID: " + background_word_id + "): " 
         + result.backgroundModel.get(background_word) + " distribution proba.");
     }
     
-    System.out.println("=======Obtained " + result.parsedArticles.size() + " parsed articles====");
+    System.out.println("======Word chronological list======");
+    for (String word: result.collectionWords)
+      System.out.println(word);
+    
+    /*System.out.println("=======Obtained " + result.parsedArticles.size() + " parsed articles====");
     int count = 1;
     for (ParsedArticle output : result.parsedArticles) {
       System.out.println("Article " + count + ":");
@@ -55,7 +83,7 @@ public class ArticleProcessorTest {
       for (String word: output.words.keySet()) {
         System.out.println(word + ": " + output.words.get(word) + " occurrences.");
       }
-    }
+    }*/
     
     ctx.close();
 
