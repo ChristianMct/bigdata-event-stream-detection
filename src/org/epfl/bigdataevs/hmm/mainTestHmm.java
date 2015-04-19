@@ -36,34 +36,39 @@ public class mainTestHmm {
     Hmm trainedHmm = new Hmm(n, m, initialPi, initialA, b);
     
     int[] rawSequence = hmm.generateRawObservationSequence(1000);
-    trainedHmm.rawTrain(rawSequence);
-    
-    // Print Pi first
-    double[] trainedPi = trainedHmm.getPi();
-    System.out.println("Pi: ");
-    for ( int i = 0; i < n; i++ ) {
-      System.out.print(" " + trainedPi[i]);
-    }
-    System.out.println("");
-    
-    //  Print A then
-    double[][] trainedA = trainedHmm.getA();
-    System.out.println("A: ");
-    for ( int i = 0; i < n; i++ ) {
-      for (int j = 0; j < n; j++ ) {
-        System.out.print(" " + trainedA[i][j]);
+    int seqSize = 100;
+    while ( seqSize <= 1000) {
+      trainedHmm.rawTrain(rawSequence, seqSize);
+      
+   // Print Pi first
+      double[] trainedPi = trainedHmm.getPi();
+      System.out.println("Pi: ");
+      for ( int i = 0; i < n; i++ ) {
+        System.out.print(" " + trainedPi[i]);
       }
       System.out.println("");
-    }
-    
-    //  Print B
-    double[][] trainedB = trainedHmm.getB();
-    System.out.println("B: ");
-    for ( int i = 0; i < n; i++ ) {
-      for (int j = 0; j < m; j++ ) {
-        System.out.print(" " + trainedB[i][j]);
+      
+      //  Print A then
+      double[][] trainedA = trainedHmm.getA();
+      System.out.println("A: ");
+      for ( int i = 0; i < n; i++ ) {
+        for (int j = 0; j < n; j++ ) {
+          System.out.print(" " + trainedA[i][j]);
+        }
+        System.out.println("");
       }
-      System.out.println("");
+      
+      //  Print B
+      double[][] trainedB = trainedHmm.getB();
+      System.out.println("B: ");
+      for ( int i = 0; i < n; i++ ) {
+        for (int j = 0; j < m; j++ ) {
+          System.out.print(" " + trainedB[i][j]);
+        }
+        System.out.println("");
+      }
+      
+      seqSize *= 10;
     }
     /*
     String concat = "";

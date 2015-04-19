@@ -118,7 +118,7 @@ public class Hmm {
     }
     
     // And then do the training on this raw sequence.
-    rawTrain(observedSequence);
+    rawTrain(observedSequence, sequenceLength);
   }
   
   /**
@@ -127,8 +127,7 @@ public class Hmm {
    * @param observedSequence
    *          the list of observed output states indexes.
    */
-  public void rawTrain(int[] observedSequence) {
-    int sequenceLength = observedSequence.length;
+  public void rawTrain(int[] observedSequence, int sequenceLength) {
 
     // Variables in which we store the next iteration results
     double[] piStar = new double[n];
@@ -138,7 +137,7 @@ public class Hmm {
     double piDiff = Double.POSITIVE_INFINITY;
     double aaDiff = Double.POSITIVE_INFINITY;
     // thresholds for convergence
-    // TODO tune these parameters
+    // TODO propose these parameters as arguments
     double piThreshold = 0.005;
     double aaThreshold = 0.005;
     
@@ -150,7 +149,7 @@ public class Hmm {
     double[] gammasSums = new double[n];
     
     // Iterate until convergence of the transition probabilities
-    int maxSteps = 100;
+    int maxSteps = 10;
     for ( int iterationStep = 0; iterationStep < maxSteps; iterationStep++ ) {
       System.out.println("Iteration " + iterationStep);
       /*
@@ -218,7 +217,6 @@ public class Hmm {
             }
           }
         }
-
         /* copy in Pi_star if that's the moment */
         if (t == 0) {
           System.arraycopy(gammas, 0, piStar, 0, n);
@@ -273,7 +271,7 @@ public class Hmm {
       a = aaStar;
       aaStar = temp2;
       
-      // break when both criterium have been  met
+      // break when both criterion have been  met
       if ( piDiff < piThreshold && aaDiff < aaThreshold ) {
         break;
       }
@@ -326,16 +324,17 @@ public class Hmm {
     
     int index = rawObservedSequence[0];
     for (int i = 0; i < n; i++) { // initialization
-      dynamicValue[i][0] = pi[i] * b[i][index];
+      dynamicValue[i][0] = Math.log(pi[i] * b[i][index]);
     }
 
     for ( int t = 1; t < T;t++) {
       int observedState = rawObservedSequence[t];
+      
       for (int i = 0; i < n; i++) {
-        double max = dynamicValue[0][t - 1] * a[0][i] * b[i][observedState];
+        double max = dynamicValue[0][t - 1] + Math.log(a[0][i] * b[i][observedState]);
         int argmax = 0;
         for (int j = 1; j < n; j++) {
-          double current = dynamicValue[j][t - 1] * a[j][i] * b[i][observedState];
+          double current = dynamicValue[j][t - 1] + Math.log(a[j][i] * b[i][observedState]);
           if (current > max) {
             max = current;
             argmax = j;
