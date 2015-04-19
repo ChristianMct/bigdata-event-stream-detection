@@ -200,23 +200,11 @@ public class TextCollectionData {
     return new TextCollectionData(IdWordMap,
             backgroundModelRdd.collectAsMap(),
             parsedArticles,
-            getEnglobingTimePeriod(timeSegments),
+            TimePeriod.getEnglobingTimePeriod(timeSegments),
             wordConcat);  
   
 }
-
-public static TimePeriod getEnglobingTimePeriod(List<TimePeriod> allPeriods) {
-  TimePeriod first = allPeriods.remove(0);
-  Date minFrom = first.from;
-  Date maxTo = first.to;
-  for (TimePeriod period : allPeriods) {
-    minFrom = period.from.before(minFrom) ? period.from : minFrom;
-    maxTo = period.to.after(maxTo) ? period.to : maxTo;
-  }
-  return new TimePeriod(minFrom, maxTo);
-}
-}
-
+  
 /** Acts as an intermediary processing step between a RawArticle and a ParsedArticle.
  * The SegmentedArticle contains the ordered list of words constituting the original
  * article text. It also has a list of TimePeriods it belongs to. This allows to only 
@@ -255,7 +243,7 @@ class SegmentArticle implements Function<RawArticle, SegmentedArticle> {
     
     LinkedList<TimePeriod> containingPeriods = new LinkedList<TimePeriod>();
     for (TimePeriod segment : timePeriods) {
-      if (segment.dateWithinPeriod(article.issueDate))
+      if (segment.includeDates(article.issueDate))
         containingPeriods.add(segment);
     }
     //Article outside of parsed range: don't consider

@@ -7,6 +7,7 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Date;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -82,10 +83,11 @@ public class RawArticleInputStream {
 
       switch (event) {
         case XMLStreamConstants.START_ELEMENT:
+          current = "";
           startElement(reader.getLocalName());
           break;
         case XMLStreamConstants.CHARACTERS:
-          current = reader.getText();
+          current += reader.getText();
           break;
         case XMLStreamConstants.END_ELEMENT:
           endElement(reader.getLocalName());
@@ -96,7 +98,7 @@ public class RawArticleInputStream {
         default:
           break;
       }   
-      if (articleCompleted) {
+      if (articleCompleted && !shouldSkipArticle) {
         return builder.build();
       }
     }
@@ -121,8 +123,11 @@ public class RawArticleInputStream {
   }
 
   private void startElement(String type) {
-//    //if ("article".equals(type))
-//    System.out.println("<"+type+">");
+    if ("entity".equals(type)) {
+      shouldSkipArticle = false;
+      articleCompleted = false;
+    }
+
     return;
   }
 
@@ -146,8 +151,11 @@ public class RawArticleInputStream {
         builder.stream = ArticleStream.valueOf(current);
         break;
       case "issue_date":
-      //Append 12 so that the article date corresponds to noon of the issue date
-        builder.issueDate = dateFormat.parse(current + "-12"); 
+        //Append 12 so that the article date corresponds to noon of the issue date
+        Date date = dateFormat.parse(current + "-12");
+        builder.issueDate = date;
+      //If the article falls outside TimePeriod, skip it
+        shouldSkipArticle = !timePeriod.includeDates(date);
         break;
       case "word_count":
         builder.wordCount = Integer.parseInt(current);

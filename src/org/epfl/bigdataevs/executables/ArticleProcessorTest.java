@@ -1,4 +1,4 @@
-package exec;
+package org.epfl.bigdataevs.executables;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
