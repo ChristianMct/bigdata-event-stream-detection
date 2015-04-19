@@ -19,7 +19,7 @@ public class mainTestHmm {
             { 0.2, 0, 0, 0.8 } };
 
     double[][] b = { { 0.0, 0.0, 0.0, 0.0, 1.0 }, { 0.8, 0.1, 0.1, 0, 0 },
-            { 0.1, 0.8, 0.1, 0.0, 0 }, { 0, 0, 0.8, 0.2, 0.0 } };
+            { 0.1, 0.8, 0.1, 0.0, 0.0 }, { 0, 0, 0.8, 0.2, 0.0 } };
 
     Hmm hmm = new Hmm(output, pi,a, b);
 
@@ -35,9 +35,9 @@ public class mainTestHmm {
             { 0.25, 0.25, 0.25, 0.25 } };
     Hmm trainedHmm = new Hmm(n, m, initialPi, initialA, b);
     
-    int[] rawSequence = hmm.generateRawObservationSequence(1000);
-    int seqSize = 100;
-    while ( seqSize <= 1000) {
+    int[] rawSequence = hmm.generateRawObservationSequence(10000);
+    int seqSize = 10000;
+    while ( seqSize <= 10000) {
       trainedHmm.rawTrain(rawSequence, seqSize);
       
    // Print Pi first
