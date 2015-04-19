@@ -23,11 +23,11 @@ public class mainTestEm{
     String article2 = "C'était attendu, c'est officiel: Bruxelles accuse Google d'abus de position dominante dans les moteurs de recherche. Par ailleurs, la Commission européenne a aussi ouvert une enquête contre Google sur son système pour téléphone portable Android.. «Je crains que l'entreprise n'ait injustement avantagé son propre service de comparaison de prix, en violation des règles de l'UE en matière d'ententes et d'abus de position dominante», a déclaré la commissaire européenne chargée du dossier, Margrete Vestager. Concrètement, la Commission craint que les utilisateurs de Google, qui représente 90% des recherches sur l'internet dans la plupart des pays d'Europe, «ne voient pas nécessairement les résultats les plus pertinents en réponse à leurs requêtes».";
     String article3 = "C'est un évènement. Le président français François Hollande est attendu ce mercredi en Suisse pour une visite d'Etat de deux jours qui vise à relancer la relation avec Berne. Et ce, 17 ans après Jacques Chirac, dernier président français en date à s'être rendu en visite officielle chez le voisin helvétique. Paris entend ainsi tourner la page d'une série de brouilles sur les questions de l'évasion fiscale ou de l'aéroport de Bâle-Mulhouse mais aussi célébrer voire s'inspirer du «modèle» helvétique en matière de croissance verte ou d'apprentissage.  Après avoir accepté d'échanger, sur demande, les informations concernant les ressortissants français soupçonnés d'évasion fiscale par Bercy, Berne s'est engagé à rendre cet échange d'informations automatique à compter de 2018. A son arrivée sur le sol helvétique où il est attendu vers 14h, François Hollande, accompagné de six membres du gouvernement (Ecologie, Education, Finances, Travail, Affaires européennes et Numérique) sera accueilli par la présidente en exercice de la Confédération, Simonetta Sommarruga. Tous deux s'exprimeront ensuite à l'hôtel de ville de Berne avant de se retrouver pour un entretien et de tenir une conférence de presse conjointe. Un « dîner d\'Etat » les réunira une nouvelle fois dans la soirée.";
   
-    /*
-    article1 = "bigdata";
+    
+    article1 = "bigdata science";
     article2 = "computer science";
     article3 = "communication systems";
-     */
+    
     
     String[] words1 = article1.split(" ");
     String[] words2 = article2.split(" ");
@@ -67,7 +67,7 @@ public class mainTestEm{
     partitions.add(input);
     
     JavaSparkContext sc = new JavaSparkContext("local", "EM Algorithm Test");
-    EmAlgo emAlgo = new EmAlgo(sc.parallelize(partitions), 3, 0.5);
+    EmAlgo emAlgo = new EmAlgo(sc.parallelize(partitions), 3, 0.8);
     Map<Theme, Double> result =  (Map<Theme, Double>) emAlgo.algo().collectAsMap();
     sc.close();
     System.out.println(result.keySet().size() + " elements");

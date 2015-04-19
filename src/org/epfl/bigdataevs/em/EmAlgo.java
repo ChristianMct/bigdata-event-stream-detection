@@ -23,7 +23,7 @@ public class EmAlgo implements Serializable {
   public int numberOfThemes;
   public double lambdaBackgroundModel;
   public final static MathContext mathContext = new MathContext(10, RoundingMode.HALF_EVEN); 
-  public final static double epsilon = 1e-6;
+  public final static double epsilon = 0.0;//1e-9;
 
   public EmAlgo(JavaRDD<EmInput> partitions, int numThemes, double lambda) {
     this.partitions = partitions;
@@ -71,27 +71,20 @@ public class EmAlgo implements Serializable {
 
     System.out.println("Initialization done !");
 
-
-    /**Initialize probabilities that document d belongs to theme j  
-    initilizedPartitions.foreach(new VoidFunction<EmInput>() {
-      @Override
-      public void call(EmInput inputPartition) throws Exception {
-        System.out.println(inputPartition.themesOfPartition.size());
-        inputPartition.initializeArticlesProbabilities();
-      }
-    });
-     */
-
     /**Loop of Algorithm*/    
     JavaPairRDD<Theme, Double> result = initilizedPartitions.flatMapToPair(
             new PairFlatMapFunction<EmInput, Theme, Double>() {
 
-          public int iterations = 0;
+          public int iteration = 0;
           public final static int MAX_ITERATIONS = 100;
           public ArrayList<Double> logLikelihoods = new ArrayList<>();
       
           public boolean checkStoppingCondition() {
-            return this.iterations >= MAX_ITERATIONS;
+            if(iteration > 1) {
+              return (this.logLikelihoods.get(iteration-1) - this.logLikelihoods.get(iteration-2)) < 1e-6;
+            } else {
+              return false;
+            }
           }
       
           @Override
@@ -99,8 +92,7 @@ public class EmAlgo implements Serializable {
             ArrayList<ParsedArticle> documents = input.parsedArticles;
       
             while (!checkStoppingCondition()) {
-              System.out.println("Iteration:"+iterations);
-              this.iterations += 1;
+              System.out.println("Iteration:"+iteration);
               for (ParsedArticle parsedArticle : documents) {
                 parsedArticle.updateHiddenVariablesThemes();
               }
@@ -115,10 +107,17 @@ public class EmAlgo implements Serializable {
               }
               System.out.println("Prob in parsedArticles updated");
               input.updateProbabilitiesOfWordsGivenTheme(input.themesOfPartition);
-              //logLikelihoods.add(input.computeLogLikelihood(lambdaBackgroundModel));
+              logLikelihoods.add(input.computeLogLikelihood(lambdaBackgroundModel));
               System.out.println("Prob in Themes updated");
+              
+              this.iteration += 1;
             }
-      
+            
+            System.out.println("Number of iterations:" + this.logLikelihoods.size());
+            for (double val : logLikelihoods) {
+              System.out.println(val);
+            }
+            
             List<Tuple2<Theme, Double>> themesWithAverageProbability = new ArrayList<>();
             for (Theme theme : input.themesOfPartition) {
               double sum = 0.0;

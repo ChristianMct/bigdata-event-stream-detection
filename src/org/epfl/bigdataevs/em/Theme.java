@@ -37,43 +37,44 @@ public class Theme extends TimePeriod {
      * At the beginning, the probabilities are randomly distributed
      * @param Eminput (partition)
      */
-    public void initialization(EmInput input) {
-      ArrayList<String> wordsOfPartitions = new ArrayList<>();
-      ArrayList<Integer> numerators = new ArrayList<>();
-      Random random = new Random();
-      int total = 0;
-      
-      for(ParsedArticle article: input.parsedArticles) {
-        for(String word: article.words.keySet()) {
-          if(!wordsOfPartitions.contains(word)) {
-            wordsOfPartitions.add(word);
-            int numerator = random.nextInt(RANDOM_MAX)+1;
-            numerators.add(numerator);
-            total += numerator;
-          }
-        } 
-      }
-     
-      for (int i = 0; i < wordsOfPartitions.size(); i++) {
-        Double value = new Double(numerators.get(i)) / total;
-        this.wordsProbability.put(wordsOfPartitions.get(i), value);
-      }
+  public void initialization(EmInput input) {
+    ArrayList<String> wordsOfPartitions = new ArrayList<>();
+    ArrayList<Integer> numerators = new ArrayList<>();
+    Random random = new Random();
+    double total = 0.0;
+    
+    for (ParsedArticle article: input.parsedArticles) {
+      for (String word: article.words.keySet()) {
+        if (!wordsOfPartitions.contains(word)) {
+          wordsOfPartitions.add(word);
+          int numerator = random.nextInt(RANDOM_MAX) + 1;
+          numerators.add(numerator);
+          total += (double) numerator;
+        }
+      } 
     }
     
-    
-    public String toString() {
-      String s = "Theme #"+this.partitionIndex;
-      for (String word : this.wordsProbability.keySet()) {
-        s += word+" : "+this.wordsProbability.get(word);
-      }
-      return s;
+    System.out.println(total);
+    for (int i = 0; i < wordsOfPartitions.size(); i++) {
+      double value = numerators.get(i) / total;
+      this.wordsProbability.put(wordsOfPartitions.get(i), value);
     }
+  }
     
-    public TreeMap<String, Double> sortString() {
-      TreeMap<String, Double> sortedMap = new TreeMap<String, Double>(new ValueComparator(wordsProbability));
-      sortedMap.putAll(wordsProbability);
-      return sortedMap;
+    
+  public String toString() {
+    String s = "Theme #" + this.partitionIndex;
+    for (String word : this.wordsProbability.keySet()) {
+      s += word + " : " + this.wordsProbability.get(word);
     }
+    return s;
+  }
+  
+  public TreeMap<String, Double> sortString() {
+    TreeMap<String, Double> sortedMap = new TreeMap<String, Double>(new ValueComparator(wordsProbability));
+    sortedMap.putAll(wordsProbability);
+    return sortedMap;
+  }
     
     
   class ValueComparator implements Comparator<String> {

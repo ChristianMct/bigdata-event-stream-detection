@@ -30,6 +30,7 @@ public class ParsedArticle implements Serializable {
    * Probability that this document belongs to the themes, Pi(d,j)
    * */
   public HashMap<Theme, Double> probabilitiesDocumentBelongsToThemes = new HashMap<>();
+  public HashMap<Theme, Double> previousProbabilitiesDocumentBelongsToThemes = new HashMap<>();
   
   /** Hidden variable regarding themes**/
   public HashMap<Pair<String, Theme>, Double> probabilitiesHiddenVariablesThemes = new HashMap<>();
@@ -48,17 +49,20 @@ public class ParsedArticle implements Serializable {
    **/
   public void initializeProbabilities(ArrayList<Theme> themes) {
     for (int i = 0; i < themes.size(); i++) {
-      System.out.println(themes.size());
-      double value = (1.0 / themes.size());
+      double value = (1.0 / (double) themes.size());
       
       this.probabilitiesDocumentBelongsToThemes.put(themes.get(i), value);
+      
       for(String word : this.words.keySet()) {
-        probabilitiesHiddenVariablesThemes.put(Pair.of(word, themes.get(i)), null);
+        probabilitiesHiddenVariablesThemes.put(Pair.of(word, themes.get(i)), 0.0);
       }
+      
     }
+    
     for (String word : this.words.keySet()) {
-      probabilitiesHiddenVariablesBackgroundModel.put(word, null);
+      probabilitiesHiddenVariablesBackgroundModel.put(word, 0.0);
     }
+    
   }
   
   
@@ -69,15 +73,21 @@ public class ParsedArticle implements Serializable {
     for (Pair<String, Theme> pair : probabilitiesHiddenVariablesThemes.keySet()) {
       String word = pair.getLeft();
       Theme theme = pair.getRight();
-      
-      double numerator = this.probabilitiesDocumentBelongsToThemes.get(theme) * (theme.wordsProbability.get(word));
-      double denominator = 0.0;
-      for (Theme otherTheme : probabilitiesDocumentBelongsToThemes.keySet()) {
-        double u1 = this.probabilitiesDocumentBelongsToThemes.get(otherTheme);
-        double u2 = otherTheme.wordsProbability.get(word);
-        denominator = denominator + u1*u2;
+      if (this.probabilitiesHiddenVariablesBackgroundModel.get(word) == null ||
+              this.probabilitiesHiddenVariablesBackgroundModel.get(word) == 1.0) {
+        this.probabilitiesHiddenVariablesThemes.put(pair, 0.0);
+      } else {
+        double numerator = this.probabilitiesDocumentBelongsToThemes.get(theme)
+                * (theme.wordsProbability.get(word));
+        double denominator = 0.0;
+        for (Theme otherTheme : probabilitiesDocumentBelongsToThemes.keySet()) {
+          denominator = denominator 
+                  + ((this.probabilitiesDocumentBelongsToThemes.get(otherTheme)
+                  * otherTheme.wordsProbability.get(word)));
+        }
+        this.probabilitiesHiddenVariablesThemes.put(
+                pair, numerator / (denominator + EmAlgo.epsilon));
       }
-      this.probabilitiesHiddenVariablesThemes.put(pair, numerator / (denominator + EmAlgo.epsilon));
     }
   }
   
@@ -89,12 +99,15 @@ public class ParsedArticle implements Serializable {
       double numerator = backgroundModel.get(word)*lambdaB;
       double temp = 0.0;
       for (Theme otherTheme : probabilitiesDocumentBelongsToThemes.keySet()) {
-        temp = temp + (this.probabilitiesDocumentBelongsToThemes.get(otherTheme) * (otherTheme.wordsProbability.get(word)));
+        temp = temp + (this.probabilitiesDocumentBelongsToThemes.get(otherTheme)
+                * (otherTheme.wordsProbability.get(word)));
       }
       double denominator = numerator + ((1.0 - lambdaB) * temp);
       
+      
       this.probabilitiesHiddenVariablesBackgroundModel.put(word, numerator / (denominator + EmAlgo.epsilon));
     }
+   
   }
   
   /**
@@ -104,9 +117,11 @@ public class ParsedArticle implements Serializable {
   public Double subUpdateProbabilitiesDocumentBelongsToThemes(Theme theme) {
     double value = 0.0;
     for (String word : this.words.keySet()) {
-      value = value + (new Double(this.words.get(word)) * 
-              (1.0 - this.probabilitiesHiddenVariablesBackgroundModel.get(word)) * (
+      if (this.words.get(word) > 0) {
+      value = value + (((double) this.words.get(word)) * 
+              (1.0 - ((double) this.probabilitiesHiddenVariablesBackgroundModel.get(word))) * (
                       this.probabilitiesHiddenVariablesThemes.get(Pair.of(word, theme))));
+      }
     }
     return value;
   }
@@ -118,7 +133,7 @@ public class ParsedArticle implements Serializable {
     }
     
     for (Theme theme : this.probabilitiesDocumentBelongsToThemes.keySet()) {
-      Double numerator = subUpdateProbabilitiesDocumentBelongsToThemes(theme);
+      double numerator = subUpdateProbabilitiesDocumentBelongsToThemes(theme);
       this.probabilitiesDocumentBelongsToThemes.put(theme, numerator / (denominator + EmAlgo.epsilon));
     }
   }

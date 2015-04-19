@@ -65,11 +65,12 @@ public class EmInput implements Serializable {
       for (String word : parsedArticle.words.keySet()) {
         double temp = 0.0;
         for (Theme theme : themesOfPartition) {
-          temp = temp + (parsedArticle.probabilitiesDocumentBelongsToThemes.get(theme) * theme.wordsProbability.get(word));
+          temp = temp + (parsedArticle.probabilitiesDocumentBelongsToThemes.get(theme)
+                  * theme.wordsProbability.get(word));
         }
-        logLikelihood += parsedArticle.words.get(word)*Math.log(
-                (lambdaBackgroundModel*backgroundModel.get(word)) + 
-                ((1.0-lambdaBackgroundModel) * temp));
+        logLikelihood += parsedArticle.words.get(word) * Math.log(
+                (lambdaBackgroundModel * backgroundModel.get(word))
+                + ((1.0 - lambdaBackgroundModel) * temp));
       }
     }
     return logLikelihood;
@@ -81,10 +82,11 @@ public class EmInput implements Serializable {
   public Double subUpdateProbabilitiesOfWordsGivenTheme(String word, Theme theme) {
     double value  = 0.0;
     for (ParsedArticle parsedArticle : parsedArticles) {
-      if(parsedArticle.words.containsKey(word)) {
-        value = value + (parsedArticle.words.get(word)*
-                (1.0-parsedArticle.probabilitiesHiddenVariablesBackgroundModel.get(word))*
-                        (parsedArticle.probabilitiesHiddenVariablesThemes.get(Pair.of(word, theme))));
+      if (parsedArticle.words.containsKey(word)) {
+        value = value + (((double) parsedArticle.words.get(word))
+                * (1.0 - parsedArticle.probabilitiesHiddenVariablesBackgroundModel.get(word)) 
+                        * (parsedArticle.probabilitiesHiddenVariablesThemes.get(
+                                Pair.of(word, theme))));
       }
     }
     return value;
@@ -94,7 +96,7 @@ public class EmInput implements Serializable {
    
     for (Theme theme : themes) {
       double denominator = 0.0;
-      for(String word : theme.wordsProbability.keySet()) {
+      for (String word : theme.wordsProbability.keySet()) {
         denominator = denominator + subUpdateProbabilitiesOfWordsGivenTheme(word, theme);
       }
       for (String word : theme.wordsProbability.keySet()) {
@@ -103,5 +105,57 @@ public class EmInput implements Serializable {
       }
     }
     
+  }
+  
+  public void checkPartitionForDebuging(int iter) {
+    boolean themesOk = true;
+    for (Theme theme : themesOfPartition) {
+      for (String word : theme.wordsProbability.keySet()) {
+        if (theme.wordsProbability.get(word) > 1.0 ||
+                theme.wordsProbability.get(word) < 0.0 ||
+                Double.isNaN(theme.wordsProbability.get(word))) {
+          themesOk = false;
+        }
+      }
+    }
+    System.out.println("Themes : "+themesOk);
+    
+    boolean probsDocsOk = true;
+    for (ParsedArticle article : this.parsedArticles) {
+      for (Theme theme : article.probabilitiesDocumentBelongsToThemes.keySet()) {
+        if (article.probabilitiesDocumentBelongsToThemes.get(theme) > 1.0 ||
+                article.probabilitiesDocumentBelongsToThemes.get(theme) < 0.0 ||
+                Double.isNaN(article.probabilitiesDocumentBelongsToThemes.get(theme))) {
+          probsDocsOk = false;
+        }
+      }
+    }
+    System.out.println("Docs : "+probsDocsOk);
+    
+    if(iter > 0) {
+      boolean hiddenThemesOk = true;
+      for (ParsedArticle article : this.parsedArticles) {
+        for (Pair<String, Theme> pair : article.probabilitiesHiddenVariablesThemes.keySet()) {
+          if (article.probabilitiesHiddenVariablesThemes.get(pair) > 1.0 ||
+                  article.probabilitiesHiddenVariablesThemes.get(pair) < 0.0 ||
+                  Double.isNaN(article.probabilitiesHiddenVariablesThemes.get(pair))) {
+            hiddenThemesOk = false;
+          }
+        }
+      }
+      System.out.println("Hidden themes : "+hiddenThemesOk);
+      
+      boolean hiddenBgMOk = true;
+      for (ParsedArticle article : this.parsedArticles) {
+        for (String word: article.probabilitiesHiddenVariablesBackgroundModel.keySet()) {
+          if (article.probabilitiesHiddenVariablesBackgroundModel.get(word) > 1.0 ||
+                  article.probabilitiesHiddenVariablesBackgroundModel.get(word) < 0.0 ||
+                  Double.isNaN(article.probabilitiesHiddenVariablesBackgroundModel.get(word))) {
+            hiddenBgMOk = false;
+          }
+        }
+      }
+      System.out.println("Hidden Bg model : "+hiddenBgMOk);
+    }
   }
 }
