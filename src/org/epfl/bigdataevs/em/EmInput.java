@@ -8,8 +8,9 @@ import java.util.HashMap;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.math3.fraction.Fraction;
+import org.apache.commons.math3.fraction.BigFraction;
 import org.epfl.bigdataevs.eminput.ParsedArticle;
+import org.epfl.bigdataevs.eminput.TimePeriod;
 
 import scala.Tuple2;
 
@@ -24,23 +25,28 @@ import scala.Tuple2;
 public class EmInput implements Serializable {
   /** HashMap containing tuples of words and their 
    * distribution in the streams. **/
-  public HashMap<String, Fraction> backgroundModel;
+  public HashMap<String, Double> backgroundModel;
   /** List containing articles published at that time. **/
   public ArrayList<ParsedArticle> parsedArticles;
   
   /** List of the themes appearing in this input*/
   public ArrayList<Theme> themesOfPartition;
   
+  public TimePeriod timePeriod;
   
-  public EmInput(HashMap<String, Fraction> backgroundModel,
-          ArrayList<ParsedArticle> parsedArticles) {
+  
+  public EmInput(HashMap<String, Double> backgroundModel,
+          ArrayList<ParsedArticle> parsedArticles, TimePeriod period) {
     
     this.backgroundModel = backgroundModel;
     this.parsedArticles = parsedArticles;
+    this.themesOfPartition = new ArrayList<>();
+    this.timePeriod = period;
   }
   
   public void addTheme(Theme theme) {
     this.themesOfPartition.add(theme);
+    System.out.println("Theme added");
   }
   
   public void initializeArticlesProbabilities() {
@@ -56,14 +62,14 @@ public class EmInput implements Serializable {
   public double computeLogLikelihood(double lambdaBackgroundModel) {
     double logLikelihood = 0.0;
     for (ParsedArticle parsedArticle : parsedArticles) {
-      for (String word : backgroundModel.keySet()) {
-        Fraction temp = Fraction.ZERO;
+      for (String word : parsedArticle.words.keySet()) {
+        double temp = 0.0;
         for (Theme theme : themesOfPartition) {
-          temp.add(parsedArticle.probabilitiesDocumentBelongsToThemes.get(theme).multiply(theme.wordsProbability.get(word)));
+          temp = temp + (parsedArticle.probabilitiesDocumentBelongsToThemes.get(theme) * theme.wordsProbability.get(word));
         }
         logLikelihood += parsedArticle.words.get(word)*Math.log(
-                new Fraction(lambdaBackgroundModel).multiply(backgroundModel.get(word)).add(
-                new Fraction(1-lambdaBackgroundModel).multiply(temp)).doubleValue());
+                (lambdaBackgroundModel*backgroundModel.get(word)) + 
+                ((1.0-lambdaBackgroundModel) * temp));
       }
     }
     return logLikelihood;
@@ -72,12 +78,14 @@ public class EmInput implements Serializable {
   /**
    * Update probabilities word belongs to theme
    */
-  public Fraction subUpdateProbabilitiesOfWordsGivenTheme(String word, Theme theme) {
-    Fraction value  = Fraction.ZERO;
+  public Double subUpdateProbabilitiesOfWordsGivenTheme(String word, Theme theme) {
+    double value  = 0.0;
     for (ParsedArticle parsedArticle : parsedArticles) {
-      value.add(new Fraction(parsedArticle.words.get(word)).multiply(
-              Fraction.ONE.subtract(parsedArticle.probabilitiesHiddenVariablesBackgroundModel.get(word))).multiply(
-                      parsedArticle.probabilitiesHiddenVariablesThemes.get(Pair.of(word, theme))));
+      if(parsedArticle.words.containsKey(word)) {
+        value = value + (parsedArticle.words.get(word)*
+                (1.0-parsedArticle.probabilitiesHiddenVariablesBackgroundModel.get(word))*
+                        (parsedArticle.probabilitiesHiddenVariablesThemes.get(Pair.of(word, theme))));
+      }
     }
     return value;
   }
@@ -85,13 +93,13 @@ public class EmInput implements Serializable {
   public void updateProbabilitiesOfWordsGivenTheme(ArrayList<Theme> themes) {
    
     for (Theme theme : themes) {
-      Fraction denominator = Fraction.ZERO;
+      double denominator = 0.0;
       for(String word : theme.wordsProbability.keySet()) {
-        denominator.add(subUpdateProbabilitiesOfWordsGivenTheme(word, theme));
+        denominator = denominator + subUpdateProbabilitiesOfWordsGivenTheme(word, theme);
       }
       for (String word : theme.wordsProbability.keySet()) {
-        Fraction numerator = subUpdateProbabilitiesOfWordsGivenTheme(word, theme);
-        theme.wordsProbability.put(word, numerator.divide(denominator));
+        double numerator = subUpdateProbabilitiesOfWordsGivenTheme(word, theme);
+        theme.wordsProbability.put(word, numerator / (denominator + EmAlgo.epsilon));
       }
     }
     
