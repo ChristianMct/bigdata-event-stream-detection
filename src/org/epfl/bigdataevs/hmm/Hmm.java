@@ -133,13 +133,11 @@ public class Hmm {
     double[] piStar = new double[n];
     double[][] aaStar = new double[n][n];
     
-    // variables tracking convergence
-    double piDiff = Double.POSITIVE_INFINITY;
-    double aaDiff = Double.POSITIVE_INFINITY;
-    // thresholds for convergence
-    // TODO propose these parameters as arguments
-    double piThreshold = 0.0005;
-    double aaThreshold = 0.0005;
+    // variable tracking convergence
+    double prevLogLikelihood = Double.NEGATIVE_INFINITY;
+    // threshold for convergence
+    // TODO propose this parameter as an argument
+    double likelihoodThreshold = 1.0;
     
     // Temporary variables used in every iteration
     double[] alphasScales = new double[ sequenceLength ];
@@ -280,13 +278,9 @@ public class Hmm {
       }
       
       // Check convergence here
-      piDiff = 0.0;
-      aaDiff = 0.0;
-      for ( int i = 0; i < n; i++ ) {
-        piDiff += Math.abs(piStar[i] - pi[i]);
-        for ( int j = 0; j < n; j++ ) {
-          aaDiff += Math.abs(aaStar[i][j] - a[i][j]);
-        }
+      double logLikelihood = 0.0;
+      for ( int t = 0; t < sequenceLength; t++ ) {
+        logLikelihood -= Math.log(alphasScales[t]);
       }
       
       // Copy back piStar and aaStar
@@ -299,9 +293,11 @@ public class Hmm {
       aaStar = temp2;
       
       // break when both criterion have been  met
-      if ( piDiff < piThreshold && aaDiff < aaThreshold ) {
+      if ( Math.abs(logLikelihood - prevLogLikelihood) < likelihoodThreshold ) {
         break;
       }
+      
+      prevLogLikelihood = logLikelihood;
     }
   }
 
