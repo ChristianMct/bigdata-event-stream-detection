@@ -118,7 +118,7 @@ public class Hmm {
     }
     
     // And then do the training on this raw sequence.
-    rawTrain(observedSequence);
+    rawTrain(observedSequence, sequenceLength);
   }
   
   /**
@@ -127,24 +127,21 @@ public class Hmm {
    * @param observedSequence
    *          the list of observed output states indexes.
    */
-  public void rawTrain(int[] observedSequence) {
-    int sequenceLength = observedSequence.length;
+  public void rawTrain(int[] observedSequence, int sequenceLength) {
 
     // Variables in which we store the next iteration results
     double[] piStar = new double[n];
     double[][] aaStar = new double[n][n];
     
-    // variables tracking convergence
-    double piDiff = Double.POSITIVE_INFINITY;
-    double aaDiff = Double.POSITIVE_INFINITY;
-    // thresholds for convergence
-    // TODO tune these parameters
-    double piThreshold = 0.005;
-    double aaThreshold = 0.005;
+    // variable tracking convergence
+    double prevLogLikelihood = Double.NEGATIVE_INFINITY;
+    // threshold for convergence
+    // TODO propose this parameter as an argument
+    double likelihoodThreshold = 1.0;
     
     // Temporary variables used in every iteration
-    double[] prevAlphas = new double[n];
-    double[] alphas = new double[n];
+    double[] alphasScales = new double[ sequenceLength ];
+    double[] alphas = new double[n * sequenceLength];
     double[] betas = new double[n * sequenceLength];
     double[] gammas = new double[n];
     double[] gammasSums = new double[n];
@@ -153,20 +150,63 @@ public class Hmm {
     int maxSteps = 100;
     for ( int iterationStep = 0; iterationStep < maxSteps; iterationStep++ ) {
       System.out.println("Iteration " + iterationStep);
+      
+      /*
+       * Generate all the alphas
+       */
+      // initialize the first alphas
+      {
+        double sum = 0.0;
+        for ( int i = 0; i < n; i++ ) {
+          double value = pi[i] * b[i][observedSequence[0]];
+          alphas[0 * n + i] = value;
+          sum += value;
+        }
+        
+        // rescale
+        double scale = 1.0 / sum;
+        alphasScales[0] = scale;
+        
+        for ( int i = 0; i < n; i++) {
+          alphas[0 * n + i] *= scale; 
+        }
+      }
+      
+      // compute the other alphas
+      for ( int t = 1; t < sequenceLength; t++ ) {
+        double sum = 0.0;
+        for (int i = 0; i < n; i++) {
+          double res = 0.0;
+          for (int j = 0; j < n; j++) {
+            res += (alphas[(t - 1) * n + j] * a[j][i]);
+          }
+          double value = (res * b[i][observedSequence[t]]);
+          alphas[t * n + i] = value;
+          sum += value;
+        }
+        
+        // rescale
+        double scale = 1.0 / sum;
+        alphasScales[t] = scale;
+
+        for ( int i = 0; i < n; i++) {
+          alphas[t * n + i] *= scale; 
+        }
+      }
+      
       /*
        * Generate all the betas coefficients
-       * The alphas are generated on the fly. 
        */
       for (int stateIndex = 0; stateIndex < n; stateIndex++) {
-        betas[(sequenceLength - 1) * n + stateIndex] = 1.0f;
+        betas[(sequenceLength - 1) * n + stateIndex] = 1.0d;
       }
 
       for (int t = sequenceLength - 1; t >= 1; t--) {
         for (int i = 0; i < n; i++) {
           double res = 0.0;
           for (int j = 0; j < n; j++) {
-            res += betas[t * n + j] * a[i][j]
-                   * b[j][observedSequence[t]];
+            res += (betas[t * n + j] * a[i][j]
+                   * b[j][observedSequence[t]] * alphasScales[t - 1]);
           }
 
           betas[(t - 1) * n + i] = res;
@@ -179,89 +219,68 @@ public class Hmm {
         Arrays.fill(aaStar[stateIndex], 0.0);
       }
       
-      // initialize the first alphas
-      for ( int i = 0; i < n; i++ ) {
-        alphas[i] = pi[i] * b[i][observedSequence[0]];
-      }
-      
       // as we don't need to update b, we can stop at
       // sequenceLength-1
       for ( int t = 0; t < sequenceLength - 1; t++ ) {
         
-        // denGamma will be sum(k, alpha(k,t)*beta(k,t) ) in the end
-        double denGamma = 0.0;
-        
         // compute the terms alpha(i,t)*beta(i,t) and incrementally the sum of them
         for (int i = 0; i < n; i++) {
-          double tempVal = alphas[i] * betas[t * n + i];
-          denGamma += tempVal;
+          double tempVal = alphas[t * n + i] * betas[t * n + i];
           gammas[i] = tempVal;
         }
 
-        if ( denGamma > 0.0 ) {
-          // compute gamma(i,t), and incrementally gamma_sums(i)
-          for (int i = 0; i < n; i++) {
-            double tempVal = gammas[i] / denGamma;
-            gammas[i] = tempVal;
-            gammasSums[i] += tempVal;
-          }
+        // compute gamma(i,t), and incrementally gamma_sums(i)
+        for (int i = 0; i < n; i++) {
+          double tempVal = gammas[i] / alphasScales[t];
+          gammas[i] = tempVal;
+          gammasSums[i] += tempVal;
+        }
 
-          // we have now gamma(i,t) in gammas[], and sum( k, alpha(k, t)*beta(k, t) ) in denGamma */
-          /* compute khi(i,j) incrementally, put it in aaStar */
-          if (t != sequenceLength - 1) {
-            for (int i = 0; i < n; i++) {
-              for (int j = 0; j < n; j++) {
-                double khi = (alphas[i] * a[i][j] * betas[(t + 1) * n + j])
-                        * b[j][observedSequence[t + 1]] / denGamma;
-                aaStar[i][j] += khi;
-              }
+        // we have now gamma(i,t) in gammas[], and sum( k, alpha(k, t)*beta(k, t) ) in denGamma */
+        /* compute khi(i,j) incrementally, put it in aaStar */
+        if (t != sequenceLength - 1) {
+          for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+              double khi = (alphas[t * n + i] * a[i][j] * betas[(t + 1) * n + j])
+                      * b[j][observedSequence[t + 1]];
+              aaStar[i][j] += khi;
             }
           }
         }
-
         /* copy in Pi_star if that's the moment */
         if (t == 0) {
           System.arraycopy(gammas, 0, piStar, 0, n);
         }
-        
-        // swap alphas and prevAlphas
-        double[] temp = prevAlphas;
-        prevAlphas = alphas;
-        alphas = temp;
-        
-        // compute the next alphas coefficients
-        if ( t < sequenceLength - 1 ) {
-          for (int i = 0; i < n; i++) {
-            double res = 0.0;
-            for (int j = 0; j < n; j++) {
-              res += prevAlphas[j] * a[j][i];
-            }
-
-            res *= b[i][observedSequence[t + 1]];
-            alphas[i] = res;
-          }
-        }
-        
       }
       
-      // Scale aaStar
+      // Renormalize aaStar
       for (int i = 0; i < n; i++) {
-        double den = gammasSums[i];
-        if ( den > 0.0 ) {
+        double sum = 0.0;
+        for (int j = 0; j < n; j++) {
+          sum += aaStar[i][j];
+        }
+        if ( sum > 0.0 ) {
           for (int j = 0; j < n; j++) {
-            aaStar[i][j] /= den;
+            aaStar[i][j] /= sum;
           }
+        }
+      }
+      
+      // Renormalize piStar
+      double sum = 0.0;
+      for (int i = 0; i < n; i++ ) {
+        sum += piStar[i];
+      }
+      if ( sum > 0.0 ) {
+        for ( int i = 0; i < n; i++ ) {
+          piStar[i] /= sum;
         }
       }
       
       // Check convergence here
-      piDiff = 0.0;
-      aaDiff = 0.0;
-      for ( int i = 0; i < n; i++ ) {
-        piDiff += Math.abs(piStar[i] - pi[i]);
-        for ( int j = 0; j < n; j++ ) {
-          aaDiff += Math.abs(aaStar[i][j] - a[i][j]);
-        }
+      double logLikelihood = 0.0;
+      for ( int t = 0; t < sequenceLength; t++ ) {
+        logLikelihood -= Math.log(alphasScales[t]);
       }
       
       // Copy back piStar and aaStar
@@ -273,12 +292,13 @@ public class Hmm {
       a = aaStar;
       aaStar = temp2;
       
-      // break when both criterium have been  met
-      if ( piDiff < piThreshold && aaDiff < aaThreshold ) {
+      // break when both criterion have been  met
+      if ( Math.abs(logLikelihood - prevLogLikelihood) < likelihoodThreshold ) {
         break;
       }
+      
+      prevLogLikelihood = logLikelihood;
     }
-
   }
 
   /**
@@ -326,16 +346,17 @@ public class Hmm {
     
     int index = rawObservedSequence[0];
     for (int i = 0; i < n; i++) { // initialization
-      dynamicValue[i][0] = pi[i] * b[i][index];
+      dynamicValue[i][0] = Math.log(pi[i] * b[i][index]);
     }
 
     for ( int t = 1; t < T;t++) {
       int observedState = rawObservedSequence[t];
+      
       for (int i = 0; i < n; i++) {
-        double max = dynamicValue[0][t - 1] * a[0][i] * b[i][observedState];
+        double max = dynamicValue[0][t - 1] + Math.log(a[0][i] * b[i][observedState]);
         int argmax = 0;
         for (int j = 1; j < n; j++) {
-          double current = dynamicValue[j][t - 1] * a[j][i] * b[i][observedState];
+          double current = dynamicValue[j][t - 1] + Math.log(a[j][i] * b[i][observedState]);
           if (current > max) {
             max = current;
             argmax = j;
@@ -394,7 +415,7 @@ public class Hmm {
     int[] sequence = new int[length];
     double initRandom = Math.random();
     int initialState = -1;
-    while (initRandom > 0 && initialState < n) {
+    while (initRandom > 0.0 && initialState < (n - 1)) {
       initialState++;
       initRandom -= pi[initialState];
     }
@@ -404,13 +425,13 @@ public class Hmm {
       double randOutput = Math.random();
       double randTransition = Math.random();
       int outIndex = -1;
-      while (randOutput > 0 && outIndex < n) {
+      while (randOutput > 0.0 && outIndex < (m - 1)) {
         outIndex++;
         randOutput -= b[currentState][outIndex];
       }
       sequence[t] = outIndex;
       int nextState = -1;
-      while (randTransition > 0 && nextState < n) {
+      while (randTransition > 0.0 && nextState < (n - 1)) {
         nextState++;
         randTransition -= a[currentState][nextState];
       }
