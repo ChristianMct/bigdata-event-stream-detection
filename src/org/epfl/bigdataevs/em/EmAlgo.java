@@ -2,10 +2,16 @@ package org.epfl.bigdataevs.em;
 
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
+import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
+import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.api.java.function.VoidFunction;
+import org.apache.xml.serialize.EncodingInfo;
 import org.epfl.bigdataevs.eminput.ParsedArticle;
+import org.epfl.bigdataevs.eminput.TimePeriod;
 
 import scala.Array;
 import scala.Tuple2;
@@ -16,123 +22,171 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 public class EmAlgo implements Serializable {
   public JavaRDD<EmInput> partitions;
   public int numberOfThemes;
   public double lambdaBackgroundModel;
-  public final static MathContext mathContext = new MathContext(10, RoundingMode.HALF_EVEN); 
-  public final static double epsilon = 0.0;//1e-9;
+  public int numberOfRuns;
+  public final static double epsilon = 0.0;
 
-  public EmAlgo(JavaRDD<EmInput> partitions, int numThemes, double lambda) {
-    this.partitions = partitions;
+  /**
+   * Creates one instance of EmAgorithm
+   * Duplicates all partitions to the number of trials the algorithm should do.
+   * @param partitions
+   * @param numThemes
+   * @param lambda
+   * @param numRuns
+   */
+  public EmAlgo(JavaSparkContext sparkContext, JavaRDD<EmInput> inputs, int numThemes, double lambda,  int numRuns) {
     this.numberOfThemes = numThemes;
     this.lambdaBackgroundModel = lambda;
+    this.numberOfRuns = numRuns;
+    
+    List<Integer> runs = new ArrayList<>();
+    for (int i = 0; i < this.numberOfRuns; i++) {
+      runs.add(i);
+    }
+    
+    this.partitions = inputs.zipWithIndex().map(new Function<Tuple2<EmInput,Long>, EmInput>() {
+      @Override
+      public EmInput call(Tuple2<EmInput, Long> args1) throws Exception {
+        EmInput inputPartition = args1._1();
+        Long index = args1._2();
+        inputPartition.indexOfPartition = index;
+        return inputPartition;
+      }
+    }).cartesian(sparkContext.parallelize(runs)).map(
+            new Function<Tuple2<EmInput,Integer>, EmInput>() {
+        @Override
+        public EmInput call(Tuple2<EmInput, Integer> args2) throws Exception {
+          Long index = args2._1.indexOfPartition;
+          EmInput input = args2._1.clone();
+          input.indexOfPartition = index;
+          input.run = args2._2;
+          return input;
+        }
+      });
   }
 
-
-  public JavaPairRDD<Theme, Double> algo() {
+  /**
+   * Performs one run of the EM algorithm to all the partitions (EmInput)
+   * @return the log-likelihood after convergence
+   */
+  public JavaPairRDD<EmInput, Double> algorithm() {
     // Creation of RDD
 
-    /**Initialize the themes*/
-    JavaRDD<EmInput> initilizedPartitions = this.partitions.zipWithIndex().map(new Function<Tuple2<EmInput,Long>, EmInput>() {
-
+    /*Initialize the themes*/
+    JavaRDD<EmInput> initializedPartitions = this.partitions.map(new Function<EmInput, EmInput>() {
       @Override
-      public EmInput call(Tuple2<EmInput, Long> arg) throws Exception {
-        EmInput inputPartition = arg._1();
-        Long index = arg._2();
+      public EmInput call(EmInput inputPartition) throws Exception {
         for (int i = 0; i < numberOfThemes; i++) {
           Theme theme = new Theme(inputPartition.timePeriod.from, inputPartition.timePeriod.to);
           theme.initialization(inputPartition);
           inputPartition.addTheme(theme);
-          theme.partitionIndex = index;
+          theme.partitionIndex = inputPartition.indexOfPartition;
         }
         inputPartition.initializeArticlesProbabilities();
-        System.out.println("Number of themes:" + inputPartition.themesOfPartition.size());
         return inputPartition;
       }
 
     });
 
-    /*
-    this.partitions.foreach(new VoidFunction<EmInput>() {
-
-      @Override
-      public void call(EmInput inputPartition) throws Exception {
-        for (int i = 0; i < numberOfThemes; i++) {
-          Theme theme = new Theme(new Date(), new Date());
-          theme.initialization(inputPartition);
-          inputPartition.addTheme(theme);
-        }
-      }
-    });
-     */
-
-    System.out.println("Initialization done !");
-
-    /**Loop of Algorithm*/    
-    JavaPairRDD<Theme, Double> result = initilizedPartitions.flatMapToPair(
-            new PairFlatMapFunction<EmInput, Theme, Double>() {
-
-          public int iteration = 0;
-          public final static int MAX_ITERATIONS = 100;
-          public ArrayList<Double> logLikelihoods = new ArrayList<>();
+    /*Loop of the algorithm*/    
+    JavaPairRDD<EmInput, Double> result = initializedPartitions.mapToPair(
+            new PairFunction<EmInput, EmInput, Double>() {
       
-          public boolean checkStoppingCondition() {
-            if(iteration > 1) {
-              return (this.logLikelihoods.get(iteration-1) - this.logLikelihoods.get(iteration-2)) < 1e-6;
+          public boolean checkStoppingCondition(ArrayList<Double> logLikelihoods) {
+            int iteration = logLikelihoods.size();
+            if (iteration>1) {
+              return (logLikelihoods.get(iteration - 1)
+                      - logLikelihoods.get(iteration - 2)) < 1e-6;
             } else {
               return false;
             }
           }
       
           @Override
-          public Iterable<Tuple2<Theme, Double>> call(EmInput input) throws Exception {
-            ArrayList<ParsedArticle> documents = input.parsedArticles;
-      
-            while (!checkStoppingCondition()) {
-              System.out.println("Iteration:"+iteration);
-              for (ParsedArticle parsedArticle : documents) {
+          public Tuple2<EmInput, Double> call(EmInput input) throws Exception {
+            ArrayList<Double> logLikelihoods = new ArrayList<>();
+            
+            while (!checkStoppingCondition(logLikelihoods)) {
+              for (ParsedArticle parsedArticle : input.parsedArticles) {
                 parsedArticle.updateHiddenVariablesThemes();
               }
-              System.out.println("Hidden variable updated");
-              for (ParsedArticle parsedArticle : documents) {
+              for (ParsedArticle parsedArticle : input.parsedArticles) {
                 parsedArticle.updateHiddenVariableBackgroundModel(
                         input.backgroundModel, lambdaBackgroundModel);
               }
-              System.out.println("Hidden background model updated");
-              for (ParsedArticle parsedArticle : documents) {
+              for (ParsedArticle parsedArticle : input.parsedArticles) {
                 parsedArticle.updateProbabilitiesDocumentBelongsToThemes();
               }
-              System.out.println("Prob in parsedArticles updated");
               input.updateProbabilitiesOfWordsGivenTheme(input.themesOfPartition);
-              logLikelihoods.add(input.computeLogLikelihood(lambdaBackgroundModel));
-              System.out.println("Prob in Themes updated");
-              
-              this.iteration += 1;
+              logLikelihoods.add(input.computeLogLikelihood(lambdaBackgroundModel));              
             }
             
-            System.out.println("Number of iterations:" + this.logLikelihoods.size());
-            for (double val : logLikelihoods) {
-              System.out.println(val);
-            }
+            System.out.println("Number of iterations: " + logLikelihoods.size());
+            System.out.println("Log-likelihood: " + logLikelihoods.get(logLikelihoods.size() - 1));
             
-            List<Tuple2<Theme, Double>> themesWithAverageProbability = new ArrayList<>();
+            return new Tuple2<EmInput, Double>(input,
+                    logLikelihoods.get(logLikelihoods.size() - 1));
+          }
+        });
+
+    return result;
+  }
+  
+  /**
+   * Performs a run of EM algorithm to every EmInputs
+   * Select the best EmInput for EmInputs having the same indexOfPartition.
+   * @return all themes with average score
+   */
+  public JavaPairRDD<Theme, Double> run() {
+    JavaPairRDD<TimePeriod, Tuple2<EmInput, Double>> processedPartitions = this.algorithm().mapToPair(
+            new PairFunction<Tuple2<EmInput,Double>, TimePeriod, Tuple2<EmInput, Double>>() {
+            public Tuple2<TimePeriod, Tuple2<EmInput, Double>> call(Tuple2<EmInput, Double> tuple)
+                    throws Exception {
+              return new Tuple2<TimePeriod, Tuple2<EmInput, Double>>(tuple._1.timePeriod, tuple);
+            }
+      });
+    
+    JavaRDD<EmInput> selectedInputs = processedPartitions.groupByKey().map(
+            new Function<Tuple2<TimePeriod,Iterable<Tuple2<EmInput,Double>>>, EmInput>() {
+            @Override
+            public EmInput call(
+                    Tuple2<TimePeriod, Iterable<Tuple2<EmInput, Double>>> iterable) throws Exception {
+              Iterator<Tuple2<EmInput, Double>> it = iterable._2.iterator();
+              Tuple2<EmInput, Double> bestInput = (Tuple2<EmInput, Double>) it.next();
+              while(it.hasNext()) {
+                Tuple2<EmInput, Double> currentInput = (Tuple2<EmInput, Double>) it.next();
+                if (currentInput._2 > bestInput._2) {
+                  bestInput = currentInput;
+                }
+              }
+              return bestInput._1;
+            }
+          });
+    
+    JavaPairRDD<Theme, Double> listOfSelectedThemes = selectedInputs.flatMapToPair(
+            new PairFlatMapFunction<EmInput, Theme, Double>() {
+          @Override
+          public Iterable<Tuple2<Theme, Double>> call(EmInput input) throws Exception {
+            List<Tuple2<Theme, Double>> themesWithAverageProbability = new ArrayList<>();                  
             for (Theme theme : input.themesOfPartition) {
               double sum = 0.0;
-              for (ParsedArticle parsedArticle : documents) {
-                sum += parsedArticle.probabilitiesDocumentBelongsToThemes.get(theme).doubleValue();
+              for (ParsedArticle parsedArticle : input.parsedArticles) {
+                sum += parsedArticle.probabilitiesDocumentBelongsToThemes.get(theme);
               }
-              double average = sum / documents.size();
+              double average = sum / input.parsedArticles.size();
               themesWithAverageProbability.add(new Tuple2<Theme, Double>(theme, average));
             }
             return (Iterable<Tuple2<Theme, Double>>) themesWithAverageProbability;
           }
         });
-
-    System.out.println("Loop done !");
-    return result;
-
+    return listOfSelectedThemes;
   }
+  
 }

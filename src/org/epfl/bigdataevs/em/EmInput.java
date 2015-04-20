@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.function.VoidFunction;
@@ -32,6 +33,10 @@ public class EmInput implements Serializable {
   /** List of the themes appearing in this input*/
   public ArrayList<Theme> themesOfPartition;
   
+  public Long indexOfPartition = 0L;
+  
+  public int run;
+  
   public TimePeriod timePeriod;
   
   
@@ -46,7 +51,6 @@ public class EmInput implements Serializable {
   
   public void addTheme(Theme theme) {
     this.themesOfPartition.add(theme);
-    System.out.println("Theme added");
   }
   
   public void initializeArticlesProbabilities() {
@@ -107,55 +111,11 @@ public class EmInput implements Serializable {
     
   }
   
-  public void checkPartitionForDebuging(int iter) {
-    boolean themesOk = true;
-    for (Theme theme : themesOfPartition) {
-      for (String word : theme.wordsProbability.keySet()) {
-        if (theme.wordsProbability.get(word) > 1.0 ||
-                theme.wordsProbability.get(word) < 0.0 ||
-                Double.isNaN(theme.wordsProbability.get(word))) {
-          themesOk = false;
-        }
-      }
+  public EmInput clone() {
+    ArrayList<ParsedArticle> articles = new ArrayList<>();
+    for (ParsedArticle parsedArticle : this.parsedArticles) {
+      articles.add(new ParsedArticle(parsedArticle.words, parsedArticle.stream));
     }
-    System.out.println("Themes : "+themesOk);
-    
-    boolean probsDocsOk = true;
-    for (ParsedArticle article : this.parsedArticles) {
-      for (Theme theme : article.probabilitiesDocumentBelongsToThemes.keySet()) {
-        if (article.probabilitiesDocumentBelongsToThemes.get(theme) > 1.0 ||
-                article.probabilitiesDocumentBelongsToThemes.get(theme) < 0.0 ||
-                Double.isNaN(article.probabilitiesDocumentBelongsToThemes.get(theme))) {
-          probsDocsOk = false;
-        }
-      }
-    }
-    System.out.println("Docs : "+probsDocsOk);
-    
-    if(iter > 0) {
-      boolean hiddenThemesOk = true;
-      for (ParsedArticle article : this.parsedArticles) {
-        for (Pair<String, Theme> pair : article.probabilitiesHiddenVariablesThemes.keySet()) {
-          if (article.probabilitiesHiddenVariablesThemes.get(pair) > 1.0 ||
-                  article.probabilitiesHiddenVariablesThemes.get(pair) < 0.0 ||
-                  Double.isNaN(article.probabilitiesHiddenVariablesThemes.get(pair))) {
-            hiddenThemesOk = false;
-          }
-        }
-      }
-      System.out.println("Hidden themes : "+hiddenThemesOk);
-      
-      boolean hiddenBgMOk = true;
-      for (ParsedArticle article : this.parsedArticles) {
-        for (String word: article.probabilitiesHiddenVariablesBackgroundModel.keySet()) {
-          if (article.probabilitiesHiddenVariablesBackgroundModel.get(word) > 1.0 ||
-                  article.probabilitiesHiddenVariablesBackgroundModel.get(word) < 0.0 ||
-                  Double.isNaN(article.probabilitiesHiddenVariablesBackgroundModel.get(word))) {
-            hiddenBgMOk = false;
-          }
-        }
-      }
-      System.out.println("Hidden Bg model : "+hiddenBgMOk);
-    }
+    return new EmInput(this.backgroundModel, articles, this.timePeriod);
   }
 }

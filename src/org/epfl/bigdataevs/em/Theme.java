@@ -54,7 +54,6 @@ public class Theme extends TimePeriod {
       } 
     }
     
-    System.out.println(total);
     for (int i = 0; i < wordsOfPartitions.size(); i++) {
       double value = numerators.get(i) / total;
       this.wordsProbability.put(wordsOfPartitions.get(i), value);
