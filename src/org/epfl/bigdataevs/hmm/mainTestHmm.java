@@ -34,11 +34,12 @@ public class mainTestHmm {
     double[][] initialA = { { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 },
             { 0.25, 0.25, 0.25, 0.25 } };
     Hmm trainedHmm = new Hmm(n, m, initialPi, initialA, b);
-    Hmm trainedHmm2 = new Hmm(n, m, initialPi.clone(), initialA.clone(), b.clone());
+    Hmm trainedHmm2 = new Hmm(n, m, Arrays.copyOf(initialPi,initialPi.length),
+            Arrays.copyOf(initialA,initialA.length), Arrays.copyOf(b,b.length));
     
-    int[] rawSequence = hmm.generateRawObservationSequence(100000);
-    int seqSize = 100000;
-    while ( seqSize <= 100000) {
+    int[] rawSequence = hmm.generateRawObservationSequence(500);
+    int seqSize = 500;
+    while ( seqSize <= 500) {
       trainedHmm.rawParalellTrain(rawSequence, 0.1);
       trainedHmm2.rawTrain(rawSequence, 100);
    // Print Pi first
