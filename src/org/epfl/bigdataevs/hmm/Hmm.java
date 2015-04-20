@@ -300,6 +300,275 @@ public class Hmm {
       prevLogLikelihood = logLikelihood;
     }
   }
+  
+  
+  
+  /** This methods is the iterative version (for test purposes)
+   *  of a new and beautiful parallel version of Baum-Welch.
+   * 
+   * @param observedSequence the sequence of output symbols observed
+   */
+  public void rawParalellTrain(int[] observedSequence, double likelihoodThreshold) {
+    
+    int sequenceLength = observedSequence.length;
+    
+ // Variables in which we store the next iteration results
+    double[] piStar = new double[n];
+    double[][] aaStar = new double[n][n];
+    
+    // variable tracking convergence
+    double prevLogLikelihood = Double.NEGATIVE_INFINITY;
+    
+    // Temporary variables used in every iteration
+    double[] alphasScales = new double[ sequenceLength ]; //c_t
+    double[] alphasHat = new double[n * sequenceLength];
+    double[] alphasBar = new double[n * sequenceLength];
+    double[] betas = new double[n * sequenceLength];
+    double[] gammas = new double[n];
+    double[] gammasSums = new double[n];
+    double[][] TAInitTilde = new double[sequenceLength][n*n];
+    double[][] TADirectTilde = new double[sequenceLength][n*n];
+    
+    // Iterate until convergence of the transition probabilities
+    int maxSteps = 10;
+    for ( int iterationStep = 0; iterationStep < maxSteps; iterationStep++ ) {
+      System.out.println("Iteration " + iterationStep);
+      
+     //1. initialise the TA t-1->t
+      double[] auxTABar0 = new double[n * n];
+      for (int i = 0; i < n; i++) {
+        auxTABar0[i * n + i] = pi[i] * b[i][observedSequence[0]];
+      }
+      double norm0 = Utils.normOne(auxTABar0);
+      if(norm0==0) norm0 =1;
+      alphasScales[0]=1/norm0;
+      for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+          TAInitTilde[0][i * n + j] = auxTABar0[i * n + j] / norm0;
+
+        }
+      }
+      
+      for (int t = 1; t < sequenceLength; t++) {
+        double[] auxTABar = new double[n * n];
+        for (int i = 0; i < n; i++) {
+          for (int j = 0; j < n; j++) {
+            auxTABar[i * n + j] = a[j][i] * b[i][observedSequence[t]];
+          }
+        }
+        double norm = Utils.normOne(auxTABar);
+        //System.out.println("norm 1 pos 1 : "+norm);
+        if(norm==0) norm =1;
+        for (int i = 0; i < n; i++) {
+          for (int j = 0; j < n; j++) {
+            TAInitTilde[t][i * n + j] = auxTABar[i * n + j] / norm;
+          }
+        }
+      }
+      System.out.println();
+      
+      //2. compute the TA 0->t
+        //initialize TADirectTilde[0]
+      for(int i =0;i<n;i++){
+        for(int j=0;j<n;j++){
+          TADirectTilde[0][i * n + j] = TAInitTilde[0][i* n + j];
+        }
+      }
+      double norm1 = Utils.normOne(TADirectTilde[0]);
+      //System.out.println("norm 1 pos 2 : "+norm1);
+      
+      for (int t = 1; t < sequenceLength; t++) {
+        double[] auxTATilde = new double[n * n];
+        for (int i = 0; i < n; i++) {
+          for (int j = 0; j < n; j++) {
+            for (int h = 0; h < n; h++) {
+              auxTATilde[i * n + j] += TAInitTilde[t][i* n + h]*TADirectTilde[t-1][h * n + j] ;// need to check index t (confusion t->t+1)?
+                                                                                               
+            }
+          }
+        }
+        double norm = Utils.normOne(auxTATilde);
+        //System.out.println("norm 1 pos 2 : "+norm);
+        if(norm==0) norm =1;
+        for (int i = 0; i < n; i++) {
+          for (int j = 0; j < n; j++) {
+            TADirectTilde[t][i * n + j] = auxTATilde[i * n + j] / norm;
+
+          }
+        }
+      }
+      
+      
+      //3. compute alphaHat(t)
+        //then use TATilde to compute each vector alpha;
+      for (int t = 0; t < sequenceLength; t++) {
+        for (int i = 0; i < n; i++) {
+          double aux = 0.0;
+          for (int h = 0; h < n; h++) {
+            aux += TADirectTilde[t][i * n + h];
+          }
+          alphasHat[t * n + i] = aux;
+        }
+      }
+      
+      
+      //4. compute alphaBar(t)
+      /*
+      for (int t = 1; t < sequenceLength; t++) {
+        for(int i = 0;i<n;i++){
+          double res =0.0;
+          for(int h =0;h<n;h++){
+            double aux =0.0;
+            for (int l = 0; l < n; l++) {
+              aux += TADirectTilde[t - 1][h * n + l] * alphasHat[(0) * n + l];
+            }
+            res += aux * b[i][observedSequence[t]]* a[h][i];
+          }
+          alphasBar[t*n+i] = res;
+        }
+      }
+      */
+      
+      for (int t = 1; t < sequenceLength; t++) {
+        for (int i = 0; i < n; i++) {
+          double res = 0.0;
+          for (int h = 0; h < n; h++) {
+            res += b[i][observedSequence[t]] * a[h][i] * alphasHat[(t - 1) * n + h];
+          }
+          alphasBar[t * n + i] = res;
+        }
+      }
+      
+      
+      
+      
+      
+      
+      
+      //5. compute c_t i.e. alphasScales
+      for (int t = 1; t < sequenceLength; t++) {
+        double sumHat = 0.0;
+        double sumBar = 0.0;
+        for (int i = 0; i < n; i++) {
+          sumHat += alphasHat[t * n + i];
+          sumBar += alphasBar[t * n + i];
+        }
+        alphasScales[t] = sumHat / sumBar;
+        //System.out.println("sumHat "+t+" = "+sumHat);
+        //System.out.println("sumBar "+t+" = "+sumBar);
+      }
+        
+        
+     
+      /*
+       * Generate all the betas coefficients
+       */
+      for (int stateIndex = 0; stateIndex < n; stateIndex++) {
+        betas[(sequenceLength - 1) * n + stateIndex] = 1.0d;
+      }
+
+      for (int t = sequenceLength - 1; t >= 1; t--) {
+        for (int i = 0; i < n; i++) {
+          double res = 0.0;
+          for (int j = 0; j < n; j++) {
+            res += (betas[t * n + j] * a[i][j]
+                   * b[j][observedSequence[t]] * alphasScales[t - 1]);
+          }
+
+          betas[(t - 1) * n + i] = res;
+        }
+      }
+      
+      // reset temporary variables
+      Arrays.fill(gammasSums, 0.0d);
+      for ( int stateIndex = 0; stateIndex < n; stateIndex++ ) {
+        Arrays.fill(aaStar[stateIndex], 0.0);
+      }
+      
+      // as we don't need to update b, we can stop at
+      // sequenceLength-1
+      for ( int t = 0; t < sequenceLength - 1; t++ ) {
+        
+        // compute the terms alpha(i,t)*beta(i,t) and incrementally the sum of them
+        for (int i = 0; i < n; i++) {
+          double tempVal = alphasHat[t * n + i] * betas[t * n + i];
+          gammas[i] = tempVal;
+        }
+
+        // compute gamma(i,t), and incrementally gamma_sums(i)
+        for (int i = 0; i < n; i++) {
+          double tempVal = gammas[i] / alphasScales[t];
+          gammas[i] = tempVal;
+          gammasSums[i] += tempVal;
+        }
+
+        // we have now gamma(i,t) in gammas[], and sum( k, alpha(k, t)*beta(k, t) ) in denGamma */
+        /* compute khi(i,j) incrementally, put it in aaStar */
+        if (t != sequenceLength - 1) {
+          for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+              double khi = (alphasHat[t * n + i] * a[i][j] * betas[(t + 1) * n + j])
+                      * b[j][observedSequence[t + 1]];
+              aaStar[i][j] += khi;
+            }
+          }
+        }
+        /* copy in Pi_star if that's the moment */
+        if (t == 0) {
+          System.arraycopy(gammas, 0, piStar, 0, n);
+        }
+      }
+      
+      // Renormalize aaStar
+      for (int i = 0; i < n; i++) {
+        double sum = 0.0;
+        for (int j = 0; j < n; j++) {
+          sum += aaStar[i][j];
+        }
+        if ( sum > 0.0 ) {
+          for (int j = 0; j < n; j++) {
+            aaStar[i][j] /= sum;
+          }
+        }
+      }
+      
+      // Renormalize piStar
+      double sum = 0.0;
+      for (int i = 0; i < n; i++ ) {
+        sum += piStar[i];
+      }
+      if ( sum > 0.0 ) {
+        for ( int i = 0; i < n; i++ ) {
+          piStar[i] /= sum;
+        }
+      }
+      
+      // Check convergence here
+      double logLikelihood = 0.0;
+      for ( int t = 0; t < sequenceLength; t++ ) {
+        logLikelihood -= Math.log(alphasScales[t]);
+      }
+      
+      // Copy back piStar and aaStar
+      double[] temp1 = pi;
+      pi = piStar;
+      piStar = temp1;
+      
+      double[][] temp2 = a;
+      a = aaStar;
+      aaStar = temp2;
+      
+      // break when both criterion have been  met
+      if ( Math.abs(logLikelihood - prevLogLikelihood) < likelihoodThreshold ) {
+        //break;
+      }
+      
+      prevLogLikelihood = logLikelihood;
+    }
+    
+    
+    
+  }
 
   /**
    * This method associates a state of the HMM to each word of the stream using Viterbi algorithm.
@@ -429,6 +698,7 @@ public class Hmm {
         outIndex++;
         randOutput -= b[currentState][outIndex];
       }
+      //System.out.print(outIndex+" "+b[currentState][outIndex]+";");
       sequence[t] = outIndex;
       int nextState = -1;
       while (randTransition > 0.0 && nextState < (n - 1)) {
@@ -436,7 +706,9 @@ public class Hmm {
         randTransition -= a[currentState][nextState];
       }
       currentState = nextState;
+      
     }
+    
     System.out.println();
     System.out.println("done generating sequence");
 

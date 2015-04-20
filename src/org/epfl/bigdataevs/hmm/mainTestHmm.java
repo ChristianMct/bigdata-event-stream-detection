@@ -23,7 +23,7 @@ public class mainTestHmm {
 
     Hmm hmm = new Hmm(output, pi,a, b);
 
-    List<String> observationSequence = hmm.generateObservationSequence(20000000);
+    List<String> observationSequence = hmm.generateObservationSequence(200);
     int[] hiddenSequence = hmm.decode(observationSequence);
     System.out.println("done decoding");
     
@@ -34,12 +34,13 @@ public class mainTestHmm {
     double[][] initialA = { { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 },
             { 0.25, 0.25, 0.25, 0.25 } };
     Hmm trainedHmm = new Hmm(n, m, initialPi, initialA, b);
+    Hmm trainedHmm2 = new Hmm(n, m, initialPi.clone(), initialA.clone(), b.clone());
     
-    int[] rawSequence = hmm.generateRawObservationSequence(1000000);
-    int seqSize = 1000000;
-    while ( seqSize <= 1000000) {
-      trainedHmm.rawTrain(rawSequence, seqSize);
-      
+    int[] rawSequence = hmm.generateRawObservationSequence(100000);
+    int seqSize = 100000;
+    while ( seqSize <= 100000) {
+      trainedHmm.rawParalellTrain(rawSequence, 0.1);
+      trainedHmm2.rawTrain(rawSequence, 100);
    // Print Pi first
       double[] trainedPi = trainedHmm.getPi();
       System.out.println("Pi: ");
@@ -64,6 +65,36 @@ public class mainTestHmm {
       for ( int i = 0; i < n; i++ ) {
         for (int j = 0; j < m; j++ ) {
           System.out.print(" " + trainedB[i][j]);
+        }
+        System.out.println("");
+      }
+      
+      
+      
+      
+      double[] trainedPi2 = trainedHmm2.getPi();
+      System.out.println("Pi2: ");
+      for ( int i = 0; i < n; i++ ) {
+        System.out.print(" " + trainedPi2[i]);
+      }
+      System.out.println("");
+      
+      //  Print A then
+      double[][] trainedA2 = trainedHmm2.getA();
+      System.out.println("A2: ");
+      for ( int i = 0; i < n; i++ ) {
+        for (int j = 0; j < n; j++ ) {
+          System.out.print(" " + trainedA2[i][j]);
+        }
+        System.out.println("");
+      }
+      
+      //  Print B
+      double[][] trainedB2 = trainedHmm2.getB();
+      System.out.println("B2: ");
+      for ( int i = 0; i < n; i++ ) {
+        for (int j = 0; j < m; j++ ) {
+          System.out.print(" " + trainedB2[i][j]);
         }
         System.out.println("");
       }
