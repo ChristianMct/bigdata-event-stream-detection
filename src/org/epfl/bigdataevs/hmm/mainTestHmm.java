@@ -31,17 +31,20 @@ public class mainTestHmm {
     int n = pi.length;
     int m = 5;
     double[] initialPi = {0.25,0.25,0.25,0.25};
+    double[] initialPi2 = {0.25,0.25,0.25,0.25};
     double[][] initialA = { { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 },
             { 0.25, 0.25, 0.25, 0.25 } };
+    double[][] initialA2 = { { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 },
+            { 0.25, 0.25, 0.25, 0.25 } };
     Hmm trainedHmm = new Hmm(n, m, initialPi, initialA, b);
-    Hmm trainedHmm2 = new Hmm(n, m, Arrays.copyOf(initialPi,initialPi.length),
-            Arrays.copyOf(initialA,initialA.length), Arrays.copyOf(b,b.length));
+    Hmm trainedHmm2 = new Hmm(n, m, initialPi2,
+           initialA2, Arrays.copyOf(b,b.length));
     
-    int[] rawSequence = hmm.generateRawObservationSequence(500);
-    int seqSize = 500;
-    while ( seqSize <= 500) {
+    int[] rawSequence = hmm.generateRawObservationSequence(1000000);
+    int seqSize = 1000000;
+    while ( seqSize <= 1000000) {
       trainedHmm.rawParalellTrain(rawSequence, 0.1);
-      trainedHmm2.rawTrain(rawSequence, 100);
+      trainedHmm2.rawTrain(rawSequence, 1000000);
    // Print Pi first
       double[] trainedPi = trainedHmm.getPi();
       System.out.println("Pi: ");

@@ -294,7 +294,7 @@ public class Hmm {
       
       // break when both criterion have been  met
       if ( Math.abs(logLikelihood - prevLogLikelihood) < likelihoodThreshold ) {
-        break;
+        //break;
       }
       
       prevLogLikelihood = logLikelihood;
@@ -333,7 +333,7 @@ public class Hmm {
     double[][] TBDirectTilde = new double[sequenceLength][n*n];
     
     // Iterate until convergence of the transition probabilities
-    int maxSteps = 10;
+    int maxSteps = 100;
     for ( int iterationStep = 0; iterationStep < maxSteps; iterationStep++ ) {
       System.out.println("Iteration " + iterationStep);
       
