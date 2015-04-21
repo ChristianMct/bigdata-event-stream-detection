@@ -5,6 +5,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
 
 import java.io.IOException;
 import java.text.ParseException;
@@ -33,21 +34,21 @@ public class InputParser {
    * @throws XMLStreamException  for numerous cool other reasons
    * @throws NumberFormatException if a bad number was in the source xml
    **/
-  public TextCollectionData getEmInput(List<TimePeriod> timePeriod,
-                                                          SparkContext sparkContext) 
+  public static TextCollectionData getEmInput(List<TimePeriod> timePeriods,
+                                                          JavaSparkContext sparkContext) 
          throws NumberFormatException, XMLStreamException, ParseException, IOException {
     
-    if (timePeriod == null) {
+    if (timePeriods == null) {
       return null; 
     }
     Configuration config = new Configuration();
     //Comment the next line if not using HDFS as source directory
-    config.addResource(new Path("/usr/local/Cellar/hadoop/2.6.0/libexec/etc/hadoop/core-site.xml"));
+    //config.addResource(new Path("/usr/local/Cellar/hadoop/2.6.0/libexec/etc/hadoop/core-site.xml"));
     
     List<String> sourceList = new LinkedList<String>();
-    sourceList.add("hdfs:///projects/dh-shared/JDG");
+    sourceList.add("hdfs:///user/christian/JDG");
     
-    TimePeriod englobingTimePeriod = TimePeriod.getEnglobingTimePeriod(timePeriod);
+    TimePeriod englobingTimePeriod = TimePeriod.getEnglobingTimePeriod(timePeriods);
     
     RawArticleInputStream ras = new RawArticleInputStream(englobingTimePeriod, sourceList, config);
     
@@ -58,10 +59,8 @@ public class InputParser {
       rawArticleList.add(rawArticle);
     }
     
-    // Ca marche pas ça alors je commente pour pas break the build
-    //JavaRDD rdd = sparkContext.parallelize(rawArticleList,1, RawArticle.class);
+    JavaRDD<RawArticle> rawArticlesRdd = sparkContext.parallelize(rawArticleList); 
     
-    
-    return null;
+    return TextCollectionData.generateTextCollectionData(rawArticlesRdd, timePeriods);
   }
 }
