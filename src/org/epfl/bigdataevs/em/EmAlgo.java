@@ -20,6 +20,7 @@ import java.io.Serializable;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -144,7 +145,7 @@ public class EmAlgo implements Serializable {
    * Select the best EmInput for EmInputs having the same indexOfPartition.
    * @return all themes with average score
    */
-  public JavaPairRDD<Theme, Double> run() {
+  public JavaRDD<EmInput> run() {
     JavaPairRDD<TimePeriod, Tuple2<EmInput, Double>> processedPartitions = this.algorithm().mapToPair(
             new PairFunction<Tuple2<EmInput,Double>, TimePeriod, Tuple2<EmInput, Double>>() {
             public Tuple2<TimePeriod, Tuple2<EmInput, Double>> call(Tuple2<EmInput, Double> tuple)
@@ -153,14 +154,14 @@ public class EmAlgo implements Serializable {
             }
       });
     
-    JavaRDD<EmInput> selectedInputs = processedPartitions.groupByKey().map(
+    return processedPartitions.groupByKey().map(
             new Function<Tuple2<TimePeriod,Iterable<Tuple2<EmInput,Double>>>, EmInput>() {
             @Override
             public EmInput call(
                     Tuple2<TimePeriod, Iterable<Tuple2<EmInput, Double>>> iterable) throws Exception {
               Iterator<Tuple2<EmInput, Double>> it = iterable._2.iterator();
               Tuple2<EmInput, Double> bestInput = (Tuple2<EmInput, Double>) it.next();
-              while(it.hasNext()) {
+              while (it.hasNext()) {
                 Tuple2<EmInput, Double> currentInput = (Tuple2<EmInput, Double>) it.next();
                 if (currentInput._2 > bestInput._2) {
                   bestInput = currentInput;
@@ -169,7 +170,9 @@ public class EmAlgo implements Serializable {
               return bestInput._1;
             }
           });
-    
+  }
+  
+  public JavaPairRDD<Theme, Double> relatedThemes(JavaRDD<EmInput> selectedInputs) {
     JavaPairRDD<Theme, Double> listOfSelectedThemes = selectedInputs.flatMapToPair(
             new PairFlatMapFunction<EmInput, Theme, Double>() {
           @Override
@@ -189,4 +192,22 @@ public class EmAlgo implements Serializable {
     return listOfSelectedThemes;
   }
   
+  /**
+   * Return a list of article that have the highest probability to belong to a theme.
+   * @param inputs
+   * @param nunmberArticlesPerTheme
+   * @return
+   */
+  public JavaPairRDD<Theme, Iterable<ParsedArticle>> relatedArticles(JavaRDD<EmInput> selectedInputs, 
+          int nunmberArticlesPerTheme) {
+    return selectedInputs.flatMapToPair(new PairFlatMapFunction<EmInput, Theme , Iterable<ParsedArticle>>() {
+      @Override
+      public Iterable<Tuple2<Theme, Iterable<ParsedArticle>>> call(EmInput input) throws Exception {
+        
+        List<Tuple2<Theme, Iterable<ParsedArticle>>> themesWithArticles = new ArrayList<>();  
+        return null;
+      }
+    });
+  }
+
 }

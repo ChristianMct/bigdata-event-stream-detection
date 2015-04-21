@@ -2,6 +2,7 @@ package org.epfl.bigdataevs.em;
 
 import org.apache.commons.math3.fraction.BigFraction;
 import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.epfl.bigdataevs.eminput.ParsedArticle;
 import org.epfl.bigdataevs.eminput.TimePeriod;
@@ -68,7 +69,9 @@ public class mainTestEm{
     
     JavaSparkContext sc = new JavaSparkContext("local", "EM Algorithm Test");
     EmAlgo emAlgo = new EmAlgo(sc, sc.parallelize(partitions), 3, 0.8, 3);
-    Map<Theme, Double> result =  (Map<Theme, Double>) emAlgo.run().collectAsMap();
+   
+    JavaRDD<EmInput> selectedInputs = emAlgo.run();
+    Map<Theme, Double> result = emAlgo.relatedThemes(selectedInputs).collectAsMap();
     sc.close();
     System.out.println(result.keySet().size() + " elements");
     int i = 0;

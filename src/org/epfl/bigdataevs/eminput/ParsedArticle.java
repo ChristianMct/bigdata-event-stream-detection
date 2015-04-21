@@ -94,7 +94,7 @@ public class ParsedArticle implements Serializable {
   /**
    * Update hidden variable regarding background model
    */
-  public void updateHiddenVariableBackgroundModel(HashMap<String, Double> backgroundModel, double lambdaB) {
+  public void updateHiddenVariableBackgroundModel(Map<String, Double> backgroundModel, double lambdaB) {
     for (String word : this.probabilitiesHiddenVariablesBackgroundModel.keySet()) {
       double numerator = backgroundModel.get(word)*lambdaB;
       double temp = 0.0;
