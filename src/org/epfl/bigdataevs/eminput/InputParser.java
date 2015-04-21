@@ -33,7 +33,7 @@ public class InputParser {
    * @throws XMLStreamException  for numerous cool other reasons
    * @throws NumberFormatException if a bad number was in the source xml
    **/
-  public JavaPairRDD<TimePeriod,TimePartition> getEmInput(List<TimePeriod> timePeriod,
+  public TextCollectionData getEmInput(List<TimePeriod> timePeriod,
                                                           SparkContext sparkContext) 
          throws NumberFormatException, XMLStreamException, ParseException, IOException {
     
@@ -60,6 +60,7 @@ public class InputParser {
     
     // Ca marche pas ça alors je commente pour pas break the build
     //JavaRDD rdd = sparkContext.parallelize(rawArticleList,1, RawArticle.class);
+    
     
     return null;
   }

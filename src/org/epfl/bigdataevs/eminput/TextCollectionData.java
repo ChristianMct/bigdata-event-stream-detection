@@ -1,7 +1,6 @@
 package org.epfl.bigdataevs.eminput;
 
-import org.apache.commons.collections.BidiMap;
-import org.apache.commons.collections.bidimap.DualHashBidiMap;
+import org.apache.commons.collections.IteratorUtils;
 import org.apache.commons.math3.fraction.Fraction;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -9,6 +8,7 @@ import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
+import org.apache.spark.api.java.function.PairFunction;
 
 import scala.Tuple2;
 
@@ -21,14 +21,12 @@ import java.util.List;
 import java.util.Map;
 
 
-/**@author Matias and Christian
- * Represents a processed data set of text articles. TextCollectionData contains the
+/** Represents a processed data set of text articles. TextCollectionData contains the
  * background model retrieved from the original dataset and the list of TimePartition 
  * segments used in the Expectation-Maximization (EM) phase.
- * 
  * TODO: Add RDD of EMInputs (must be computed from ParsedArticles set 
  *   in generateTextCollectionData)
- * **/
+ * Team: Matias and Christian **/
 public class TextCollectionData {
   
   /** Map containing tuples of words (identified by their ID in backgroundWords) and their 
@@ -46,45 +44,45 @@ public class TextCollectionData {
   /** Time range considered for the data set. **/
   public final TimePeriod timeFrame;
   
-  /** Article texts are split on anything not a letter or number **/
+  public final JavaPairRDD<TimePeriod,TimePartition> timePartitions;
+  
+  /** Article texts are split on anything not a letter or number. **/
   public static final String WORD_SPLIT_PATTERN = "[^\\p{L}\\p{Nd}]+";
   
-  /** Used for cleaning: words that don't have a count inferior or equal to this 
+  /** Used for cleaning: words that don't have a count inferior or equal to this. 
    * in the whole stream are filtered out**/
   public static final int WORD_COUNT_THRESHOLD = 3;
 
 
   /**Initializer from a background model and a collection of ParsedArticle.
-   * @param IdWordMap a mapping that identifies an unique int to each distinct word
-   *    in the dataset.
-   * @param backgroundModel the background model of the whole dataset
-   * @param parsedArticles TODO: make a JavaRDD of EMInputs out of that
+   * @param idWordMap a mapping that identifies an unique int to each distinct word
+   *        in the dataset.
+   * @param backgroundModel the background model of the whole datase.
    * @param forTimePeriod the TimeFrame that identifies the range of the dataset
    */
-  public TextCollectionData(Map <Integer, String> IdWordMap,
+  public TextCollectionData(Map<Integer, String> idWordMap,
           Map<String, Fraction> backgroundModel,
-          JavaPairRDD<TimePeriod, ParsedArticle> parsedArticles,
           TimePeriod forTimePeriod,
-          List<String> wordConcat) {
-    this.backgroundWordMap = IdWordMap;
+          List<String> wordConcat,
+          JavaPairRDD<TimePeriod,TimePartition> partitions) {
+    this.backgroundWordMap = idWordMap;
     this.timeFrame = forTimePeriod;
     this.backgroundModel = backgroundModel;
-    //this.parsedArticles = parsedArticles;
     this.collectionWords = wordConcat;
+    this.timePartitions = partitions;
   }
   
   
-  /** Returns RDD mapping each (cleaned) word to its count in the whole dataset **/
+  /** Returns RDD mapping each (cleaned) word to its count in the whole dataset. **/
   @SuppressWarnings("serial")
   private static JavaPairRDD<String, Integer> 
-        createWordCountRDD(JavaRDD<SegmentedArticle> data) 
-  {
+        createWordCountRdd(JavaRDD<SegmentedArticle> data) {
     
     //temporary background model data: maps every word to its count for the whole time period
     JavaPairRDD<String, Integer> wordCountRdd = data
             .flatMapToPair(new PairFlatMapFunction<SegmentedArticle, String, Integer>() {
               
-              public Iterable<Tuple2<String, Integer> > call(SegmentedArticle art) {
+              public Iterable<Tuple2<String, Integer>> call(SegmentedArticle art) {
                 LinkedList<Tuple2<String, Integer>> countTuples = 
                         new LinkedList<Tuple2<String, Integer>>();
                 for (String word : art.words) {
@@ -97,36 +95,33 @@ public class TextCollectionData {
     
     //merge all equivalent words to the same key, adding their count
     JavaPairRDD<String, Integer> wordCountRddReduced = 
-      wordCountRdd.reduceByKey(new Function2<Integer,
+              wordCountRdd.reduceByKey(new Function2<Integer,
                   Integer,
                   Integer>() {  
-            public Integer call(Integer lhs, Integer rhs) { 
-              return lhs + rhs; 
-            }   
-            });
+                public Integer call(Integer lhs, Integer rhs) { 
+                  return lhs + rhs; 
+                }   
+              });
     
     //cleaning: filter out words that have exceptionally low occurence count
-    return wordCountRddReduced.filter(
-            new Function<Tuple2<String, Integer>, Boolean>() {          
-              public Boolean call(Tuple2<String, Integer> tuple) {
-                return tuple._2() > TextCollectionData.WORD_COUNT_THRESHOLD;
-              }
-            });
+    return wordCountRddReduced.filter(new Function<Tuple2<String, Integer>, Boolean>() {
+      public Boolean call(Tuple2<String, Integer> tuple) {
+        return tuple._2() > TextCollectionData.WORD_COUNT_THRESHOLD;
+      }
+    });
   }
   
-  /** Returns the textual content of articleData as a list of words
+  /** Returns the textual content of articleData as a list of words.
    * @articleData JavaRDD of SegmentedArticle instances, must be chronologically
-   * ordered **/
+   *              ordered **/
   @SuppressWarnings("serial")
   private static List<String> generateWordConcatenation(JavaRDD<SegmentedArticle> articleData) {
     //TODO: Check that collect() keeps ordering
-    return articleData.flatMap(
-            new FlatMapFunction<SegmentedArticle, String>() {
-              
-              public List<String> call(SegmentedArticle segArt) {
-                return segArt.words;
-              }
-            }).collect();   
+    return articleData.flatMap(new FlatMapFunction<SegmentedArticle, String>() {
+      public List<String> call(SegmentedArticle segArt) {
+        return segArt.words;
+      }
+    }).collect();   
   }
   
   
@@ -135,7 +130,7 @@ public class TextCollectionData {
    * a particular time period.
    * @input the JavaRDD of RawArticle instances, contains every articles with their full text
    * @timeSegments the segmentation of time periods used for the EM phase. The periods
-   *  can be overlapping but the list must be sorted in ascending order.
+   *               can be overlapping but the list must be sorted in ascending order.
    * @return a TimePartition containing the background model for this time frame and the word
    *     count of every individual article. **/
   @SuppressWarnings("serial")
@@ -155,14 +150,14 @@ public class TextCollectionData {
     }, true, segmentedArticles.partitions().size());
     
 
-    JavaPairRDD<String, Integer> cleanedWordCount = createWordCountRDD(segmentedArticles);
+    JavaPairRDD<String, Integer> cleanedWordCount = createWordCountRdd(segmentedArticles);
     
     //("usual" state) word -> word's count map
     Map<String, Integer> wordToCount = cleanedWordCount.collectAsMap();
     //word id -> word's count map
     Map<Integer, Integer> wordIdToCount = new HashMap<Integer, Integer>();
     //word-id -> string word map
-    Map<Integer, String> IdWordMap = new HashMap<Integer, String>();
+    Map<Integer, String> idWordMap = new HashMap<Integer, String>();
     int totalAmountCounter = 0;
     int wordId = 0;
     /*the following loop does two things: it counts the total amount of words
@@ -175,7 +170,7 @@ public class TextCollectionData {
     for (String word : wordToCount.keySet()) {
       int currentCount = wordToCount.get(word);
       totalAmountCounter += currentCount;
-      IdWordMap.put(wordId, word);
+      idWordMap.put(wordId, word);
       wordIdToCount.put(wordId, currentCount);
       wordId++;
     }
@@ -196,12 +191,36 @@ public class TextCollectionData {
     //TODO: remove cleaned words
     JavaPairRDD<TimePeriod, ParsedArticle> parsedArticles = 
             segmentedArticles.flatMapToPair(new ProcessArticle());
+    
+    JavaPairRDD<TimePeriod, TimePartition> partitions =   
+            parsedArticles.groupByKey().mapToPair(new CreatePartitionFunction());
 
-    return new TextCollectionData(IdWordMap,
+    return new TextCollectionData(idWordMap,
             backgroundModelRdd.collectAsMap(),
-            parsedArticles,
             TimePeriod.getEnglobingTimePeriod(timeSegments),
-            wordConcat);  
+            wordConcat,
+            partitions);  
+  }
+}
+
+/** Creates the TimePartition objects from the processed articles KEY VALUE RDD
+ * grouped by TimePeriod.
+ */
+@SuppressWarnings("serial")
+class CreatePartitionFunction implements 
+      PairFunction<Tuple2<TimePeriod, Iterable<ParsedArticle>>,TimePeriod, TimePartition> {
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public Tuple2<TimePeriod,TimePartition>
+        call(Tuple2<TimePeriod, Iterable<ParsedArticle>> tuple) 
+                  throws Exception {
+    
+    TimePartition timePartition = new TimePartition(IteratorUtils.toList(tuple._2.iterator()),
+                                                                         tuple._1);
+    return new Tuple2<TimePeriod, TimePartition>(tuple._1, timePartition);
+  }
+  
   
 }
   
@@ -237,18 +256,20 @@ class SegmentArticle implements Function<RawArticle, SegmentedArticle> {
     this.timePeriods = timePeriods;
   }
 
-  /** Splits the RawArticle's text into a list of words; turn result into a SegmentedArticle
+  /** Splits the RawArticle's text into a list of words; turn result into a SegmentedArticle.
    * instance **/
   public SegmentedArticle call(RawArticle article) {         
     
     LinkedList<TimePeriod> containingPeriods = new LinkedList<TimePeriod>();
     for (TimePeriod segment : timePeriods) {
-      if (segment.includeDates(article.issueDate))
+      if (segment.includeDates(article.issueDate)) {
         containingPeriods.add(segment);
+      }
     }
     //Article outside of parsed range: don't consider
-    if (containingPeriods.isEmpty())
+    if (containingPeriods.isEmpty()) {   
       return null;
+    }
     
     String[] words = article.fullText.split(TextCollectionData.WORD_SPLIT_PATTERN);
     LinkedList<String> cleanedWords = new LinkedList<String>();
@@ -265,8 +286,7 @@ class SegmentArticle implements Function<RawArticle, SegmentedArticle> {
 
 @SuppressWarnings("serial")
 class ProcessArticle implements 
-  PairFlatMapFunction<SegmentedArticle, TimePeriod, ParsedArticle> 
-{
+      PairFlatMapFunction<SegmentedArticle, TimePeriod, ParsedArticle> {
 
   /** Compute the count of each word in article. Then produce a ParsedArticle
    * and return a mapping of this ParsedArticle with each of its parent
@@ -290,8 +310,9 @@ class ProcessArticle implements
     
     ParsedArticle parsedArticle = new ParsedArticle(wordCount, article.stream, 
             article.publication);
-    for (TimePeriod articlePeriod: article.owningTimePeriods)
+    for (TimePeriod articlePeriod: article.owningTimePeriods) {    
       result.add(new Tuple2<TimePeriod, ParsedArticle>(articlePeriod, parsedArticle));
+    }
       
     return result;
   }

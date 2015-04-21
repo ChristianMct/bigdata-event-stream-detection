@@ -39,8 +39,7 @@ public class TimePartition {
    * @param parsedArticles all the ParsedArticles in the TimePeriod.
    * @param forTimePeriod the TimePeriod on which this TimePartition is based
    */
-  public TimePartition(Map <Integer, String> IdWordMap,
-          Map<Integer, Fraction> backgroundModel,
+  public TimePartition(
           Collection<ParsedArticle> parsedArticles,
           TimePeriod forTimePeriod) {
     this.timePeriod = forTimePeriod;
