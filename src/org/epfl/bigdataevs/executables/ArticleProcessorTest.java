@@ -4,10 +4,8 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.epfl.bigdataevs.eminput.ArticleStream;
-import org.epfl.bigdataevs.eminput.ParsedArticle;
 import org.epfl.bigdataevs.eminput.RawArticle;
 import org.epfl.bigdataevs.eminput.TextCollectionData;
-import org.epfl.bigdataevs.eminput.TimePartition;
 import org.epfl.bigdataevs.eminput.TimePeriod;
 
 import java.util.ArrayList;

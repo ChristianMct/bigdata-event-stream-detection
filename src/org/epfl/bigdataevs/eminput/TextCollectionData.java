@@ -1,7 +1,5 @@
 package org.epfl.bigdataevs.eminput;
 
-import org.apache.commons.collections.BidiMap;
-import org.apache.commons.collections.bidimap.DualHashBidiMap;
 import org.apache.commons.math3.fraction.Fraction;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -9,6 +7,8 @@ import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 
 import scala.Tuple2;
 
@@ -23,8 +23,9 @@ import java.util.Map;
 
 /**@author Matias and Christian
  * Represents a processed data set of text articles. TextCollectionData contains the
- * background model retrieved from the original dataset and the list of TimePartition 
- * segments used in the Expectation-Maximization (EM) phase.
+ * background model retrieved from the original dataset and a RDD of EMInput instances 
+ * (separated by time segments) which are used in the Expectation-Maximization (EM) and
+ * the HMM phase.
  * 
  * TODO: Add RDD of EMInputs (must be computed from ParsedArticles set 
  *   in generateTextCollectionData)
@@ -36,12 +37,12 @@ public class TextCollectionData {
   public final Map<String, Fraction> backgroundModel;
   
   /** Identifies each distinct word instance with an int. **/
-  public final Map<Integer, String> backgroundWordMap;
+  public final BiMap<Integer, String> backgroundWordMap;
   
   /**Lists each word of every stream in chronological order.
-   * TODO: use Integer instead when we're able to identify String by ints, 
-   * for memory economy, and retrieve word with backgroundWords**/
-  public final List<String> collectionWords;
+   * Words are stored as integers for memory economy. To retrieve the text 
+   * content of each word, use backgroundWordMap**/
+  public final List<Integer> collectionWords;
 
   /** Time range considered for the data set. **/
   public final TimePeriod timeFrame;
@@ -49,7 +50,7 @@ public class TextCollectionData {
   /** Article texts are split on anything not a letter or number **/
   public static final String WORD_SPLIT_PATTERN = "[^\\p{L}\\p{Nd}]+";
   
-  /** Used for cleaning: words that don't have a count inferior or equal to this 
+  /** Used for cleaning: words that have a count inferior or equal to this 
    * in the whole stream are filtered out**/
   public static final int WORD_COUNT_THRESHOLD = 3;
 
@@ -61,11 +62,11 @@ public class TextCollectionData {
    * @param parsedArticles TODO: make a JavaRDD of EMInputs out of that
    * @param forTimePeriod the TimeFrame that identifies the range of the dataset
    */
-  public TextCollectionData(Map <Integer, String> IdWordMap,
+  public TextCollectionData(BiMap<Integer, String> IdWordMap,
           Map<String, Fraction> backgroundModel,
           JavaPairRDD<TimePeriod, ParsedArticle> parsedArticles,
           TimePeriod forTimePeriod,
-          List<String> wordConcat) {
+          List<Integer> wordConcat) {
     this.backgroundWordMap = IdWordMap;
     this.timeFrame = forTimePeriod;
     this.backgroundModel = backgroundModel;
@@ -114,17 +115,26 @@ public class TextCollectionData {
             });
   }
   
-  /** Returns the textual content of articleData as a list of words
-   * @articleData JavaRDD of SegmentedArticle instances, must be chronologically
-   * ordered **/
+  /** Returns the textual content of articleData as a list of words (represented by their
+   * unique integer ID).
+   * @param articleData JavaRDD of SegmentedArticle instances, must be chronologically
+   * ordered
+   * @param idCorrespondence the BiMap that translates a word into its id **/
   @SuppressWarnings("serial")
-  private static List<String> generateWordConcatenation(JavaRDD<SegmentedArticle> articleData) {
+  private static List<Integer> generateWordConcatenation
+    (JavaRDD<SegmentedArticle> articleData, final BiMap<String, Integer> idCorrespondence) 
+  {
     //TODO: Check that collect() keeps ordering
     return articleData.flatMap(
-            new FlatMapFunction<SegmentedArticle, String>() {
+            new FlatMapFunction<SegmentedArticle, Integer>() {
               
-              public List<String> call(SegmentedArticle segArt) {
-                return segArt.words;
+              public List<Integer> call(SegmentedArticle segArt) {
+                List<Integer> textAsWordId = new LinkedList<Integer>();
+                for (String word: segArt.words){
+                  if (!idCorrespondence.containsKey(word))
+                    textAsWordId.add(idCorrespondence.get(word));
+                }
+                return textAsWordId;
               }
             }).collect();   
   }
@@ -161,8 +171,8 @@ public class TextCollectionData {
     Map<String, Integer> wordToCount = cleanedWordCount.collectAsMap();
     //word id -> word's count map
     Map<Integer, Integer> wordIdToCount = new HashMap<Integer, Integer>();
-    //word-id -> string word map
-    Map<Integer, String> IdWordMap = new HashMap<Integer, String>();
+    //word-id -> string word map: Use BiMap because we want to also retrieve ids from words
+    BiMap<Integer, String> IdWordMap = HashBiMap.create();
     int totalAmountCounter = 0;
     int wordId = 0;
     /*the following loop does two things: it counts the total amount of words
@@ -191,8 +201,8 @@ public class TextCollectionData {
           }     
           });
     
-    //TODO: Turn word concatenation as list of Int (ids) instead
-    List<String> wordConcat = generateWordConcatenation(segmentedArticles);
+    List<Integer> wordConcat = generateWordConcatenation(segmentedArticles, 
+            IdWordMap.inverse());
     //TODO: remove cleaned words
     JavaPairRDD<TimePeriod, ParsedArticle> parsedArticles = 
             segmentedArticles.flatMapToPair(new ProcessArticle());
@@ -201,15 +211,14 @@ public class TextCollectionData {
             backgroundModelRdd.collectAsMap(),
             parsedArticles,
             TimePeriod.getEnglobingTimePeriod(timeSegments),
-            wordConcat);  
+            wordConcat);
+  }
   
 }
   
 /** Acts as an intermediary processing step between a RawArticle and a ParsedArticle.
  * The SegmentedArticle contains the ordered list of words constituting the original
- * article text. It also has a list of TimePeriods it belongs to. This allows to only 
- * count once every word in case of overlapping when creating the background model.
- * TODO: maybe allow parsedArticle to use integers instead of string for the words?? **/
+ * article text. It also has a list of TimePeriods it belongs to. **/
 class SegmentedArticle implements Serializable {
   
   public final List<String> words;
