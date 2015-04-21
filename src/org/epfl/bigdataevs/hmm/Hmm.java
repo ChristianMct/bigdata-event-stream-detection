@@ -294,7 +294,7 @@ public class Hmm {
       
       // break when both criterion have been  met
       if ( Math.abs(logLikelihood - prevLogLikelihood) < likelihoodThreshold ) {
-        break;
+        //break;
       }
       
       prevLogLikelihood = logLikelihood;
@@ -322,15 +322,18 @@ public class Hmm {
     // Temporary variables used in every iteration
     double[] alphasScales = new double[ sequenceLength ]; //c_t
     double[] alphasHat = new double[n * sequenceLength];
+    double[] betasHat = new double[n * sequenceLength];
     double[] alphasBar = new double[n * sequenceLength];
     double[] betas = new double[n * sequenceLength];
     double[] gammas = new double[n];
     double[] gammasSums = new double[n];
     double[][] TAInitTilde = new double[sequenceLength][n*n];
     double[][] TADirectTilde = new double[sequenceLength][n*n];
+    double[][] TBInitTilde = new double[sequenceLength][n*n];
+    double[][] TBDirectTilde = new double[sequenceLength][n*n];
     
     // Iterate until convergence of the transition probabilities
-    int maxSteps = 10;
+    int maxSteps = 100;
     for ( int iterationStep = 0; iterationStep < maxSteps; iterationStep++ ) {
       System.out.println("Iteration " + iterationStep);
       
@@ -454,17 +457,79 @@ public class Hmm {
           sumBar += alphasBar[t * n + i];
         }
         alphasScales[t] = sumHat / sumBar;
-        //System.out.println("sumHat "+t+" = "+sumHat);
+        //System.out.println("alphaScales "+alphasScales[t]);
         //System.out.println("sumBar "+t+" = "+sumBar);
       }
         
         
      
+      
+      
+      
+      
       /*
        * Generate all the betas coefficients
        */
+      for(int t =0;t<sequenceLength;t++){
+        for(int i=0;i<n;i++){
+          for(int j=0;j<n;j++){
+            TBInitTilde[t][i*n+j]=0.0;
+            TBDirectTilde[t][i*n+j]=0.0;
+          }
+        }
+      }
+    //1. initialise the TB t+1->t
+      for (int i = 0; i < n; i++) {
+        TBInitTilde[sequenceLength - 1][i * n + i] = 1.0 * alphasScales[sequenceLength - 1];//to be modified remove 1 *
+      }
+      
+      
+      for (int t = sequenceLength - 2; t >= 0; t--) {
+        for (int i = 0; i < n; i++) {
+          for (int j = 0; j < n; j++) {
+            TBInitTilde[t][i * n + j] = a[i][j] * b[j][observedSequence[t+1]] * alphasScales[t];
+          }
+        }
+      }
+      
+    //2. compute the TB sL-1->t
+      //initialize TADirectTilde[0]
+      for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+          TBDirectTilde[sequenceLength - 1][i * n + j] = TBInitTilde[sequenceLength - 1][i * n + j];
+        }
+      }
+
+      for (int t = sequenceLength - 2; t >= 0; t--) {
+        for (int i = 0; i < n; i++) {
+          for (int j = 0; j < n; j++) {
+            for (int h = 0; h < n; h++) {
+              TBDirectTilde[t][i * n + j] += TBInitTilde[t][i * n + h] * TBDirectTilde[t + 1][h * n + j];
+            }
+          }
+        }
+
+      }
+      
+      //3. compute betasHat(t)
+      //then use TATilde to compute each vector alpha;
+      for (int t = sequenceLength - 1; t >= 0; t--) {
+        for (int i = 0; i < n; i++) {
+          double aux = 0.0;
+          for (int h = 0; h < n; h++) {
+            aux += TBDirectTilde[t][i * n + h];
+          }
+          //System.out.println(aux);
+          betasHat[t * n + i] = aux;
+        }
+      }
+    
+    
+    
+      
+      /*
       for (int stateIndex = 0; stateIndex < n; stateIndex++) {
-        betas[(sequenceLength - 1) * n + stateIndex] = 1.0d;
+        betas[(sequenceLength - 1) * n + stateIndex] = 1.0d * alphasScales[sequenceLength-1];
       }
 
       for (int t = sequenceLength - 1; t >= 1; t--) {
@@ -476,9 +541,10 @@ public class Hmm {
           }
 
           betas[(t - 1) * n + i] = res;
+          //System.out.println("beta " + t + " " + res + " vs " + betasHat[(t - 1) * n + i]);
         }
       }
-      
+      */
       // reset temporary variables
       Arrays.fill(gammasSums, 0.0d);
       for ( int stateIndex = 0; stateIndex < n; stateIndex++ ) {
@@ -491,7 +557,7 @@ public class Hmm {
         
         // compute the terms alpha(i,t)*beta(i,t) and incrementally the sum of them
         for (int i = 0; i < n; i++) {
-          double tempVal = alphasHat[t * n + i] * betas[t * n + i];
+          double tempVal = alphasHat[t * n + i] * betasHat[t * n + i];
           gammas[i] = tempVal;
         }
 
@@ -507,7 +573,7 @@ public class Hmm {
         if (t != sequenceLength - 1) {
           for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
-              double khi = (alphasHat[t * n + i] * a[i][j] * betas[(t + 1) * n + j])
+              double khi = (alphasHat[t * n + i] * a[i][j] * betasHat[(t + 1) * n + j])
                       * b[j][observedSequence[t + 1]];
               aaStar[i][j] += khi;
             }
