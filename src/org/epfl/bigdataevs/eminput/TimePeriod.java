@@ -49,7 +49,7 @@ public class TimePeriod implements Serializable {
    * @return the TimePeriod englobing all periods in allPeriods
    */
   public static TimePeriod getEnglobingTimePeriod(List<TimePeriod> allPeriods) {
-    TimePeriod first = allPeriods.remove(0);
+    TimePeriod first = allPeriods.get(0);
     Date minFrom = first.from;
     Date maxTo = first.to;
     for (TimePeriod period : allPeriods) {
