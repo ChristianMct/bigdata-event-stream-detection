@@ -1,7 +1,6 @@
 package org.epfl.bigdataevs.em;
 
 import org.apache.commons.math3.fraction.BigFraction;
-import org.epfl.bigdataevs.eminput.ParsedArticle;
 import org.epfl.bigdataevs.eminput.TimePeriod;
 
 import java.math.BigDecimal;
@@ -43,7 +42,7 @@ public class Theme extends TimePeriod {
     Random random = new Random();
     double total = 0.0;
     
-    for (ParsedArticle article: input.parsedArticles) {
+    for (Document article: input.Documents) {
       for (String word: article.words.keySet()) {
         if (!wordsOfPartitions.contains(word)) {
           wordsOfPartitions.add(word);
