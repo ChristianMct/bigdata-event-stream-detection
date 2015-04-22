@@ -1,31 +1,30 @@
 package org.epfl.bigdataevs.eminput;
 
-import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.commons.lang3.tuple.Pair;
 import org.epfl.bigdataevs.em.EmAlgo;
 import org.epfl.bigdataevs.em.Theme;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
-import org.apache.commons.math3.*;
-import org.apache.commons.math3.fraction.BigFraction;
-import org.apache.commons.lang3.tuple.*;
-import org.apache.hadoop.util.hash.Hash;
+
 
 /**Team: Matias and Christian.
  * Container for the data of processed articles. An instance 
  * of this class contains the cleaned words and their count
  * in this article, as well as the stream identifier.**/
+
 public class ParsedArticle implements Serializable {
   /**Maps a word to the number of times it appears in this article.**/
-  public final HashMap<String, Integer> words;
+  public final Map<String, Integer> words;
   /**This article's stream identifier. **/
   public final ArticleStream stream;
+  /**Publication date**/
+  public final Date publication;
+  
   /**
    * Probability that this document belongs to the themes, Pi(d,j)
    * */
@@ -38,9 +37,10 @@ public class ParsedArticle implements Serializable {
   /**Hidden variable regarding background model **/
   public HashMap<String, Double> probabilitiesHiddenVariablesBackgroundModel = new HashMap<>();
   
-  public ParsedArticle( HashMap<String, Integer> words, ArticleStream stream) {
+public ParsedArticle( Map<String, Integer> words, ArticleStream stream, Date publication) {
     this.words = words;
     this.stream = stream;
+    this.publication = publication;
   }
   
   /**
