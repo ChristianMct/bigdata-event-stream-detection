@@ -10,11 +10,11 @@ public class mainTestHmm {
     // test scan left
     int mSize = 4;
     SquareMatrix[] array = {
-            new SquareMatrix(mSize).setIdentity().set(0, 0, 2.0),
+            new SquareMatrix(mSize).setIdentity().set(1, 1, 2.0),
             new SquareMatrix(mSize).setIdentity(),
             new SquareMatrix(mSize).setIdentity().set(1, 1, 2.0),
             new SquareMatrix(mSize).setIdentity(),
-            new SquareMatrix(mSize).setIdentity().set(2, 2, 2.0),
+            new SquareMatrix(mSize).setIdentity().set(1, 1, 2.0),
             new SquareMatrix(mSize).setIdentity(),
             new SquareMatrix(mSize).setIdentity().set(2, 3, 2.0)};
     
@@ -38,7 +38,7 @@ public class mainTestHmm {
     System.out.println("");
     
     // HMM tests
-    boolean testsHMM = false;
+    boolean testsHMM = true;
     if( testsHMM ) {
       List<String> output = new LinkedList<String>();
       output.add("alpha");
