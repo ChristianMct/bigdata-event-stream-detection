@@ -13,6 +13,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
 
 import javax.xml.stream.XMLStreamException;
@@ -36,7 +37,11 @@ public class InputParserTest {
     
     System.out.println(timePeriods.get(0).includeDates(format.parse("1/1/1939-12")));
     
-    TextCollectionData result = InputParser.getEmInput(timePeriods, ctx);
+    List<String> inputPaths = new LinkedList<String>();
+    inputPaths.add("hdfs://user/christian/JDG");
+    inputPaths.add("hdfs://user/christian/GDL");
+    
+    TextCollectionData result = InputParser.getEmInput(timePeriods, ctx, "hdfs://user/christian/JDG");
     
     System.out.println("======Background model's content======");
     for(int background_word_id : result.backgroundWordMap.keySet()) {
