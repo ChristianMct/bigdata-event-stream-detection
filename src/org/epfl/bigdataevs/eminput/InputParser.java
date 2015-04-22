@@ -35,7 +35,8 @@ public class InputParser {
    * @throws NumberFormatException if a bad number was in the source xml
    **/
   public static TextCollectionData getEmInput(List<TimePeriod> timePeriods,
-                                                          JavaSparkContext sparkContext) 
+                                             JavaSparkContext sparkContext,
+                                             List<String> sourcePath) 
          throws NumberFormatException, XMLStreamException, ParseException, IOException {
     
     if (timePeriods == null) {
@@ -46,7 +47,7 @@ public class InputParser {
     //config.addResource(new Path("/usr/local/Cellar/hadoop/2.6.0/libexec/etc/hadoop/core-site.xml"));
     
     List<String> sourceList = new LinkedList<String>();
-    sourceList.add("hdfs:///user/christian/JDG");
+    sourceList.addAll(sourcePath);
     
     TimePeriod englobingTimePeriod = TimePeriod.getEnglobingTimePeriod(timePeriods);
     
