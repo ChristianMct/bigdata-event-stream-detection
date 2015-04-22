@@ -4,6 +4,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.epfl.bigdataevs.em.EmAlgo;
 import org.epfl.bigdataevs.em.Theme;
 import org.epfl.bigdataevs.eminput.ArticleStream;
+import org.epfl.bigdataevs.eminput.ParsedArticle;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -24,7 +25,7 @@ import org.apache.hadoop.util.hash.Hash;
  * in this article, as well as the stream identifier.**/
 public class Document implements Serializable {
   /**Maps a word to the number of times it appears in this article.**/
-  public final HashMap<String, Integer> words;
+  public final Map<String, Integer> words;
   /**This article's stream identifier. **/
   public final ArticleStream stream;
   /**
@@ -39,9 +40,14 @@ public class Document implements Serializable {
   /**Hidden variable regarding background model **/
   public HashMap<String, Double> probabilitiesHiddenVariablesBackgroundModel = new HashMap<>();
   
-  public Document( HashMap<String, Integer> words, ArticleStream stream) {
+  public Document(Map<String, Integer> words, ArticleStream stream) {
     this.words = words;
     this.stream = stream;
+  }
+  
+  public Document(ParsedArticle article) {
+    this.words = article.words;
+    this.stream = article.stream;
   }
   
   /**

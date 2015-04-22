@@ -113,15 +113,15 @@ public class EmAlgo implements Serializable {
             ArrayList<Double> logLikelihoods = new ArrayList<>();
             
             while (!checkStoppingCondition(logLikelihoods)) {
-              for (Document Document : input.Documents) {
-                Document.updateHiddenVariablesThemes();
+              for (Document article : input.documents) {
+                article.updateHiddenVariablesThemes();
               }
-              for (Document Document : input.Documents) {
-                Document.updateHiddenVariableBackgroundModel(
+              for (Document article : input.documents) {
+                article.updateHiddenVariableBackgroundModel(
                         input.backgroundModel, lambdaBackgroundModel);
               }
-              for (Document Document : input.Documents) {
-                Document.updateProbabilitiesDocumentBelongsToThemes();
+              for (Document article : input.documents) {
+                article.updateProbabilitiesDocumentBelongsToThemes();
               }
               input.updateProbabilitiesOfWordsGivenTheme(input.themesOfPartition);
               logLikelihoods.add(input.computeLogLikelihood(lambdaBackgroundModel));              
@@ -155,6 +155,7 @@ public class EmAlgo implements Serializable {
             }
       });
     
+    JavaPairRDD<TimePeriod,Iterable<Tuple2<EmInput,Double>>> rdd = processedPartitions.groupByKey();
     
     return processedPartitions.groupByKey().map(
             new Function<Tuple2<TimePeriod,Iterable<Tuple2<EmInput,Double>>>, EmInput>() {
@@ -185,10 +186,10 @@ public class EmAlgo implements Serializable {
             List<Tuple2<Theme, Double>> themesWithAverageProbability = new ArrayList<>();                  
             for (Theme theme : input.themesOfPartition) {
               double sum = 0.0;
-              for (Document Document : input.Documents) {
-                sum += Document.probabilitiesDocumentBelongsToThemes.get(theme);
+              for (Document article : input.documents) {
+                sum += article.probabilitiesDocumentBelongsToThemes.get(theme);
               }
-              double average = sum / input.Documents.size();
+              double average = sum / input.documents.size();
               themesWithAverageProbability.add(new Tuple2<Theme, Double>(theme, average));
             }
             return (Iterable<Tuple2<Theme, Double>>) themesWithAverageProbability;

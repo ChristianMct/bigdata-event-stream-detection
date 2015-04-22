@@ -43,7 +43,7 @@ public class Theme extends TimePeriod {
     Random random = new Random();
     double total = 0.0;
     
-    for (Document article: input.Documents) {
+    for (Document article: input.documents) {
       for (String word: article.words.keySet()) {
         if (!wordsOfPartitions.contains(word)) {
           wordsOfPartitions.add(word);
