@@ -1,4 +1,4 @@
-package org.epfl.bigdataevs;
+package org.epfl.bigdataevs.evolutiongraph;
 
 import org.epfl.bigdataevs.em.Theme;
 

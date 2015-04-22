@@ -312,7 +312,7 @@ public class Hmm {
     
     int sequenceLength = observedSequence.length;
     
- // Variables in which we store the next iteration results
+    // Variables in which we store the next iteration results
     double[] piStar = new double[n];
     double[][] aaStar = new double[n][n];
     
@@ -324,13 +324,12 @@ public class Hmm {
     double[] alphasHat = new double[n * sequenceLength];
     double[] betasHat = new double[n * sequenceLength];
     double[] alphasBar = new double[n * sequenceLength];
-    double[] betas = new double[n * sequenceLength];
     double[] gammas = new double[n];
     double[] gammasSums = new double[n];
-    double[][] TAInitTilde = new double[sequenceLength][n*n];
-    double[][] TADirectTilde = new double[sequenceLength][n*n];
-    double[][] TBInitTilde = new double[sequenceLength][n*n];
-    double[][] TBDirectTilde = new double[sequenceLength][n*n];
+    double[][] taInitTilde = new double[sequenceLength][n * n];
+    double[][] taDirectTilde = new double[sequenceLength][n * n];
+    double[][] tbInitTilde = new double[sequenceLength][n * n];
+    double[][] tbDirectTilde = new double[sequenceLength][n * n];
     
     // Iterate until convergence of the transition probabilities
     int maxSteps = 100;
@@ -338,64 +337,65 @@ public class Hmm {
       System.out.println("Iteration " + iterationStep);
       
      //1. initialise the TA t-1->t
-      double[] auxTABar0 = new double[n * n];
+      double[] auxTaBar0 = new double[n * n];
       for (int i = 0; i < n; i++) {
-        auxTABar0[i * n + i] = pi[i] * b[i][observedSequence[0]];
+        auxTaBar0[i * n + i] = pi[i] * b[i][observedSequence[0]];
       }
-      double norm0 = Utils.normOne(auxTABar0);
-      if(norm0==0) norm0 =1;
-      alphasScales[0]=1/norm0;
+      double norm0 = Utils.normOne(auxTaBar0);
+      if (norm0 == 0.0) {
+        norm0 = 1.0;
+      }
+      alphasScales[0] = 1.0 / norm0;
       for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-          TAInitTilde[0][i * n + j] = auxTABar0[i * n + j] / norm0;
+          taInitTilde[0][i * n + j] = auxTaBar0[i * n + j] / norm0;
 
         }
       }
       
       for (int t = 1; t < sequenceLength; t++) {
-        double[] auxTABar = new double[n * n];
+        double[] auxTaBar = new double[n * n];
         for (int i = 0; i < n; i++) {
           for (int j = 0; j < n; j++) {
-            auxTABar[i * n + j] = a[j][i] * b[i][observedSequence[t]];
+            auxTaBar[i * n + j] = a[j][i] * b[i][observedSequence[t]];
           }
         }
-        double norm = Utils.normOne(auxTABar);
-        //System.out.println("norm 1 pos 1 : "+norm);
-        if(norm==0) norm =1;
+        double norm = Utils.normOne(auxTaBar);
+        if (norm == 0.0) {
+          norm = 1;
+        }
         for (int i = 0; i < n; i++) {
           for (int j = 0; j < n; j++) {
-            TAInitTilde[t][i * n + j] = auxTABar[i * n + j] / norm;
+            taInitTilde[t][i * n + j] = auxTaBar[i * n + j] / norm;
           }
         }
       }
       System.out.println();
       
       //2. compute the TA 0->t
-        //initialize TADirectTilde[0]
-      for(int i =0;i<n;i++){
-        for(int j=0;j<n;j++){
-          TADirectTilde[0][i * n + j] = TAInitTilde[0][i* n + j];
+      //initialize TADirectTilde[0]
+      for (int i = 0;i < n;i++) {
+        for (int j = 0;j < n;j++) {
+          taDirectTilde[0][i * n + j] = taInitTilde[0][i * n + j];
         }
       }
-      double norm1 = Utils.normOne(TADirectTilde[0]);
-      //System.out.println("norm 1 pos 2 : "+norm1);
-      
       for (int t = 1; t < sequenceLength; t++) {
-        double[] auxTATilde = new double[n * n];
+        double[] auxTaTilde = new double[n * n];
         for (int i = 0; i < n; i++) {
           for (int j = 0; j < n; j++) {
             for (int h = 0; h < n; h++) {
-              auxTATilde[i * n + j] += TAInitTilde[t][i* n + h]*TADirectTilde[t-1][h * n + j] ;// need to check index t (confusion t->t+1)?
+              auxTaTilde[i * n + j] += taInitTilde[t][i * n + h] * taDirectTilde[t - 1][h * n + j];
                                                                                                
             }
           }
         }
-        double norm = Utils.normOne(auxTATilde);
-        //System.out.println("norm 1 pos 2 : "+norm);
-        if(norm==0) norm =1;
+        double norm = Utils.normOne(auxTaTilde);
+        if (norm == 0) {
+          norm = 1;
+        }
         for (int i = 0; i < n; i++) {
           for (int j = 0; j < n; j++) {
-            TADirectTilde[t][i * n + j] = auxTATilde[i * n + j] / norm;
+            taDirectTilde[t][i * n + j] = auxTaTilde[i * n + j] / norm;
 
           }
         }
@@ -408,7 +408,7 @@ public class Hmm {
         for (int i = 0; i < n; i++) {
           double aux = 0.0;
           for (int h = 0; h < n; h++) {
-            aux += TADirectTilde[t][i * n + h];
+            aux += taDirectTilde[t][i * n + h];
           }
           alphasHat[t * n + i] = aux;
         }
@@ -416,22 +416,6 @@ public class Hmm {
       
       
       //4. compute alphaBar(t)
-      /*
-      for (int t = 1; t < sequenceLength; t++) {
-        for(int i = 0;i<n;i++){
-          double res =0.0;
-          for(int h =0;h<n;h++){
-            double aux =0.0;
-            for (int l = 0; l < n; l++) {
-              aux += TADirectTilde[t - 1][h * n + l] * alphasHat[(0) * n + l];
-            }
-            res += aux * b[i][observedSequence[t]]* a[h][i];
-          }
-          alphasBar[t*n+i] = res;
-        }
-      }
-      */
-      
       for (int t = 1; t < sequenceLength; t++) {
         for (int i = 0; i < n; i++) {
           double res = 0.0;
@@ -442,12 +426,6 @@ public class Hmm {
         }
       }
       
-      
-      
-      
-      
-      
-      
       //5. compute c_t i.e. alphasScales
       for (int t = 1; t < sequenceLength; t++) {
         double sumHat = 0.0;
@@ -457,46 +435,38 @@ public class Hmm {
           sumBar += alphasBar[t * n + i];
         }
         alphasScales[t] = sumHat / sumBar;
-        //System.out.println("alphaScales "+alphasScales[t]);
-        //System.out.println("sumBar "+t+" = "+sumBar);
       }
-        
-        
-     
-      
-      
-      
       
       /*
        * Generate all the betas coefficients
        */
-      for(int t =0;t<sequenceLength;t++){
-        for(int i=0;i<n;i++){
-          for(int j=0;j<n;j++){
-            TBInitTilde[t][i*n+j]=0.0;
-            TBDirectTilde[t][i*n+j]=0.0;
+      for (int t = 0;t < sequenceLength;t++) {
+        for (int i = 0;i < n;i++) {
+          for (int j = 0;j < n;j++) {
+            tbInitTilde[t][i * n + j] = 0.0;
+            tbDirectTilde[t][i * n + j] = 0.0;
           }
         }
       }
     //1. initialise the TB t+1->t
       for (int i = 0; i < n; i++) {
-        TBInitTilde[sequenceLength - 1][i * n + i] = 1.0 * alphasScales[sequenceLength - 1];//to be modified remove 1 *
+        tbInitTilde[sequenceLength - 1][i * n + i] = alphasScales[sequenceLength - 1];
       }
       
       
       for (int t = sequenceLength - 2; t >= 0; t--) {
         for (int i = 0; i < n; i++) {
           for (int j = 0; j < n; j++) {
-            TBInitTilde[t][i * n + j] = a[i][j] * b[j][observedSequence[t+1]] * alphasScales[t];
+            tbInitTilde[t][i * n + j] = a[i][j] * b[j][observedSequence[t + 1]] * alphasScales[t];
           }
         }
       }
       
-    //2. compute the TB sL-1->t
+      //2. compute the TB sL-1->t
       //initialize TADirectTilde[0]
       for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-          TBDirectTilde[sequenceLength - 1][i * n + j] = TBInitTilde[sequenceLength - 1][i * n + j];
+          tbDirectTilde[sequenceLength - 1][i * n + j] = tbInitTilde[sequenceLength - 1][i * n + j];
         }
       }
 
@@ -504,7 +474,8 @@ public class Hmm {
         for (int i = 0; i < n; i++) {
           for (int j = 0; j < n; j++) {
             for (int h = 0; h < n; h++) {
-              TBDirectTilde[t][i * n + j] += TBInitTilde[t][i * n + h] * TBDirectTilde[t + 1][h * n + j];
+              tbDirectTilde[t][i * n + j] +=
+                      tbInitTilde[t][i * n + h] * tbDirectTilde[t + 1][h * n + j];
             }
           }
         }
@@ -517,34 +488,12 @@ public class Hmm {
         for (int i = 0; i < n; i++) {
           double aux = 0.0;
           for (int h = 0; h < n; h++) {
-            aux += TBDirectTilde[t][i * n + h];
+            aux += tbDirectTilde[t][i * n + h];
           }
-          //System.out.println(aux);
           betasHat[t * n + i] = aux;
         }
       }
-    
-    
-    
-      
-      /*
-      for (int stateIndex = 0; stateIndex < n; stateIndex++) {
-        betas[(sequenceLength - 1) * n + stateIndex] = 1.0d * alphasScales[sequenceLength-1];
-      }
 
-      for (int t = sequenceLength - 1; t >= 1; t--) {
-        for (int i = 0; i < n; i++) {
-          double res = 0.0;
-          for (int j = 0; j < n; j++) {
-            res += (betas[t * n + j] * a[i][j]
-                   * b[j][observedSequence[t]] * alphasScales[t - 1]);
-          }
-
-          betas[(t - 1) * n + i] = res;
-          //System.out.println("beta " + t + " " + res + " vs " + betasHat[(t - 1) * n + i]);
-        }
-      }
-      */
       // reset temporary variables
       Arrays.fill(gammasSums, 0.0d);
       for ( int stateIndex = 0; stateIndex < n; stateIndex++ ) {
@@ -631,8 +580,6 @@ public class Hmm {
       
       prevLogLikelihood = logLikelihood;
     }
-    
-    
     
   }
 

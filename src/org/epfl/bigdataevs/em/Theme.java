@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.TreeMap;
@@ -103,7 +104,7 @@ public class Theme extends TimePeriod {
    * @param k the number of words
    * @return returns a string list containing the k most frequent words
    */
-  public List<String> themeFeatures(int k) {
+  /*public List<String> themeFeatures(int k) {
     List<String> list = new LinkedList<String>();
     TreeMap<Double, String> sortedMap = new TreeMap<Double, String>();
     int i = 0;
@@ -118,5 +119,48 @@ public class Theme extends TimePeriod {
     }
     
     return(list);
+  }*/
+  
+  /**
+   * Extract the k most relevant words associated with the theme
+   * 
+   * @author antoinexp & lfaucon
+   * 
+   * @param k the number of words
+   * @return returns a string list containing the k most frequent words
+   */
+  public Map<String, Double> themeFeatures(Map<String, Double> backgroundModel, double epsilon, int k) {
+    Map<String, Double> result = new HashMap<String, Double>();
+    double maxScore = 0.;
+    String bestWord = null;
+    Set<String> set = this.wordsProbability.keySet();
+    int numberOfWords = backgroundModel.size();
+    
+    for(int i=0; i<k; i++){
+      maxScore = 0.;
+      bestWord = "NOWORDFOUND";
+      
+      for (String word : set) {
+        double p2 = this.wordsProbability.get(word).doubleValue();
+        double p1 = 0.;
+        
+        if (backgroundModel.containsKey(word)) {
+          p1 = backgroundModel.get(word).doubleValue();
+        }
+        
+        //smoothing
+        p1 = (p1 + epsilon) / (1. + numberOfWords * epsilon);
+        
+        double score = p2 * Math.log(p2 / p1);
+        if(score > maxScore && !result.containsKey(word)){
+          maxScore = score;
+          bestWord = word;
+        }
+      }
+      
+      result.put(bestWord, maxScore);
+    }
+      
+    return(result);
   }
 }
