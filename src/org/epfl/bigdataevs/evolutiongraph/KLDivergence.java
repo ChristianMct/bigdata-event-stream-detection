@@ -1,4 +1,4 @@
-package evolutiongraph;
+package org.epfl.bigdataevs.evolutiongraph;
 
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
