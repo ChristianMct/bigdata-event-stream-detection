@@ -2,7 +2,7 @@ package org.epfl.bigdataevs.hmm;
 
 import java.util.Vector;
 
-public class ScanRight<T extends PubliclyCloneable<T>>{
+public final class ScanRight<T extends PubliclyCloneable<T>>{
 
   int origArraySize;
   int paddedArraySize;

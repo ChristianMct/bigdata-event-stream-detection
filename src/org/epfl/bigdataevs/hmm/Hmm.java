@@ -320,16 +320,16 @@ public class Hmm {
     double prevLogLikelihood = Double.NEGATIVE_INFINITY;
     
     // Temporary variables used in every iteration
-    double[] alphasScales = new double[ sequenceLength ]; //c_t
-    double[] alphasHat = new double[n * sequenceLength];
-    double[] betasHat = new double[n * sequenceLength];
-    double[] alphasBar = new double[n * sequenceLength];
-    double[] gammas = new double[n];
-    double[] gammasSums = new double[n];
     SquareMatrix[] taTildes = new SquareMatrix[sequenceLength];
     SquareMatrix[] tbTildes = new SquareMatrix[sequenceLength];
     ScanLeft<SquareMatrix> alphasScanner = new ScanLeft<SquareMatrix>(sequenceLength);
     ScanRight<SquareMatrix> betasScanner = new ScanRight<SquareMatrix>(sequenceLength);
+    Vector[] alphasHat = new Vector[sequenceLength];
+    Vector[] betasHat = new Vector[sequenceLength];
+    Vector[] alphasBar = new Vector[sequenceLength];
+    double[] alphasScales = new double[ sequenceLength ]; //c_t
+    double[] gammas = new double[n];
+    double[] gammasSums = new double[n];
     
     // Iterate until convergence of the transition probabilities
     int maxSteps = 100;
@@ -337,24 +337,57 @@ public class Hmm {
       System.out.println("Iteration " + iterationStep);
       
      //1. initialise the TA t-1->t
-      {
-        taTildes[0] = new SquareMatrix(n);
-        for (int i = 0; i < n; i++) {
-          taTildes[0].elements[i * n + i] = pi[i] * b[i][observedSequence[0]];
+      final class TaTildeInitializerMapper implements MapOperator<SquareMatrix> {
+
+        int n;
+        double[] pi;
+        double[][] b;
+        int[] observedSequence;
+        
+        public TaTildeInitializerMapper(
+                int n,
+                double[] pi,
+                double[][] b,
+                int[] observedSequence ) {
+          this.n = n;
+          this.pi = pi;
+          this.b = b;
+          this.observedSequence = observedSequence;
         }
-        double norm0 = taTildes[0].rawNorm1();
-        taTildes[0].scalarDivide(norm0);
-        alphasScales[0] = 1.0 / norm0;
-      
-        for (int t = 1; t < sequenceLength; t++) {
-          taTildes[t] = new SquareMatrix(n);
-          for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-              taTildes[t].elements[i * n + j] = a[j][i] * b[i][observedSequence[t]];
+        
+        @Override
+        public SquareMatrix apply(int index, SquareMatrix matrix, SquareMatrix out) {
+          if ( index == 0 ) {
+            for (int i = 0; i < n; i++) {
+              out.elements[i * n + i] = pi[i] * b[i][observedSequence[0]];
             }
+            double norm0 = out.rawNorm1();
+            out.scalarDivide(norm0);
+          } else  {
+            for (int i = 0; i < n; i++) {
+              for (int j = 0; j < n; j++) {
+                out.elements[i * n + j] = a[j][i] * b[i][observedSequence[index]];
+              }
+            }
+            out.scalarDivide(out.rawNorm1());
           }
-          taTildes[t].scalarDivide(taTildes[t].rawNorm1());
+          return out;
         }
+      }
+      
+      {
+        for ( int t = 0; t < sequenceLength; t++ ) {
+          taTildes[t] = new SquareMatrix(n);
+        }
+        
+        // TODO: need to pay attention to the fact that we don't set alphaScales[0] anymore
+        new Map<SquareMatrix>().map(
+                taTildes,
+                new TaTildeInitializerMapper(
+                        n,
+                        pi,
+                        b,
+                        observedSequence));
       }
       
       //2. compute the TA 0->t
@@ -363,60 +396,200 @@ public class Hmm {
               new RenormalizedReverseMatrixMulOperator(),
               new SquareMatrix(n).setIdentity() );
       
-      
-      //3. compute alphaHat(t)
-      //then use taTilde to compute each vector alpha;
-      for (int t = 0; t < sequenceLength; t++) {
-        for (int i = 0; i < n; i++) {
-          double aux = 0.0;
-          for (int h = 0; h < n; h++) {
-            aux += taTildes[t].elements[i * n + h];
-          }
-          alphasHat[t * n + i] = aux;
+      // mapper to compute transformed vectors
+      final class VectorTransformer implements MapOperator<Vector> {
+
+        int n;
+        SquareMatrix[] transformMatrices;
+        
+        public VectorTransformer( int n, SquareMatrix[] transformMatrices ) {
+          this.n = n;
+          this.transformMatrices = transformMatrices;
         }
+        
+        @Override
+        public Vector apply(int index, Vector vec, Vector out) {
+          for (int i = 0; i < n; i++) {
+            double aux = 0.0;
+            for (int h = 0; h < n; h++) {
+              aux += transformMatrices[index].elements[i * n + h];
+            }
+            out.elements[i] = aux;
+          }
+          return out;
+        }
+        
+      }
+      //3. compute alphaHat(t)
+      {
+        for ( int t = 0; t < sequenceLength; t++ ) {
+          alphasHat[t] = new Vector(n);
+        }
+         
+        new Map<Vector>().map(alphasHat, new VectorTransformer(n, taTildes));
       }
       
-      
       //4. compute alphaBar(t)
-      for (int t = 1; t < sequenceLength; t++) {
-        for (int i = 0; i < n; i++) {
-          double res = 0.0;
-          for (int h = 0; h < n; h++) {
-            res += b[i][observedSequence[t]] * a[h][i] * alphasHat[(t - 1) * n + h];
+      {
+        final class AlphasBarMapper implements MapOperator<Vector> {
+
+          int n;
+          double[] pi;
+          double[][] a;
+          double[][] b;
+          int[] observedSequence;
+          Vector[] alphasHat;
+          
+          public AlphasBarMapper(
+                  int n,
+                  double[] pi,
+                  double[][] a,
+                  double[][] b,
+                  int[] observedSequence,
+                  Vector[] alphasHat ) {
+            this.n = n;
+            this.pi = pi;
+            this.a = a;
+            this.b = b;
+            this.observedSequence = observedSequence;
+            this.alphasHat = alphasHat;
           }
-          alphasBar[t * n + i] = res;
+          
+          @Override
+          public Vector apply(int index, Vector vec, Vector out) {
+            if ( index > 0 ) {
+              for (int i = 0; i < n; i++) {
+                double res = 0.0;
+                for (int h = 0; h < n; h++) {
+                  res += b[i][observedSequence[index]] * a[h][i]
+                          * alphasHat[(index - 1)].elements[h];
+                }
+                out.elements[i] = res;
+              }
+            } else {
+              for (int i = 0; i < n; i++) {
+                out.elements[i] = pi[i] * b[i][observedSequence[0]];
+              }
+            }
+            return out;
+          }
+          
         }
+        
+        for ( int t = 0; t < sequenceLength; t++ ) {
+          alphasBar[t] = new Vector(n);
+        }
+        
+        new Map<Vector>().map(
+                alphasBar,
+                new AlphasBarMapper(
+                        n,
+                        pi,
+                        a,
+                        b,
+                        observedSequence,
+                        alphasHat));
       }
       
       //5. compute c_t i.e. alphasScales
-      for (int t = 1; t < sequenceLength; t++) {
-        double sumHat = 0.0;
-        double sumBar = 0.0;
-        for (int i = 0; i < n; i++) {
-          sumHat += alphasHat[t * n + i];
-          sumBar += alphasBar[t * n + i];
+      {
+        final class ScalesMapper implements MapOperator<Vector> {
+
+          int n;
+          Vector[] alphasHat;
+          Vector[] alphasBar;
+          double[] alphasScales;
+          
+          public ScalesMapper(
+                  int n,
+                  Vector[] alphasHat,
+                  Vector[] alphasBar,
+                  double[] alphasScales ) {
+            this.n = n;
+            this.alphasHat = alphasHat;
+            this.alphasBar = alphasBar;
+            this.alphasScales = alphasScales;
+          }
+          
+          @Override
+          public Vector apply(int index, Vector element, Vector out) {
+            double sumBar = 0.0;
+            for (int i = 0; i < n; i++) {
+              sumBar += alphasBar[index].elements[i];
+            }
+            alphasScales[index] = 1.0 / sumBar;
+            return element;
+          }
+          
         }
-        alphasScales[t] = sumHat / sumBar;
+        
+        new Map<Vector>().map(
+                alphasHat,
+                new ScalesMapper(
+                        n,
+                        alphasHat,
+                        alphasBar,
+                        alphasScales));
       }
       
       /*
        * Generate all the betas coefficients
        */
-      for (int t = 0;t < sequenceLength;t++) {
-        tbTildes[t] = new SquareMatrix(n);
-      }
-      //1. initialise the TB t+1->t
-      for (int i = 0; i < n; i++) {
-        tbTildes[sequenceLength - 1].elements[i * n + i] = alphasScales[sequenceLength - 1];
-      }
-      
-      for (int t = sequenceLength - 2; t >= 0; t--) {
-        for (int i = 0; i < n; i++) {
-          for (int j = 0; j < n; j++) {
-            tbTildes[t].elements[i * n + j] =
-                    a[i][j] * b[j][observedSequence[t + 1]] * alphasScales[t];
+      {
+        final class TbTildesInitializer implements MapOperator<SquareMatrix> {
+
+          int n;
+          double[][] a;
+          double[][] b;
+          int[] observedSequence;
+          double[] alphasScales;
+          
+          public TbTildesInitializer(
+                  int n,
+                  double[][] a,
+                  double[][] b,
+                  int[] observedSequence,
+                  double[] alphasScales) {
+            this.n = n;
+            this.a = a;
+            this.b = b;
+            this.observedSequence = observedSequence;
+            this.alphasScales = alphasScales;
           }
+          
+          @Override
+          public SquareMatrix apply(int t, SquareMatrix element, SquareMatrix out) {
+            //1. initialise the TB t+1->t
+            int sequenceLength = observedSequence.length;
+            if ( t == sequenceLength - 1 ) {
+              for (int i = 0; i < n; i++) {
+                out.elements[i * n + i] = alphasScales[sequenceLength - 1];
+              }
+            } else {
+              for (int i = 0; i < n; i++) {
+                for (int j = 0; j < n; j++) {
+                  out.elements[i * n + j] =
+                          a[i][j] * b[j][observedSequence[t + 1]] * alphasScales[t];
+                }
+              }
+            }
+            return out;
+          }
+          
         }
+
+        for (int t = 0;t < sequenceLength;t++) {
+          tbTildes[t] = new SquareMatrix(n);
+        }
+
+        new Map<SquareMatrix>().map(
+                tbTildes,
+                new TbTildesInitializer(
+                        n,
+                        a,
+                        b,
+                        observedSequence,
+                        alphasScales));
       }
       
       //2. compute the TB sL-1->t
@@ -426,15 +599,11 @@ public class Hmm {
               new SquareMatrix(n).setIdentity());
       
       //3. compute betasHat(t)
-      for (int t = sequenceLength - 1; t >= 0; t--) {
-        for (int i = 0; i < n; i++) {
-          double aux = 0.0;
-          for (int h = 0; h < n; h++) {
-            aux += tbTildes[t].elements[i * n + h];
-          }
-          betasHat[t * n + i] = aux;
-        }
+      for ( int t = 0; t < sequenceLength; t++ ) {
+        betasHat[t] = new Vector(n);
       }
+      
+      new Map<Vector>().map(betasHat, new VectorTransformer(n, tbTildes));
 
       // reset temporary variables
       Arrays.fill(gammasSums, 0.0d);
@@ -443,12 +612,12 @@ public class Hmm {
       }
       
       // as we don't need to update b, we can stop at
-      // sequenceLength-1
-      for ( int t = 0; t < sequenceLength - 1; t++ ) {
+      // sequenceLength-2
+      for ( int t = 0; t < sequenceLength - 2; t++ ) {
         
         // compute the terms alpha(i,t)*beta(i,t) and incrementally the sum of them
         for (int i = 0; i < n; i++) {
-          double tempVal = alphasHat[t * n + i] * betasHat[t * n + i];
+          double tempVal = alphasHat[t].elements[i] * betasHat[t].elements[i];
           gammas[i] = tempVal;
         }
 
@@ -461,13 +630,11 @@ public class Hmm {
 
         // we have now gamma(i,t) in gammas[], and sum( k, alpha(k, t)*beta(k, t) ) in denGamma */
         /* compute khi(i,j) incrementally, put it in aaStar */
-        if (t != sequenceLength - 1) {
-          for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-              double khi = (alphasHat[t * n + i] * a[i][j] * betasHat[(t + 1) * n + j])
-                      * b[j][observedSequence[t + 1]];
-              aaStar[i][j] += khi;
-            }
+        for (int i = 0; i < n; i++) {
+          for (int j = 0; j < n; j++) {
+            double khi = (alphasHat[t].elements[i] * a[i][j] * betasHat[(t + 1)].elements[j])
+                    * b[j][observedSequence[t + 1]];
+            aaStar[i][j] += khi;
           }
         }
         /* copy in Pi_star if that's the moment */
