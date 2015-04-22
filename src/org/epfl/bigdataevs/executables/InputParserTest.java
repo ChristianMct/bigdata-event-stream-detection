@@ -36,8 +36,19 @@ public class InputParserTest {
     
     System.out.println(timePeriods.get(0).includeDates(format.parse("1/1/1939-12")));
     
-    TextCollectionData data = InputParser.getEmInput(timePeriods, ctx);
+    TextCollectionData result = InputParser.getEmInput(timePeriods, ctx);
     
+    System.out.println("======Background model's content======");
+    for(int background_word_id : result.backgroundWordMap.keySet()) {
+      String background_word = result.backgroundWordMap.get(background_word_id);
+      System.out.println(background_word
+        + "(ID: " + background_word_id + "): " 
+        + result.backgroundModel.get(background_word) + " distribution proba.");
+    }
+    
+    System.out.println("======Word chronological list======");
+    for (Integer word: result.collectionWords)
+      System.out.println(word);
   }
 
 }
