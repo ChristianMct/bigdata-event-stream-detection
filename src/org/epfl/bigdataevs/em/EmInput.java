@@ -12,7 +12,6 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.math3.fraction.BigFraction;
-import org.epfl.bigdataevs.eminput.ParsedArticle;
 import org.epfl.bigdataevs.eminput.TimePartition;
 import org.epfl.bigdataevs.eminput.TimePeriod;
 
@@ -31,7 +30,7 @@ public class EmInput implements Serializable {
    * distribution in the streams. **/
   public Map<String, Double> backgroundModel;
   /** Collection containing articles published at that time. **/
-  public Collection<ParsedArticle> parsedArticles;
+  public Collection<Document> Documents;
   
   /** List of the themes appearing in this input*/
   public ArrayList<Theme> themesOfPartition;
@@ -49,14 +48,14 @@ public class EmInput implements Serializable {
    * EmInput contains at least the background model, 
    * the list of articles and the period delimiting these articles.
    * @param backgroundModel
-   * @param parsedArticles
+   * @param Documents
    * @param period
    */
   public EmInput(Map<String, Double> backgroundModel,
-          Collection<ParsedArticle> parsedArticles, TimePeriod period) {
+          Collection<Document> Documents, TimePeriod period) {
     
     this.backgroundModel = backgroundModel;
-    this.parsedArticles = parsedArticles;
+    this.Documents = Documents;
     this.timePeriod = period;
     this.themesOfPartition = new ArrayList<>();
   }
@@ -64,13 +63,13 @@ public class EmInput implements Serializable {
   /**
    * EmInput builds with an instance of TimePartition
    * @param backgroundModel
-   * @param parsedArticles
+   * @param Documents
    * @param period
    */
   /*
   public EmInput(TimePartition timePartition) {
     this.backgroundModel = timePartition.backgroundModel;
-    this.parsedArticles = timePartition.parsedArticles;
+    this.Documents = timePartition.Documents;
     this.timePeriod = timePartition.timePeriod;
     this.themesOfPartition = new ArrayList<>();
   }
@@ -84,7 +83,7 @@ public class EmInput implements Serializable {
    * Initialize all probabilities in the articles (article d belongs to theme j)
    */
   public void initializeArticlesProbabilities() {
-    for (ParsedArticle article : this.parsedArticles) {
+    for (Document article : this.Documents) {
       article.initializeProbabilities(themesOfPartition);
     }
   }
@@ -95,14 +94,14 @@ public class EmInput implements Serializable {
    */
   public double computeLogLikelihood(double lambdaBackgroundModel) {
     double logLikelihood = 0.0;
-    for (ParsedArticle parsedArticle : parsedArticles) {
-      for (String word : parsedArticle.words.keySet()) {
+    for (Document Document : Documents) {
+      for (String word : Document.words.keySet()) {
         double temp = 0.0;
         for (Theme theme : themesOfPartition) {
-          temp = temp + (parsedArticle.probabilitiesDocumentBelongsToThemes.get(theme)
+          temp = temp + (Document.probabilitiesDocumentBelongsToThemes.get(theme)
                   * theme.wordsProbability.get(word));
         }
-        logLikelihood += parsedArticle.words.get(word) * Math.log(
+        logLikelihood += Document.words.get(word) * Math.log(
                 (lambdaBackgroundModel * backgroundModel.get(word))
                 + ((1.0 - lambdaBackgroundModel) * temp));
       }
@@ -115,11 +114,11 @@ public class EmInput implements Serializable {
    */
   public Double subUpdateProbabilitiesOfWordsGivenTheme(String word, Theme theme) {
     double value  = 0.0;
-    for (ParsedArticle parsedArticle : parsedArticles) {
-      if (parsedArticle.words.containsKey(word)) {
-        value = value + (((double) parsedArticle.words.get(word))
-                * (1.0 - parsedArticle.probabilitiesHiddenVariablesBackgroundModel.get(word)) 
-                        * (parsedArticle.probabilitiesHiddenVariablesThemes.get(
+    for (Document Document : Documents) {
+      if (Document.words.containsKey(word)) {
+        value = value + (((double) Document.words.get(word))
+                * (1.0 - Document.probabilitiesHiddenVariablesBackgroundModel.get(word)) 
+                        * (Document.probabilitiesHiddenVariablesThemes.get(
                                 Pair.of(word, theme))));
       }
     }
@@ -149,9 +148,9 @@ public class EmInput implements Serializable {
    * Clone the EmInput by replacing every article.
    */
   public EmInput clone() {
-    Collection<ParsedArticle> articles = new ArrayList<>();
-    for (ParsedArticle parsedArticle : this.parsedArticles) {
-      articles.add(new ParsedArticle(parsedArticle.words, parsedArticle.stream));
+    Collection<Document> articles = new ArrayList<>();
+    for (Document Document : this.Documents) {
+      articles.add(new Document(Document.words, Document.stream));
     }
     return new EmInput(this.backgroundModel, articles, this.timePeriod);
   }

@@ -9,8 +9,6 @@ import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.api.java.function.VoidFunction;
-import org.apache.xml.serialize.EncodingInfo;
-import org.epfl.bigdataevs.eminput.ParsedArticle;
 import org.epfl.bigdataevs.eminput.TimePeriod;
 
 import scala.Array;
@@ -115,15 +113,15 @@ public class EmAlgo implements Serializable {
             ArrayList<Double> logLikelihoods = new ArrayList<>();
             
             while (!checkStoppingCondition(logLikelihoods)) {
-              for (ParsedArticle parsedArticle : input.parsedArticles) {
-                parsedArticle.updateHiddenVariablesThemes();
+              for (Document Document : input.Documents) {
+                Document.updateHiddenVariablesThemes();
               }
-              for (ParsedArticle parsedArticle : input.parsedArticles) {
-                parsedArticle.updateHiddenVariableBackgroundModel(
+              for (Document Document : input.Documents) {
+                Document.updateHiddenVariableBackgroundModel(
                         input.backgroundModel, lambdaBackgroundModel);
               }
-              for (ParsedArticle parsedArticle : input.parsedArticles) {
-                parsedArticle.updateProbabilitiesDocumentBelongsToThemes();
+              for (Document Document : input.Documents) {
+                Document.updateProbabilitiesDocumentBelongsToThemes();
               }
               input.updateProbabilitiesOfWordsGivenTheme(input.themesOfPartition);
               logLikelihoods.add(input.computeLogLikelihood(lambdaBackgroundModel));              
@@ -146,6 +144,9 @@ public class EmAlgo implements Serializable {
    * @return all themes with average score
    */
   public JavaRDD<EmInput> run() {
+    /*
+    return this.algorithm().keys();
+    */
     JavaPairRDD<TimePeriod, Tuple2<EmInput, Double>> processedPartitions = this.algorithm().mapToPair(
             new PairFunction<Tuple2<EmInput,Double>, TimePeriod, Tuple2<EmInput, Double>>() {
             public Tuple2<TimePeriod, Tuple2<EmInput, Double>> call(Tuple2<EmInput, Double> tuple)
@@ -153,6 +154,7 @@ public class EmAlgo implements Serializable {
               return new Tuple2<TimePeriod, Tuple2<EmInput, Double>>(tuple._1.timePeriod, tuple);
             }
       });
+    
     
     return processedPartitions.groupByKey().map(
             new Function<Tuple2<TimePeriod,Iterable<Tuple2<EmInput,Double>>>, EmInput>() {
@@ -170,9 +172,12 @@ public class EmAlgo implements Serializable {
               return bestInput._1;
             }
           });
+     
+    
   }
   
   public JavaPairRDD<Theme, Double> relatedThemes(JavaRDD<EmInput> selectedInputs) {
+    
     JavaPairRDD<Theme, Double> listOfSelectedThemes = selectedInputs.flatMapToPair(
             new PairFlatMapFunction<EmInput, Theme, Double>() {
           @Override
@@ -180,10 +185,10 @@ public class EmAlgo implements Serializable {
             List<Tuple2<Theme, Double>> themesWithAverageProbability = new ArrayList<>();                  
             for (Theme theme : input.themesOfPartition) {
               double sum = 0.0;
-              for (ParsedArticle parsedArticle : input.parsedArticles) {
-                sum += parsedArticle.probabilitiesDocumentBelongsToThemes.get(theme);
+              for (Document Document : input.Documents) {
+                sum += Document.probabilitiesDocumentBelongsToThemes.get(theme);
               }
-              double average = sum / input.parsedArticles.size();
+              double average = sum / input.Documents.size();
               themesWithAverageProbability.add(new Tuple2<Theme, Double>(theme, average));
             }
             return (Iterable<Tuple2<Theme, Double>>) themesWithAverageProbability;
@@ -198,13 +203,13 @@ public class EmAlgo implements Serializable {
    * @param nunmberArticlesPerTheme
    * @return
    */
-  public JavaPairRDD<Theme, Iterable<ParsedArticle>> relatedArticles(JavaRDD<EmInput> selectedInputs, 
+  public JavaPairRDD<Theme, Iterable<Document>> relatedArticles(JavaRDD<EmInput> selectedInputs, 
           int nunmberArticlesPerTheme) {
-    return selectedInputs.flatMapToPair(new PairFlatMapFunction<EmInput, Theme , Iterable<ParsedArticle>>() {
+    return selectedInputs.flatMapToPair(new PairFlatMapFunction<EmInput, Theme , Iterable<Document>>() {
       @Override
-      public Iterable<Tuple2<Theme, Iterable<ParsedArticle>>> call(EmInput input) throws Exception {
+      public Iterable<Tuple2<Theme, Iterable<Document>>> call(EmInput input) throws Exception {
         
-        List<Tuple2<Theme, Iterable<ParsedArticle>>> themesWithArticles = new ArrayList<>();  
+        List<Tuple2<Theme, Iterable<Document>>> themesWithArticles = new ArrayList<>();  
         return null;
       }
     });

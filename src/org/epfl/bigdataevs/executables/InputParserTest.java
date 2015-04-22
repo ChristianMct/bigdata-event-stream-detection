@@ -41,7 +41,7 @@ public class InputParserTest {
     inputPaths.add("hdfs://user/christian/JDG");
     inputPaths.add("hdfs://user/christian/GDL");
     
-    TextCollectionData result = InputParser.getEmInput(timePeriods, ctx, "hdfs://user/christian/JDG");
+    TextCollectionData result = InputParser.getEmInput(timePeriods, ctx,inputPaths);
     
     System.out.println("======Background model's content======");
     for(int background_word_id : result.backgroundWordMap.keySet()) {
