@@ -8,6 +8,7 @@ import java.util.List;
 
 /**Represent an interval in time.
  * Team: Matias and Christian.**/
+
 public class TimePeriod implements Serializable {
   
   public final Date from;
