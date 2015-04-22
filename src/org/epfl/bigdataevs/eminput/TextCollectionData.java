@@ -9,8 +9,6 @@ import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import org.apache.spark.api.java.function.PairFunction;
 
 import scala.Tuple2;
@@ -36,7 +34,7 @@ public class TextCollectionData {
   public final Map<String, Fraction> backgroundModel;
   
   /** Identifies each distinct word instance with an int. **/
-  public final BiMap<Integer, String> backgroundWordMap;
+  public final Map<Integer, String> backgroundWordMap;
   
   /**Lists each word of every stream in chronological order.
    * Words are stored as integers for memory economy. To retrieve the text 
@@ -53,7 +51,7 @@ public class TextCollectionData {
   
   /** Used for cleaning: words that have a count inferior or equal to this 
    * in the whole stream are filtered out**/
-  public static final int WORD_COUNT_THRESHOLD = 3;
+  public static final int WORD_COUNT_THRESHOLD = 0;
 
 
   /**Initializer from a background model and a collection of ParsedArticle.
@@ -62,7 +60,7 @@ public class TextCollectionData {
    * @param backgroundModel the background model of the whole datase.
    * @param forTimePeriod the TimeFrame that identifies the range of the dataset
    */
-  public TextCollectionData(BiMap<Integer, String> idWordMap,
+  public TextCollectionData(Map<Integer, String> idWordMap,
           Map<String, Fraction> backgroundModel,
           TimePeriod forTimePeriod,
           List<Integer> wordConcat,
@@ -120,7 +118,7 @@ public class TextCollectionData {
    * @param idCorrespondence the BiMap that translates a word into its id **/
   @SuppressWarnings("serial")
   private static List<Integer> generateWordConcatenation
-    (JavaRDD<SegmentedArticle> articleData, final BiMap<String, Integer> idCorrespondence) 
+    (JavaRDD<SegmentedArticle> articleData, final Map<String, Integer> idCorrespondence) 
   {
     //TODO: Check that collect() keeps ordering
     return articleData.flatMap(
@@ -169,8 +167,11 @@ public class TextCollectionData {
     Map<String, Integer> wordToCount = cleanedWordCount.collectAsMap();
     //word id -> word's count map
     Map<Integer, Integer> wordIdToCount = new HashMap<Integer, Integer>();
-    //word-id -> string word map: Use BiMap because we want to also retrieve ids from words
-    BiMap<Integer, String> idWordMap = HashBiMap.create();
+    //word-id -> string word map
+    Map<Integer, String> idWordMap = new HashMap<Integer, String>();
+    //"reverse" string word -> word-id map
+    Map<String, Integer> wordIdMap = new HashMap<String, Integer>();
+    
     int totalAmountCounter = 0;
     int wordId = 0;
     /*the following loop does two things: it counts the total amount of words
@@ -184,6 +185,7 @@ public class TextCollectionData {
       int currentCount = wordToCount.get(word);
       totalAmountCounter += currentCount;
       idWordMap.put(wordId, word);
+      wordIdMap.put(word, wordId);
       wordIdToCount.put(wordId, currentCount);
       wordId++;
     }
@@ -200,7 +202,7 @@ public class TextCollectionData {
           });
     
     List<Integer> wordConcat = generateWordConcatenation(segmentedArticles, 
-            idWordMap.inverse());
+            wordIdMap);
     //TODO: remove cleaned words
     JavaPairRDD<TimePeriod, ParsedArticle> parsedArticles = 
             segmentedArticles.flatMapToPair(new ProcessArticle());

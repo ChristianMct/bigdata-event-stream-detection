@@ -70,7 +70,7 @@ public class ArticleProcessorTest {
     }
     
     System.out.println("======Word chronological list======");
-    for (String word: result.collectionWords)
+    for (Integer word: result.collectionWords)
       System.out.println(word);
     
     /*System.out.println("=======Obtained " + result.parsedArticles.size() + " parsed articles====");
