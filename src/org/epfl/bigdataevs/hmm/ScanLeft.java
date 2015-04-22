@@ -19,7 +19,12 @@ public class ScanLeft<T extends PubliclyCloneable<T>>{
     origArraySize = arraySize;
     
     // We need log2(arraySize)+1 buffers
-    numBuffers = Integer.highestOneBit(arraySize) + 1;
+    int highestOneBit = Integer.highestOneBit(arraySize);
+    numBuffers = 1;
+    while ( highestOneBit > 0 ) {
+      numBuffers += 1;
+      highestOneBit >>= 1;
+    }
     // first compute the padded paddedArraySize
     paddedArraySize = 1 << (numBuffers - 1);
     
@@ -41,7 +46,6 @@ public class ScanLeft<T extends PubliclyCloneable<T>>{
    */
   @SuppressWarnings("unchecked")
   public void scan( T[] inOutArray, BinaryOperator<T> op, T neutral ) {
-    
     // first copy the original array into our base temp buffer
     Object[] buffer0 = buffers.get(0);
     for ( int i = 0; i < origArraySize; i++ ) {

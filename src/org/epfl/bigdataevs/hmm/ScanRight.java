@@ -18,8 +18,13 @@ public class ScanRight<T extends PubliclyCloneable<T>>{
   public ScanRight( int arraySize ) {
     origArraySize = arraySize;
     
-    // We need log2(arraySize) buffers
-    numBuffers = Integer.highestOneBit(arraySize) + 1;
+    // We need log2(arraySize)+1 buffers
+    int highestOneBit = Integer.highestOneBit(arraySize);
+    numBuffers = 1;
+    while ( highestOneBit > 0 ) {
+      numBuffers += 1;
+      highestOneBit >>= 1;
+    }
     // first compute the padded paddedArraySize
     paddedArraySize = 1 << (numBuffers - 1);
     
@@ -41,7 +46,6 @@ public class ScanRight<T extends PubliclyCloneable<T>>{
    */
   @SuppressWarnings("unchecked")
   public void scan( T[] inOutArray, BinaryOperator<T> op, T neutral ) {
-    
     int padder = paddedArraySize - origArraySize;
     Object[] buffer0 = buffers.get(0);
     // pad it with the neutral element

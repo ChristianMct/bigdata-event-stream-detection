@@ -16,12 +16,14 @@ public class mainTestHmm {
             new SquareMatrix(mSize).setIdentity(),
             new SquareMatrix(mSize).setIdentity().set(1, 1, 2.0),
             new SquareMatrix(mSize).setIdentity(),
+            new SquareMatrix(mSize).setIdentity().set(2, 3, 2.0),
+            new SquareMatrix(mSize).setIdentity(),
             new SquareMatrix(mSize).setIdentity().set(2, 3, 2.0)};
     
-    ScanLeft<SquareMatrix> scanner = new ScanLeft<SquareMatrix>( array.length );
+    ScanRight<SquareMatrix> scanner = new ScanRight<SquareMatrix>( array.length );
     scanner.scan(
             array,
-            new ReverseMatrixMultiplicationOperator(),
+            new RenormalizedReverseMatrixMulOperator(),
             new SquareMatrix(mSize).setIdentity());
     
     for ( int i = 0; i < array.length; i++ ) {
@@ -39,7 +41,7 @@ public class mainTestHmm {
     
     // HMM tests
     boolean testsHMM = true;
-    if( testsHMM ) {
+    if ( testsHMM ) {
       List<String> output = new LinkedList<String>();
       output.add("alpha");
       output.add("beta ");
@@ -72,11 +74,11 @@ public class mainTestHmm {
       Hmm trainedHmm2 = new Hmm(n, m, initialPi2,
              initialA2, Arrays.copyOf(b,b.length));
       
-      int[] rawSequence = hmm.generateRawObservationSequence(1000000);
-      int seqSize = 1000000;
-      while ( seqSize <= 1000000) {
-        trainedHmm.rawParalellTrain(rawSequence, 0.1);
-        trainedHmm2.rawTrain(rawSequence, 1000000);
+      int[] rawSequence = hmm.generateRawObservationSequence(100000);
+      int seqSize = 100000;
+      while ( seqSize <= 100000) {
+        trainedHmm.rawParalellTrain(rawSequence, 0.01);
+        trainedHmm2.rawTrain(rawSequence, 100000);
      // Print Pi first
         double[] trainedPi = trainedHmm.getPi();
         System.out.println("Pi: ");
