@@ -69,10 +69,36 @@ public class Theme extends TimePeriod {
     return s;
   }
   
-  public TreeMap<String, Double> sortString() {
-    TreeMap<String, Double> sortedMap = new TreeMap<String, Double>(new ValueComparator(wordsProbability));
-    sortedMap.putAll(wordsProbability);
-    return sortedMap;
+  public TreeMap<String, Double> sortString(int maxWords) {
+    TreeMap<String, Double> smallSortedMap = new TreeMap<String, Double>(new ValueComparator(wordsProbability));
+    int count = 0;
+    for (String word : this.wordsProbability.keySet()) {
+      if (count < maxWords) {
+        smallSortedMap.put(word, this.wordsProbability.get(word));
+      } else {
+        break;
+      }
+      count += 1;
+    }
+    return smallSortedMap;
+  }
+  
+  public int statistics() {
+    int meaningfulWords = 0;
+    for (String word : this.wordsProbability.keySet()) {
+      if (this.wordsProbability.get(word) > 0.0) {
+        meaningfulWords += 1;
+      }
+    }
+    return meaningfulWords;
+  }
+  
+  public double statistics2() {
+    double meaningfulWordsValue = 0;
+    for (String word : this.wordsProbability.keySet()) {
+      meaningfulWordsValue += this.wordsProbability.get(word);
+    }
+    return meaningfulWordsValue;
   }
     
     

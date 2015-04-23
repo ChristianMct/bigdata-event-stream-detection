@@ -74,6 +74,7 @@ public class mainTestEm{
     partitions.add(input);
     
     JavaSparkContext sc = new JavaSparkContext("local", "EM Algorithm Test");
+    /*
     EmAlgo emAlgo = new EmAlgo(sc, sc.parallelize(partitions), 3, 0.8, 1);
    
     JavaRDD<EmInput> selectedInputs = emAlgo.run();
@@ -89,6 +90,7 @@ public class mainTestEm{
       i += 1;
     }
     System.out.println("Done !");
+    */
   }
 
   

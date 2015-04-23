@@ -46,6 +46,8 @@ public class EmInput implements Serializable {
   /** Time period containing all articles**/
   public TimePeriod timePeriod;
   
+  public int numberOfIterations = 0;
+  
   /**
    * EmInput contains at least the background model, 
    * the list of articles and the period delimiting these articles.
@@ -71,6 +73,7 @@ public class EmInput implements Serializable {
   public EmInput(TimePartition timePartition, Map<String, Fraction> backgroundModel) {
     this.timePeriod = timePartition.timePeriod;
     this.themesOfPartition = new ArrayList<>();
+    this.backgroundModel = new HashMap<String, Double>();
     List<Document> convertedDocuments = new ArrayList<Document>();
     for (ParsedArticle article : timePartition.parsedArticles) {
       convertedDocuments.add(new Document(article));

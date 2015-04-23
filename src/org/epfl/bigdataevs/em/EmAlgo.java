@@ -1,5 +1,6 @@
 package org.epfl.bigdataevs.em;
 
+import org.apache.commons.math3.fraction.Fraction;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -9,6 +10,8 @@ import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.api.java.function.VoidFunction;
+import org.epfl.bigdataevs.eminput.TextCollectionData;
+import org.epfl.bigdataevs.eminput.TimePartition;
 import org.epfl.bigdataevs.eminput.TimePeriod;
 
 import scala.Array;
@@ -26,11 +29,13 @@ import java.util.List;
 import java.util.Map;
 
 public class EmAlgo implements Serializable {
+  public final Map<String, Fraction> backgroundModel;
   public JavaRDD<EmInput> partitions;
   public int numberOfThemes;
   public double lambdaBackgroundModel;
   public int numberOfRuns;
   public final static double epsilon = 0.0;
+  public final static double precision = 1e-5;
 
   /**
    * Creates one instance of EmAgorithm
@@ -40,24 +45,28 @@ public class EmAlgo implements Serializable {
    * @param lambda
    * @param numRuns
    */
-  public EmAlgo(JavaSparkContext sparkContext, JavaRDD<EmInput> inputs, int numThemes, double lambda,  int numRuns) {
+  public EmAlgo(JavaSparkContext sparkContext, TextCollectionData collectionData, int numThemes, double lambda,  int numRuns) {
     this.numberOfThemes = numThemes;
     this.lambdaBackgroundModel = lambda;
     this.numberOfRuns = numRuns;
-    
+    this.backgroundModel = collectionData.backgroundModel;
+
     List<Integer> runs = new ArrayList<>();
     for (int i = 0; i < this.numberOfRuns; i++) {
       runs.add(i);
     }
     
-    this.partitions = inputs.zipWithIndex().map(new Function<Tuple2<EmInput,Long>, EmInput>() {
-      @Override
-      public EmInput call(Tuple2<EmInput, Long> args1) throws Exception {
-        EmInput inputPartition = args1._1();
-        Long index = args1._2();
-        inputPartition.indexOfPartition = index;
-        return inputPartition;
-      }
+    this.partitions = collectionData.timePartitions.zipWithIndex().map(
+          new  Function<Tuple2<Tuple2<TimePeriod,TimePartition>,Long>, EmInput>() {
+          @Override
+          public EmInput call(Tuple2<Tuple2<TimePeriod, TimePartition>, Long> args1)
+                  throws Exception {
+            TimePartition inputTimePartition = args1._1._2;
+            Long index = args1._2;
+            EmInput emInput = new EmInput(inputTimePartition, backgroundModel);
+            emInput.indexOfPartition = index;
+            return emInput;
+          }
     }).cartesian(sparkContext.parallelize(runs)).map(
             new Function<Tuple2<EmInput,Integer>, EmInput>() {
         @Override
@@ -102,7 +111,7 @@ public class EmAlgo implements Serializable {
             int iteration = logLikelihoods.size();
             if (iteration>1) {
               return (logLikelihoods.get(iteration - 1)
-                      - logLikelihoods.get(iteration - 2)) < 1e-6;
+                      - logLikelihoods.get(iteration - 2)) < EmAlgo.precision;
             } else {
               return false;
             }
@@ -124,7 +133,8 @@ public class EmAlgo implements Serializable {
                 article.updateProbabilitiesDocumentBelongsToThemes();
               }
               input.updateProbabilitiesOfWordsGivenTheme(input.themesOfPartition);
-              logLikelihoods.add(input.computeLogLikelihood(lambdaBackgroundModel));              
+              logLikelihoods.add(input.computeLogLikelihood(lambdaBackgroundModel)); 
+              input.numberOfIterations += 1;
             }
             
             System.out.println("Number of iterations: " + logLikelihoods.size());
