@@ -326,10 +326,10 @@ public class Hmm {
     double[] alphasBar = new double[n * sequenceLength];
     double[] gammas = new double[n];
     double[] gammasSums = new double[n];
-    double[][] taInitTilde = new double[sequenceLength][n * n];
-    double[][] taDirectTilde = new double[sequenceLength][n * n];
-    double[][] tbInitTilde = new double[sequenceLength][n * n];
-    double[][] tbDirectTilde = new double[sequenceLength][n * n];
+    SquareMatrix[] taTildes = new SquareMatrix[sequenceLength];
+    SquareMatrix[] tbTildes = new SquareMatrix[sequenceLength];
+    ScanLeft<SquareMatrix> alphasScanner = new ScanLeft<SquareMatrix>(sequenceLength);
+    ScanRight<SquareMatrix> betasScanner = new ScanRight<SquareMatrix>(sequenceLength);
     
     // Iterate until convergence of the transition probabilities
     int maxSteps = 100;
@@ -337,78 +337,40 @@ public class Hmm {
       System.out.println("Iteration " + iterationStep);
       
      //1. initialise the TA t-1->t
-      double[] auxTaBar0 = new double[n * n];
-      for (int i = 0; i < n; i++) {
-        auxTaBar0[i * n + i] = pi[i] * b[i][observedSequence[0]];
-      }
-      double norm0 = Utils.normOne(auxTaBar0);
-      if (norm0 == 0.0) {
-        norm0 = 1.0;
-      }
-      alphasScales[0] = 1.0 / norm0;
-      for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-          taInitTilde[0][i * n + j] = auxTaBar0[i * n + j] / norm0;
-
+      {
+        taTildes[0] = new SquareMatrix(n);
+        for (int i = 0; i < n; i++) {
+          taTildes[0].elements[i * n + i] = pi[i] * b[i][observedSequence[0]];
         }
-      }
+        double norm0 = taTildes[0].rawNorm1();
+        taTildes[0].scalarDivide(norm0);
+        alphasScales[0] = 1.0 / norm0;
       
-      for (int t = 1; t < sequenceLength; t++) {
-        double[] auxTaBar = new double[n * n];
-        for (int i = 0; i < n; i++) {
-          for (int j = 0; j < n; j++) {
-            auxTaBar[i * n + j] = a[j][i] * b[i][observedSequence[t]];
-          }
-        }
-        double norm = Utils.normOne(auxTaBar);
-        if (norm == 0.0) {
-          norm = 1;
-        }
-        for (int i = 0; i < n; i++) {
-          for (int j = 0; j < n; j++) {
-            taInitTilde[t][i * n + j] = auxTaBar[i * n + j] / norm;
-          }
-        }
-      }
-      System.out.println();
-      
-      //2. compute the TA 0->t
-      //initialize TADirectTilde[0]
-      for (int i = 0;i < n;i++) {
-        for (int j = 0;j < n;j++) {
-          taDirectTilde[0][i * n + j] = taInitTilde[0][i * n + j];
-        }
-      }
-      for (int t = 1; t < sequenceLength; t++) {
-        double[] auxTaTilde = new double[n * n];
-        for (int i = 0; i < n; i++) {
-          for (int j = 0; j < n; j++) {
-            for (int h = 0; h < n; h++) {
-              auxTaTilde[i * n + j] += taInitTilde[t][i * n + h] * taDirectTilde[t - 1][h * n + j];
-                                                                                               
+        for (int t = 1; t < sequenceLength; t++) {
+          taTildes[t] = new SquareMatrix(n);
+          for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+              taTildes[t].elements[i * n + j] = a[j][i] * b[i][observedSequence[t]];
             }
           }
-        }
-        double norm = Utils.normOne(auxTaTilde);
-        if (norm == 0) {
-          norm = 1;
-        }
-        for (int i = 0; i < n; i++) {
-          for (int j = 0; j < n; j++) {
-            taDirectTilde[t][i * n + j] = auxTaTilde[i * n + j] / norm;
-
-          }
+          taTildes[t].scalarDivide(taTildes[t].rawNorm1());
         }
       }
+      
+      //2. compute the TA 0->t
+      alphasScanner.scan(
+              taTildes,
+              new RenormalizedReverseMatrixMulOperator(),
+              new SquareMatrix(n).setIdentity() );
       
       
       //3. compute alphaHat(t)
-        //then use TATilde to compute each vector alpha;
+      //then use taTilde to compute each vector alpha;
       for (int t = 0; t < sequenceLength; t++) {
         for (int i = 0; i < n; i++) {
           double aux = 0.0;
           for (int h = 0; h < n; h++) {
-            aux += taDirectTilde[t][i * n + h];
+            aux += taTildes[t].elements[i * n + h];
           }
           alphasHat[t * n + i] = aux;
         }
@@ -441,54 +403,34 @@ public class Hmm {
        * Generate all the betas coefficients
        */
       for (int t = 0;t < sequenceLength;t++) {
-        for (int i = 0;i < n;i++) {
-          for (int j = 0;j < n;j++) {
-            tbInitTilde[t][i * n + j] = 0.0;
-            tbDirectTilde[t][i * n + j] = 0.0;
-          }
-        }
+        tbTildes[t] = new SquareMatrix(n);
       }
-    //1. initialise the TB t+1->t
+      //1. initialise the TB t+1->t
       for (int i = 0; i < n; i++) {
-        tbInitTilde[sequenceLength - 1][i * n + i] = alphasScales[sequenceLength - 1];
+        tbTildes[sequenceLength - 1].elements[i * n + i] = alphasScales[sequenceLength - 1];
       }
-      
       
       for (int t = sequenceLength - 2; t >= 0; t--) {
         for (int i = 0; i < n; i++) {
           for (int j = 0; j < n; j++) {
-            tbInitTilde[t][i * n + j] = a[i][j] * b[j][observedSequence[t + 1]] * alphasScales[t];
+            tbTildes[t].elements[i * n + j] =
+                    a[i][j] * b[j][observedSequence[t + 1]] * alphasScales[t];
           }
         }
       }
       
       //2. compute the TB sL-1->t
-      //initialize TADirectTilde[0]
-      for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-          tbDirectTilde[sequenceLength - 1][i * n + j] = tbInitTilde[sequenceLength - 1][i * n + j];
-        }
-      }
-
-      for (int t = sequenceLength - 2; t >= 0; t--) {
-        for (int i = 0; i < n; i++) {
-          for (int j = 0; j < n; j++) {
-            for (int h = 0; h < n; h++) {
-              tbDirectTilde[t][i * n + j] +=
-                      tbInitTilde[t][i * n + h] * tbDirectTilde[t + 1][h * n + j];
-            }
-          }
-        }
-
-      }
+      betasScanner.scan(
+              tbTildes,
+              new MatrixMultiplicationOperator(),
+              new SquareMatrix(n).setIdentity());
       
       //3. compute betasHat(t)
-      //then use TATilde to compute each vector alpha;
       for (int t = sequenceLength - 1; t >= 0; t--) {
         for (int i = 0; i < n; i++) {
           double aux = 0.0;
           for (int h = 0; h < n; h++) {
-            aux += tbDirectTilde[t][i * n + h];
+            aux += tbTildes[t].elements[i * n + h];
           }
           betasHat[t * n + i] = aux;
         }

@@ -22,10 +22,8 @@ public final class SquareMatrix implements PubliclyCloneable<SquareMatrix> {
    */
   public double rawNorm1() {
     double res = 0.0;
-    for ( int i = 0; i < size; i++ ) {
-      for ( int j = 0; j < size; j++ ) {
-        res += elements[ i * size + j ];
-      }
+    for ( int i = 0; i < size * size; i++ ) {
+      res += elements[i];
     }
     
     return res;
@@ -52,10 +50,8 @@ public final class SquareMatrix implements PubliclyCloneable<SquareMatrix> {
    * @return reference to this matrix
    */
   public SquareMatrix scalarDivide( double value ) {
-    for ( int i = 0; i < size; i++ ) {
-      for ( int j = 0; j < size; j++ ) {
-        elements[ i * size + j ] /= value;
-      }
+    for ( int i = 0; i < size * size; i++ ) {
+      elements[i] /= value;
     }
     return this;
   }
@@ -82,10 +78,8 @@ public final class SquareMatrix implements PubliclyCloneable<SquareMatrix> {
   @Override
   public SquareMatrix publicClone() {
     SquareMatrix cloned = new SquareMatrix(size);
-    for ( int i = 0; i < size; i++ ) {
-      for ( int j = 0; j < size; j++ ) {
-        cloned.elements[ i * size + j ] = elements[ i * size + j];
-      }
+    for ( int i = 0; i < size * size; i++ ) {
+      cloned.elements[i] = elements[i];
     }
     return cloned;
   }

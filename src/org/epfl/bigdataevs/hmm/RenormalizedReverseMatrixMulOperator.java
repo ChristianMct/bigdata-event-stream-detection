@@ -18,13 +18,11 @@ public class RenormalizedReverseMatrixMulOperator implements BinaryOperator<Squa
         out.elements[i * size + j] = el;
       }
     }
-    
     for (int i = 0; i < size; i++) {
       for (int j = 0; j < size; j++) {
         out.elements[i * size + j] /= sum;
       }
     }
-    
     return out;
   }
 
