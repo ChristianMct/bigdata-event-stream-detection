@@ -57,6 +57,15 @@ public class TimePeriod implements Serializable {
     return names;
   }
   
+  /**Test if a TimePeriod contains another TimePeriod
+   * @param other the other TimePeriod
+   * @return true if other is contained in this TimePeriod
+   */
+  public boolean contains(TimePeriod other) {
+    return (this.from.getTime() <= other.from.getTime() && 
+           this.to.getTime() >= other.to.getTime());
+  }
+  
   /**Returns the englobing TimePeriod that includes all given TimePeriod(s) in the list
    * @param allPeriods the list of all periods.
    * @return the TimePeriod englobing all periods in allPeriods
