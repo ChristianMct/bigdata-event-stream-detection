@@ -38,7 +38,7 @@ public class HmmInput {
   boolean areThemesSet;
   
   
-  public HmmInput(JavaPairRDD<Integer,Integer> fullTex,List<Integer> wordsInTimeIntervals,
+  public HmmInput(JavaPairRDD<Integer,Integer> fullText,List<Integer> wordsInTimeIntervals,
           Map<String, Double> backgroundModel,Map<String, Integer> lexicon, Time timeInterval,TimePeriod period){
     this.fullText = fullText;
     this.backgroundModel = backgroundModel;
