@@ -10,6 +10,7 @@ import java.util.Map.Entry;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.commons.collections.list.TreeList;
 
@@ -394,7 +395,7 @@ public class Hmm {
       this.nextBetaHat = new double[N];
       this.betasHat = new double[blockSize * N * N];
       
-      this.khis = new double[ blockSize * N * N];
+      this.khis = new double[ N * N];
       
       for ( int bi = 0; bi < blockSize; bi++ ) {
         int index = bi + blockStart;
@@ -602,9 +603,70 @@ public class Hmm {
       return ret;
     }
     
+    /**
+     * Finish the reduction of TB matrices, and compute the khis
+     * @param nextTb Next Tb matrix, if any
+     * @return The matrix of khis as.
+     */
     public SquareMatrix computeKhis( SquareMatrix nextTb ) {
       // TODO finish this!
-      return null;
+      if ( nextTb != null ) {
+        double[] aux = new double[N * N];
+        for ( int bi = blockSize - 2; bi >= 0; bi-- ) {
+          for ( int i = 0; i < N; i++ ) {
+            for ( int j = 0; j < N; j++ ) {
+              double val = 0.0;
+              for (int k = 0; k < N; k++ ) {
+                val += tb[ bi * N * N + i * N + k] * nextTb.elements[ k * N + j ];
+              }
+              aux[ i * N + j ] = val;
+            }
+          }
+          
+          for ( int i = 0; i < N; i++ ) {
+            for ( int j = 0; j < N; j++ ) {
+              tb[ bi * N * N + i * N + j ] = aux[ i * N + j ];
+            }
+          }
+        }
+      }
+      
+      for ( int bi = 0; bi < blockSize; bi++ ) {
+        int index = blockStart + bi;
+        if ( index < T - 2 ) {
+          for ( int i = 0; i < N; i++ ) {
+            for ( int j = 0; j < N; j++ ) {
+              this.khis[ i * N + j ] += alphasHat[ bi * N + i ] * a[i][j]
+                      * betasHat[ (bi + 1) * N + j] * b[observedBlock[bi + 1]][j];
+            }
+          }
+        }
+        
+        if ( index == T - 2 ) {
+          double[] beta = new double[N];
+          for ( int i = 0; i < N; i++ ) {
+            double val = 0.0;
+            for ( int j = 0; j < N; j++ ) {
+              val += nextTb.elements[ i * N + j ];
+            }
+            beta[i] = val;
+          }
+          for ( int i = 0; i < N; i++ ) {
+            for ( int j = 0; j < N; j++ ) {
+              this.khis[ i * N + j ] += alphasHat[ bi * N + i ] * a[i][j]
+                      * beta[j] * b[observedBlock[bi + 1]][j];
+            }
+          }
+        }
+      }
+      
+      SquareMatrix ret = new  SquareMatrix(N);
+      for ( int i = 0; i < N; i++ ) {
+        for ( int j = 0; j < N; j++ ) {
+          ret.elements[ i * N + j ] = khis[ i * N + j ];
+        }
+      }
+      return ret;
     }
   }
   
@@ -626,6 +688,8 @@ public class Hmm {
     int sequenceSize = (int) observedSequence.count();
     
     int numBlocks = (sequenceSize + (blockSize - 1)) / blockSize;
+    double piDiff = Double.POSITIVE_INFINITY;
+    double aaDiff = Double.POSITIVE_INFINITY;
     
     JavaRDD<BaumWelchBlock> blocksRdd;
     
@@ -810,7 +874,7 @@ public class Hmm {
           List<Tuple2<Integer, SquareMatrix>> prevMatrixList = prevMatrixRdd.collect();
           
           if (prevMatrixList.size() > 1 ) {
-            System.out.println("The previous matrix lsit is too big!");
+            System.out.println("The previous matrix list is too big!");
           }
           
           SquareMatrix prev = null;
@@ -898,12 +962,120 @@ public class Hmm {
       // re-parallelize it
       partialTbScansRdd = sc.parallelize(partialTbScans);
       
-      // scan the Khis
+      // finish scan and compute the Khis
+      class KhisMapper implements Function<BaumWelchBlock, SquareMatrix> {
+
+        private static final long serialVersionUID = 1L;
+        JavaRDD<Tuple2<Integer,SquareMatrix>> partialScansRdd;
+        
+        public KhisMapper(JavaRDD<Tuple2<Integer,SquareMatrix>> partialScansRdd) {
+          this.partialScansRdd = partialScansRdd;
+        }
+        
+        @Override
+        public SquareMatrix call(BaumWelchBlock arg0) throws Exception {
+          JavaRDD<Tuple2<Integer, SquareMatrix>> nextMatrixRdd =
+                  partialScansRdd.filter(new TupleKeyFilter<SquareMatrix>(arg0.blockId + 1));
+          
+          List<Tuple2<Integer, SquareMatrix>> nextMatrixList = nextMatrixRdd.collect();
+          
+          if (nextMatrixList.size() > 1 ) {
+            System.out.println("The next matrix list is too big!");
+          }
+          
+          SquareMatrix next = null;
+          if ( nextMatrixList.size() == 1 ) {
+            next = nextMatrixList.get(0)._2;
+          }
+          
+          SquareMatrix khis = arg0.computeKhis(next);
+          return khis;
+        }
+        
+      }
       
-      // renormalize a
+      JavaRDD<SquareMatrix> khisRdd = blocksRdd.map(new KhisMapper(partialTbScansRdd));
+      
+      List<SquareMatrix> khis = khisRdd.collect();
+      
+      // compute and renormalize a
+      double[][] aaStar = new double[n][n];
+      for ( int i = 0; i < n; i++ ) {
+        for ( int bi = 0; bi < khis.size(); bi++ ) {
+          SquareMatrix khi = khis.get(bi);
+          double sum = 0.0;
+          for ( int j = 0; j < n; j++ ) {
+            double val = khi.elements[ i * n + j];
+            aaStar[i][j] = val;
+            sum += val;
+          }
+          
+          for (int j = 0; j < n; j++ ) {
+            aaStar[i][j] /= sum;
+          }
+        }
+      }
       
       // get the block 0 to find pi
+      class PiFlatMapper implements FlatMapFunction<BaumWelchBlock, double[]> {
+
+        @Override
+        public Iterable<double[]> call(BaumWelchBlock arg0) throws Exception {
+          if ( arg0.blockId != 0 ) {
+            return null;
+          } else {
+            double[] piStar = new double[arg0.N];
+            for ( int i = 0; i < arg0.N; i++ ) {
+              piStar[i] = arg0.alphasHat[i] * arg0.betasHat[i];
+            }
+            
+            ArrayList<double[]> lpiStar = new ArrayList<double[]>();
+            lpiStar.add(piStar);
+            
+            return lpiStar;
+          }
+        }
+        
+      }
+      
+      JavaRDD<double[]> piRdd = blocksRdd.flatMap(new PiFlatMapper());
+      List<double[]> piList = piRdd.collect();
+      
+      if ( piList.size() > 1 ) {
+        System.out.println("The pi list is too big!");
+      }
+      
+      double[] piStar = piList.get(0);
+      
       // renormalize pi
+      double sum = 0.0;
+      for ( int i = 0; i < n; i++ ) {
+        sum += piStar[i];
+      }
+      for (int i = 0; i < n; i++ ) {
+        piStar[i] /= sum;
+      }
+      
+      // check convergence
+      piDiff = 0.0;
+      for ( int i = 0; i < n; i++ ) {
+        piDiff += Math.abs( pi[i] - piStar[i] );
+      }
+      
+      aaDiff = 0.0;
+      for (int i = 0; i < n; i++ ) {
+        for (int j = 0; j < n; j++ ) {
+          aaDiff += Math.abs( aaStar[i][j] - a[i][j] );
+        }
+      }
+      
+      // commit changes
+      a = aaStar;
+      pi = piStar;
+      
+      if ( piDiff < piThreshold && aaDiff < aaThreshold ) {
+        break;
+      }
     }
   }
 
