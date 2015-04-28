@@ -3,6 +3,8 @@ package org.epfl.bigdataevs.em;
 import org.apache.commons.math3.fraction.BigFraction;
 import org.epfl.bigdataevs.eminput.TimePeriod;
 
+import scala.Tuple2;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -60,7 +62,7 @@ public class Theme extends TimePeriod {
     }
   }
     
-    
+   /*
   public String toString() {
     String s = "Theme #" + this.partitionIndex;
     for (String word : this.wordsProbability.keySet()) {
@@ -68,6 +70,7 @@ public class Theme extends TimePeriod {
     }
     return s;
   }
+  */
   
   public TreeMap<String, Double> sortString(int maxWords) {
     TreeMap<String, Double> smallSortedMap = new TreeMap<String, Double>(new ValueComparator(wordsProbability));
@@ -83,14 +86,14 @@ public class Theme extends TimePeriod {
     return smallSortedMap;
   }
   
-  public int statistics() {
+  public Tuple2<Integer, Integer> statistics() {
     int meaningfulWords = 0;
     for (String word : this.wordsProbability.keySet()) {
       if (this.wordsProbability.get(word) > 0.0) {
         meaningfulWords += 1;
       }
     }
-    return meaningfulWords;
+    return new Tuple2<Integer, Integer>(meaningfulWords, this.wordsProbability.size());
   }
   
   public double statistics2() {
