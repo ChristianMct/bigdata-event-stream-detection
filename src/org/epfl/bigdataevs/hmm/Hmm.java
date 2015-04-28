@@ -2,14 +2,19 @@ package org.epfl.bigdataevs.hmm;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map.Entry;
 
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function;
 import org.apache.commons.collections.list.TreeList;
 
 import scala.Array;
+import scala.Tuple2;
 
 /**
  * A Hidden Markov Model (HMM) built to perform analysis of theme life cycles (paper section 4). An
@@ -301,395 +306,444 @@ public class Hmm {
     }
   }
   
-  
-  
-  /** This methods is the iterative version (for test purposes)
-   *  of a new and beautiful parallel version of Baum-Welch.
-   * 
-   * @param observedSequence the sequence of output symbols observed
-   */
-  public void rawParalellTrain(int[] observedSequence, double likelihoodThreshold) {
+  public final class BaumWelchBlock {
+    public int blockSize;
+    public int blockId;
+    public int blockStart;// the start is inclusive
+    public int blockEnd;// the end is non inclusive
     
-    int sequenceLength = observedSequence.length;
+    int N;
+    int M;
+    double[] pi;
+    double[][] a;
+    double[][] b;
+    int[] observedBlock;
     
-    // Variables in which we store the next iteration results
-    double[] piStar = new double[n];
-    double[][] aaStar = new double[n][n];
+    double[] ta;
+    double[] prevAlphaHat;
+    double[] alphasHat;
+    double[] alphasScales;
     
-    // variable tracking convergence
-    double prevLogLikelihood = Double.NEGATIVE_INFINITY;
+    double[] tb;
+    double[] nextBetaHat;
+    double[] betasHat;
     
-    // Temporary variables used in every iteration
-    SquareMatrix[] taTildes = new SquareMatrix[sequenceLength];
-    SquareMatrix[] tbTildes = new SquareMatrix[sequenceLength];
-    ScanLeft<SquareMatrix> alphasScanner = new ScanLeft<SquareMatrix>(sequenceLength);
-    ScanRight<SquareMatrix> betasScanner = new ScanRight<SquareMatrix>(sequenceLength);
-    Vector[] alphasHat = new Vector[sequenceLength];
-    Vector[] betasHat = new Vector[sequenceLength];
-    Vector[] alphasBar = new Vector[sequenceLength];
-    double[] alphasScales = new double[ sequenceLength ]; //c_t
-    double[] gammas = new double[n];
-    double[] gammasSums = new double[n];
+    double[] khis;
     
-    // Iterate until convergence of the transition probabilities
-    int maxSteps = 100;
-    for ( int iterationStep = 0; iterationStep < maxSteps; iterationStep++ ) {
-      System.out.println("Iteration " + iterationStep);
+    public BaumWelchBlock(
+            int blockSize,
+            int blockId,
+            int blockStart,
+            int blockEnd,
+            int N,
+            int M){
+      this.blockSize = blockSize;
+      this.blockId = blockId;
+      this.blockStart = blockStart;
+      this.blockEnd = blockEnd;
       
-     //1. initialise the TA t-1->t
-      final class TaTildeInitializerMapper implements MapOperator<SquareMatrix> {
-
-        int n;
-        double[] pi;
-        double[][] b;
-        int[] observedSequence;
-        
-        public TaTildeInitializerMapper(
-                int n,
-                double[] pi,
-                double[][] b,
-                int[] observedSequence ) {
-          this.n = n;
-          this.pi = pi;
-          this.b = b;
-          this.observedSequence = observedSequence;
-        }
-        
-        @Override
-        public SquareMatrix apply(int index, SquareMatrix matrix, SquareMatrix out) {
-          if ( index == 0 ) {
-            for (int i = 0; i < n; i++) {
-              out.elements[i * n + i] = pi[i] * b[i][observedSequence[0]];
-            }
-            double norm0 = out.rawNorm1();
-            out.scalarDivide(norm0);
-          } else  {
-            for (int i = 0; i < n; i++) {
-              for (int j = 0; j < n; j++) {
-                out.elements[i * n + j] = a[j][i] * b[i][observedSequence[index]];
-              }
-            }
-            out.scalarDivide(out.rawNorm1());
-          }
-          return out;
-        }
-      }
-      
-      {
-        for ( int t = 0; t < sequenceLength; t++ ) {
-          taTildes[t] = new SquareMatrix(n);
-        }
-        
-        // TODO: need to pay attention to the fact that we don't set alphaScales[0] anymore
-        new Map<SquareMatrix>().map(
-                taTildes,
-                new TaTildeInitializerMapper(
-                        n,
-                        pi,
-                        b,
-                        observedSequence));
-      }
-      
-      //2. compute the TA 0->t
-      alphasScanner.scan(
-              taTildes,
-              new RenormalizedReverseMatrixMulOperator(),
-              new SquareMatrix(n).setIdentity() );
-      
-      // mapper to compute transformed vectors
-      final class VectorTransformer implements MapOperator<Vector> {
-
-        int n;
-        SquareMatrix[] transformMatrices;
-        
-        public VectorTransformer( int n, SquareMatrix[] transformMatrices ) {
-          this.n = n;
-          this.transformMatrices = transformMatrices;
-        }
-        
-        @Override
-        public Vector apply(int index, Vector vec, Vector out) {
-          for (int i = 0; i < n; i++) {
-            double aux = 0.0;
-            for (int h = 0; h < n; h++) {
-              aux += transformMatrices[index].elements[i * n + h];
-            }
-            out.elements[i] = aux;
-          }
-          return out;
-        }
-        
-      }
-      //3. compute alphaHat(t)
-      {
-        for ( int t = 0; t < sequenceLength; t++ ) {
-          alphasHat[t] = new Vector(n);
-        }
-         
-        new Map<Vector>().map(alphasHat, new VectorTransformer(n, taTildes));
-      }
-      
-      //4. compute alphaBar(t)
-      {
-        final class AlphasBarMapper implements MapOperator<Vector> {
-
-          int n;
-          double[] pi;
-          double[][] a;
-          double[][] b;
-          int[] observedSequence;
-          Vector[] alphasHat;
-          
-          public AlphasBarMapper(
-                  int n,
-                  double[] pi,
-                  double[][] a,
-                  double[][] b,
-                  int[] observedSequence,
-                  Vector[] alphasHat ) {
-            this.n = n;
-            this.pi = pi;
-            this.a = a;
-            this.b = b;
-            this.observedSequence = observedSequence;
-            this.alphasHat = alphasHat;
-          }
-          
-          @Override
-          public Vector apply(int index, Vector vec, Vector out) {
-            if ( index > 0 ) {
-              for (int i = 0; i < n; i++) {
-                double res = 0.0;
-                for (int h = 0; h < n; h++) {
-                  res += b[i][observedSequence[index]] * a[h][i]
-                          * alphasHat[(index - 1)].elements[h];
-                }
-                out.elements[i] = res;
-              }
-            } else {
-              for (int i = 0; i < n; i++) {
-                out.elements[i] = pi[i] * b[i][observedSequence[0]];
-              }
-            }
-            return out;
-          }
-          
-        }
-        
-        for ( int t = 0; t < sequenceLength; t++ ) {
-          alphasBar[t] = new Vector(n);
-        }
-        
-        new Map<Vector>().map(
-                alphasBar,
-                new AlphasBarMapper(
-                        n,
-                        pi,
-                        a,
-                        b,
-                        observedSequence,
-                        alphasHat));
-      }
-      
-      //5. compute c_t i.e. alphasScales
-      {
-        final class ScalesMapper implements MapOperator<Vector> {
-
-          int n;
-          Vector[] alphasHat;
-          Vector[] alphasBar;
-          double[] alphasScales;
-          
-          public ScalesMapper(
-                  int n,
-                  Vector[] alphasHat,
-                  Vector[] alphasBar,
-                  double[] alphasScales ) {
-            this.n = n;
-            this.alphasHat = alphasHat;
-            this.alphasBar = alphasBar;
-            this.alphasScales = alphasScales;
-          }
-          
-          @Override
-          public Vector apply(int index, Vector element, Vector out) {
-            double sumBar = 0.0;
-            for (int i = 0; i < n; i++) {
-              sumBar += alphasBar[index].elements[i];
-            }
-            alphasScales[index] = 1.0 / sumBar;
-            return element;
-          }
-          
-        }
-        
-        new Map<Vector>().map(
-                alphasHat,
-                new ScalesMapper(
-                        n,
-                        alphasHat,
-                        alphasBar,
-                        alphasScales));
-      }
-      
-      /*
-       * Generate all the betas coefficients
-       */
-      {
-        final class TbTildesInitializer implements MapOperator<SquareMatrix> {
-
-          int n;
-          double[][] a;
-          double[][] b;
-          int[] observedSequence;
-          double[] alphasScales;
-          
-          public TbTildesInitializer(
-                  int n,
-                  double[][] a,
-                  double[][] b,
-                  int[] observedSequence,
-                  double[] alphasScales) {
-            this.n = n;
-            this.a = a;
-            this.b = b;
-            this.observedSequence = observedSequence;
-            this.alphasScales = alphasScales;
-          }
-          
-          @Override
-          public SquareMatrix apply(int t, SquareMatrix element, SquareMatrix out) {
-            //1. initialise the TB t+1->t
-            int sequenceLength = observedSequence.length;
-            if ( t == sequenceLength - 1 ) {
-              for (int i = 0; i < n; i++) {
-                out.elements[i * n + i] = alphasScales[sequenceLength - 1];
-              }
-            } else {
-              for (int i = 0; i < n; i++) {
-                for (int j = 0; j < n; j++) {
-                  out.elements[i * n + j] =
-                          a[i][j] * b[j][observedSequence[t + 1]] * alphasScales[t];
-                }
-              }
-            }
-            return out;
-          }
-          
-        }
-
-        for (int t = 0;t < sequenceLength;t++) {
-          tbTildes[t] = new SquareMatrix(n);
-        }
-
-        new Map<SquareMatrix>().map(
-                tbTildes,
-                new TbTildesInitializer(
-                        n,
-                        a,
-                        b,
-                        observedSequence,
-                        alphasScales));
-      }
-      
-      //2. compute the TB sL-1->t
-      betasScanner.scan(
-              tbTildes,
-              new MatrixMultiplicationOperator(),
-              new SquareMatrix(n).setIdentity());
-      
-      //3. compute betasHat(t)
-      for ( int t = 0; t < sequenceLength; t++ ) {
-        betasHat[t] = new Vector(n);
-      }
-      
-      new Map<Vector>().map(betasHat, new VectorTransformer(n, tbTildes));
-
-      // reset temporary variables
-      Arrays.fill(gammasSums, 0.0d);
-      for ( int stateIndex = 0; stateIndex < n; stateIndex++ ) {
-        Arrays.fill(aaStar[stateIndex], 0.0);
-      }
-      
-      // as we don't need to update b, we can stop at
-      // sequenceLength-2
-      for ( int t = 0; t < sequenceLength - 2; t++ ) {
-        
-        // compute the terms alpha(i,t)*beta(i,t) and incrementally the sum of them
-        for (int i = 0; i < n; i++) {
-          double tempVal = alphasHat[t].elements[i] * betasHat[t].elements[i];
-          gammas[i] = tempVal;
-        }
-
-        // compute gamma(i,t), and incrementally gamma_sums(i)
-        for (int i = 0; i < n; i++) {
-          double tempVal = gammas[i] / alphasScales[t];
-          gammas[i] = tempVal;
-          gammasSums[i] += tempVal;
-        }
-
-        // we have now gamma(i,t) in gammas[], and sum( k, alpha(k, t)*beta(k, t) ) in denGamma */
-        /* compute khi(i,j) incrementally, put it in aaStar */
-        for (int i = 0; i < n; i++) {
-          for (int j = 0; j < n; j++) {
-            double khi = (alphasHat[t].elements[i] * a[i][j] * betasHat[(t + 1)].elements[j])
-                    * b[j][observedSequence[t + 1]];
-            aaStar[i][j] += khi;
-          }
-        }
-        /* copy in Pi_star if that's the moment */
-        if (t == 0) {
-          System.arraycopy(gammas, 0, piStar, 0, n);
-        }
-      }
-      
-      // Renormalize aaStar
-      for (int i = 0; i < n; i++) {
-        double sum = 0.0;
-        for (int j = 0; j < n; j++) {
-          sum += aaStar[i][j];
-        }
-        if ( sum > 0.0 ) {
-          for (int j = 0; j < n; j++) {
-            aaStar[i][j] /= sum;
-          }
-        }
-      }
-      
-      // Renormalize piStar
-      double sum = 0.0;
-      for (int i = 0; i < n; i++ ) {
-        sum += piStar[i];
-      }
-      if ( sum > 0.0 ) {
-        for ( int i = 0; i < n; i++ ) {
-          piStar[i] /= sum;
-        }
-      }
-      
-      // Check convergence here
-      double logLikelihood = 0.0;
-      for ( int t = 0; t < sequenceLength; t++ ) {
-        logLikelihood -= Math.log(alphasScales[t]);
-      }
-      
-      // Copy back piStar and aaStar
-      double[] temp1 = pi;
-      pi = piStar;
-      piStar = temp1;
-      
-      double[][] temp2 = a;
-      a = aaStar;
-      aaStar = temp2;
-      
-      // break when both criterion have been  met
-      if ( Math.abs(logLikelihood - prevLogLikelihood) < likelihoodThreshold ) {
-        //break;
-      }
-      
-      prevLogLikelihood = logLikelihood;
+      this.N = N;
+      this.M = M;
     }
     
+    /**
+     * Function in which we really initialize the block
+     * @param pi Current starting distribution
+     * @param a Current transition probability matrix
+     * @param b Observation matrix.
+     * @return The last (reduced) matrix of the block
+     */
+    public SquareMatrix initialize(
+            double[] pi,
+            double[][] a,
+            double[][] b,
+            int[] observedBlock) {
+      // the observedBlock is of size blockSize + 1 !
+      this.observedBlock = observedBlock;
+      
+      this.pi = new double[N];
+      for ( int i = 0; i < N; i++ ) {
+        this.pi[i] = pi[i];
+      }
+      
+      this.a = new double[N][N];
+      for ( int i = 0; i < N; i++ ) {
+        for ( int j = 0; j < N; j++ ) {
+          this.a[i][j] = a[i][j];
+        }
+      }
+      
+      this.b = new double[N][M];
+      for ( int i = 0; i < N; i++ ) {
+        for ( int j = 0; j < M; j++ ) {
+          this.b[i][j] = b[i][j];
+        }
+      }
+      
+      this.ta = new double[ blockSize * N * N];
+      
+      this.prevAlphaHat = new double[N];
+      this.alphasHat = new double[ blockSize * N];
+      
+      this.alphasScales = new double[ blockSize ];
+      
+      this.tb = new double[ blockSize * N * N];
+      this.nextBetaHat = new double[N];
+      this.betasHat = new double[blockSize * N * N];
+      
+      this.khis = new double[ blockSize * N * N];
+      
+      for ( int bi = 0; bi < blockSize; bi++ ) {
+        int index = bi + blockStart;
+        
+        if ( index == 0 ) {
+          double sum = 0.0;
+          for ( int i = 0; i < N; i++ ) {
+            for ( int j = 0; j < N; j++ ) {
+              ta[ i * N + j * N] = 0.0;
+            }
+            double val = pi[i] * b[i][observedBlock[0]];
+            ta[ i * N + i ] = val;
+            sum += val;
+          }
+          
+          // normalize
+          for ( int i = 0; i < N; i++ ) {
+            ta[ i * N + i ] /= sum;
+          }
+          
+        } else {
+          double sum = 0.0;
+          for ( int i = 0; i < N; i++ ) {
+            for ( int j = 0; j < N; j++ ) {
+              double val = a[j][i]
+                      * b[i][observedBlock[bi]];
+              ta[ bi * N * N + i * N + j ] = val;
+              sum += val;
+            }
+          }
+          
+          // normalize
+          for ( int i = 0; i < N; i++ ) {
+            for ( int j = 0; j < N; j++ ) {
+              ta[ bi * N * N + i * N + j ] /= sum;
+            }
+          }
+        }
+      }
+      
+      // perform the initial reduction.
+      double[] aux = new double[N * N];
+      for ( int bi = 1; bi < blockSize; bi++ ) {
+        double sum = 0.0;
+        for ( int i = 0; i < N; i++ ) {
+          for (int j = 0; j < N; j++ ) {
+            double val = 0.0;
+            for ( int k = 0; k < N; k++ ) {
+              val += ta[ bi * N * N + i * N + k ]
+                      * ta[ (bi - 1) * N * N + k * N + j];
+            }
+            aux[ i * N + j ] = val;
+            sum += val;
+          }
+        }
+        
+        // renormalize and copy
+        for ( int i = 0; i < N; i++ ) {
+          for (int j = 0; j < N; j++ ) {
+            aux[ i * N + j ] /= sum;
+            ta[ bi * N * N + i * N + j ] = aux[ i * N + j ];
+          }
+        }
+      }
+      
+      // return the last matrix
+      SquareMatrix ret = new SquareMatrix(N);
+      for (int i = 0; i < N; i++ ) {
+        for ( int j = 0; j < N; j++ ) {
+          ret.set(i, j, aux[ i * N + j]);
+        }
+      }
+      return ret;
+    }
+    
+    /**
+     * Perform the last scan stage, and compute the alpha vectors.
+     * @param prevMatrix Previous block matrix to apply, if any.
+     * @return Return the last alpha
+     */
+    public double[] computeAlphas( SquareMatrix prevMatrix ) {
+      // perform scan if necessary
+      if ( prevMatrix != null ) {
+        double[] aux = new double[N * N];
+        for ( int bi = 0; bi < blockSize; bi++ ) {
+          double sum = 0.0;
+          for ( int i = 0; i < N; i++ ) {
+            for ( int j = 0; j < N; j++ ) {
+              double val = 0.0;
+              for ( int k = 0; k < N; k++ ) {
+                val += ta[ bi * N * N + i * N + k ] * prevMatrix.elements[k * N + j];
+              }
+              sum += val;
+              aux[i * N + j ] = val;
+            }
+          }
+          
+          // renormalize it
+          for ( int i  = 0; i < N; i++ ) {
+            for ( int j = 0; j < N; j++ ) {
+              ta[ bi * N * N + i * N + j ] = aux[ i * N + j ] / sum;
+            }
+          }
+        }
+      }
+      
+      // compute the alpha vectors
+      for (int bi = 0; bi < blockSize; bi++ ) {
+        for ( int i = 0; i < N; i++ ) {
+          double val = 0.0;
+          for ( int j = 0; j < N; j++ ) {
+            val += ta[ bi * N * N * i * N + j];
+          }
+          alphasHat[ bi * N + i ] = val;
+        }
+      }
+      
+      // return the last alpha of the block
+      double[] lastAlphas = new double[N];
+      for ( int i = 0; i < N; i++ ) {
+        lastAlphas[i] = alphasHat[ (blockSize - 1) * N + i ];
+      }
+      return lastAlphas;
+    }
+    
+    /**
+     * Compute the Ct coefficients, start reducing the TB matrices
+     * @param prevAlpha
+     */
+    public void computeCt( double[] prevAlpha ) {
+      if ( blockId == 0 ) {
+        
+      } else {
+        
+      }
+    }
+  }
+  
+  /**
+   * Perform training on a spark Rdd observation sequence.
+   * @param sc Spark context to use
+   * @param observedSequence Rdd containing the sequence
+   * @param piThreshold Threshold on pi
+   * @param aaThreshold  Threshold on a
+   * @param maxIterations Max number of iterations
+   */
+  public void rawSparkTrain(
+          JavaSparkContext sc,
+          JavaRDD<Tuple2<Integer, Integer>> observedSequence,
+          double piThreshold,
+          double aaThreshold,
+          long maxIterations ) {
+    int blockSize = 1024 * 1024;
+    int sequenceSize = (int) observedSequence.count();
+    
+    int numBlocks = (sequenceSize + (blockSize - 1)) / blockSize;
+    
+    JavaRDD<BaumWelchBlock> blocksRdd;
+    
+    { // generate the blocks
+      ArrayList<BaumWelchBlock> blocks = new ArrayList<BaumWelchBlock>();
+      
+      for ( int i = 0; i < numBlocks; i++ ) {
+        int blockStart = i * blockSize;
+        int blockEnd = Math.min((i + 1) * blockSize, sequenceSize);
+        
+        blocks.add(new BaumWelchBlock(blockSize, i, blockStart, blockEnd, this.n, this.m));
+      }
+      blocksRdd = sc.parallelize(blocks);
+    }
+    
+    // block id + array of observations
+    JavaRDD<Tuple2<Integer, int[]>> observationBlocksRdd;
+    
+    { // generate the observation blocks
+      final class InBlockObservationFilter implements Function<Tuple2<Integer, Integer>, Boolean> {
+        private static final long serialVersionUID = 1L;
+        BaumWelchBlock block;
+        
+        public InBlockObservationFilter( BaumWelchBlock block ) {
+          this.block = block;
+        }
+        
+        @Override
+        public Boolean call(Tuple2<Integer, Integer> arg0) throws Exception {
+          // include the observation of index blockEnd
+          return (arg0._1 >= block.blockStart) && (arg0._1 <= block.blockEnd);
+        }
+        
+      }
+      
+      final class ObservationFilter implements Function<BaumWelchBlock, Tuple2<Integer, int[]>> {
+
+        private static final long serialVersionUID = 1L;
+        
+        JavaRDD<Tuple2<Integer, Integer>> observedSequence;
+        
+        public ObservationFilter( JavaRDD<Tuple2<Integer, Integer>> observedSequence ) {
+          this.observedSequence = observedSequence;
+        }
+
+        @Override
+        public Tuple2<Integer, int[]> call(BaumWelchBlock arg0) throws Exception {
+          JavaRDD<Tuple2<Integer, Integer>> filteredObservationsRdd =
+                  observedSequence.filter(new InBlockObservationFilter(arg0));
+          
+          List<Tuple2<Integer, Integer>> filteredObservations = filteredObservationsRdd.collect();
+          
+          // sort filtered observations
+          Collections.sort(filteredObservations, new Comparator<Tuple2<Integer, Integer>>(){
+            @Override
+            public int compare(Tuple2<Integer, Integer> index1, Tuple2<Integer, Integer> index2) {
+                return index1._1.compareTo(index2._1);
+            }
+          });
+          
+          // generate observation block
+          Integer blockId = new Integer(arg0.blockId);
+          int[] observedBlock = new int[arg0.blockSize];
+          for ( int i = 0; i < arg0.blockSize; i++ ) {
+            observedBlock[i] = filteredObservations.get(i)._2;
+          }
+          Tuple2<Integer, int[]> ret = new Tuple2<Integer, int[]>(blockId, observedBlock);
+          return ret;
+        }
+        
+      }
+      
+      observationBlocksRdd = blocksRdd.map(new ObservationFilter(observedSequence));
+    }
+    
+    // iterate until convergence
+    for ( int step = 0; step < maxIterations; step++ ) {
+      
+      class TupleKeyFilter<T> implements Function<Tuple2<Integer, T>, Boolean> {
+        private static final long serialVersionUID = 1L;
+        Integer comparisonKey;
+        
+        public TupleKeyFilter( Integer comparisonKey ) {
+          this.comparisonKey = comparisonKey;
+        }
+        
+        @Override
+        public Boolean call(Tuple2<Integer, T> arg0) throws Exception {
+          // include the observation of index blockEnd
+          return (arg0._1.intValue() == comparisonKey.intValue());
+        } 
+      }
+      
+      // initialize the TA matrices.
+      
+      class TaBlockInitializer implements
+          Function<BaumWelchBlock, Tuple2<Integer,SquareMatrix>> {
+        private static final long serialVersionUID = 1L;
+        
+        JavaRDD<Tuple2<Integer, int[]>> observedBlocksRdd;
+        
+        public TaBlockInitializer(JavaRDD<Tuple2<Integer, int[]>> observedBlocksRdd) {
+          this.observedBlocksRdd = observedBlocksRdd;
+        }
+        
+        @Override
+        public Tuple2<Integer,SquareMatrix> call(BaumWelchBlock arg0) throws Exception {
+          
+          JavaRDD<Tuple2<Integer, int[]>> observedBlockRdd =
+                  observedBlocksRdd.filter(new TupleKeyFilter<int[]>(new Integer(arg0.blockId)));
+          
+          if ( observedBlockRdd.count() > 1 ) {
+            System.out.println("Got more than one observedBlock");
+          }
+          
+          Tuple2<Integer, int[]> observedBlock = observedBlockRdd.collect().get(0);
+          
+          return new Tuple2<Integer, SquareMatrix>(
+                  arg0.blockId,
+                  arg0.initialize(pi, a, b, observedBlock._2) );
+        }
+        
+      }
+      
+      JavaRDD<Tuple2<Integer,SquareMatrix>> partialScansRdd =
+              blocksRdd.map( new TaBlockInitializer(observationBlocksRdd) );
+      
+      // we have initialized and partially scanned the TA matrices.
+      List<Tuple2<Integer, SquareMatrix>> partialScans = partialScansRdd.collect();
+      
+      // sort them by block id.
+      Collections.sort(partialScans, new Comparator<Tuple2<Integer, SquareMatrix>>(){
+        @Override
+        public int compare(
+                Tuple2<Integer, SquareMatrix> index1,
+                Tuple2<Integer, SquareMatrix> index2) {
+            return index1._1.compareTo(index2._1);
+        }
+      });
+      
+      // reduce the matrices on the master
+      int partialScansSize = partialScans.size();
+      if ( partialScansSize != numBlocks ) {
+        System.out.println("Incorrect number of partial scans!");
+      }
+      
+      for ( int i = 1; i < partialScansSize; i++ ) {
+        SquareMatrix out = new SquareMatrix(this.n);
+        
+        Tuple2<Integer, SquareMatrix> left = partialScans.get(i - 1);
+        Tuple2<Integer, SquareMatrix> right = partialScans.get(i);
+        
+        out = right._2.multiplyOut(left._2, out);
+        partialScans.set(i, new Tuple2<Integer, SquareMatrix>(right._1, out));
+      }
+      
+      // re-parallelize it
+      partialScansRdd = sc.parallelize(partialScans);
+      
+      class ComputeAlphasMapper implements Function<BaumWelchBlock, Tuple2<Integer, double[]>> {
+
+        private static final long serialVersionUID = 1L;
+        JavaRDD<Tuple2<Integer,SquareMatrix>> partialScansRdd;
+        
+        public ComputeAlphasMapper(JavaRDD<Tuple2<Integer,SquareMatrix>> partialScansRdd) {
+          this.partialScansRdd = partialScansRdd;
+        }
+        
+        @Override
+        public Tuple2<Integer, double[]> call(BaumWelchBlock arg0) throws Exception {
+          JavaRDD<Tuple2<Integer, SquareMatrix>> prevMatrixRdd =
+                  partialScansRdd.filter(new TupleKeyFilter<SquareMatrix>(arg0.blockId - 1));
+          
+          List<Tuple2<Integer, SquareMatrix>> prevMatrixList = prevMatrixRdd.collect();
+          
+          if (prevMatrixList.size() > 1 ) {
+            System.out.println("The previous matrix lsit is too big!");
+          }
+          
+          SquareMatrix prev = null;
+          if ( prevMatrixList.size() == 1 ) {
+            prev = prevMatrixList.get(0)._2;
+          }
+          
+          double[] lastAlpha = arg0.computeAlphas(prev);
+          return new Tuple2<Integer, double[]>(arg0.blockId, lastAlpha);
+        }
+        
+      }
+      // Finally reduce the TA, compute the alphaHat vectors,
+      // get the last alphaHat vector of every block
+      JavaRDD<Tuple2<Integer, double[]>> lastAlphas = blocksRdd.map(new ComputeAlphasMapper(partialScansRdd));
+      
+      // propagate the last alphas, compute the Ct, start computing the TB.
+      
+    }
   }
 
   /**
