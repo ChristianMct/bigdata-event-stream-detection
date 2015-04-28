@@ -314,6 +314,7 @@ public class Hmm {
     
     int N;
     int M;
+    int T;
     double[] pi;
     double[][] a;
     double[][] b;
@@ -336,7 +337,8 @@ public class Hmm {
             int blockStart,
             int blockEnd,
             int N,
-            int M){
+            int M,
+            int T){
       this.blockSize = blockSize;
       this.blockId = blockId;
       this.blockStart = blockStart;
@@ -344,6 +346,7 @@ public class Hmm {
       
       this.N = N;
       this.M = M;
+      this.T = T;
     }
     
     /**
@@ -395,9 +398,9 @@ public class Hmm {
       
       for ( int bi = 0; bi < blockSize; bi++ ) {
         int index = bi + blockStart;
-        
+
+        double sum = 0.0;
         if ( index == 0 ) {
-          double sum = 0.0;
           for ( int i = 0; i < N; i++ ) {
             for ( int j = 0; j < N; j++ ) {
               ta[ i * N + j * N] = 0.0;
@@ -406,14 +409,7 @@ public class Hmm {
             ta[ i * N + i ] = val;
             sum += val;
           }
-          
-          // normalize
-          for ( int i = 0; i < N; i++ ) {
-            ta[ i * N + i ] /= sum;
-          }
-          
         } else {
-          double sum = 0.0;
           for ( int i = 0; i < N; i++ ) {
             for ( int j = 0; j < N; j++ ) {
               double val = a[j][i]
@@ -422,12 +418,12 @@ public class Hmm {
               sum += val;
             }
           }
-          
-          // normalize
-          for ( int i = 0; i < N; i++ ) {
-            for ( int j = 0; j < N; j++ ) {
-              ta[ bi * N * N + i * N + j ] /= sum;
-            }
+        }
+        
+        // normalize
+        for ( int i = 0; i < N; i++ ) {
+          for ( int j = 0; j < N; j++ ) {
+            ta[ i * N + j ] /= sum;
           }
         }
       }
@@ -518,15 +514,97 @@ public class Hmm {
     }
     
     /**
-     * Compute the Ct coefficients, start reducing the TB matrices
-     * @param prevAlpha
+     * Compute the Ct coefficients, start reducing the TB matrices.
+     * @param prevAlpha Previous block last alpha if any
+     * @return The first TB matrix of the block
      */
-    public void computeCt( double[] prevAlpha ) {
+    public SquareMatrix computeCt( double[] prevAlpha ) {
+      // compute the Ct coefficients
       if ( blockId == 0 ) {
-        
+        double den = 0.0;
+        for ( int i = 0; i < N; i++ ) {
+          den += pi[i] * b[i][observedBlock[0]];
+        }
+        alphasScales[0] = 1.0 / den;
       } else {
-        
+        { // bi = 0
+          double den = 0.0;
+          for ( int i = 0; i < N; i++ ) {
+            for (int j = 0; j < N; j++ ) {
+              double val = a[j][i]
+                      * b[i][observedBlock[0]] * prevAlpha[j];
+              den += val;
+            }
+          }
+          alphasScales[0] = 1.0 / den;
+        }
       }
+      for ( int bi = 1; bi < blockSize; bi++ ) {
+        double den = 0.0;
+        for ( int i = 0; i < N; i++ ) {
+          for (int j = 0; j < N; j++ ) {
+            double val = a[j][i]
+                    * b[i][observedBlock[bi]] * alphasHat[(bi - 1) * N + j];
+            den += val;
+          }
+        }
+        alphasScales[bi] = 1.0 / den;
+      }
+      
+      // set the TB matrices, and the reduce them
+      for ( int bi = 0; bi < blockSize; bi++ ) {
+        int index = blockStart + bi;
+        if ( index == T - 1 ) {
+          for ( int i = 0; i < N; i++ ) {
+            for ( int j = 0; j < N; j++ ) {
+              tb[ bi * N * N + i * N + j ] = 0.0;
+            }
+            tb[ bi * N * N + i * N + i ] = alphasScales[bi];
+          }
+        } else {
+          for ( int i = 0; i < N; i++ ) {
+            for ( int j = 0; j < N; j++ ) {
+              tb[ bi * N * N + i * N + j ] = alphasScales[bi]
+                      * a[i][j] * b[observedBlock[bi + 1]][j];
+            }
+          }
+        }
+      }
+      
+      //  reduce the matrices
+      double[] aux = new double[N * N];
+      
+      for ( int bi = blockSize - 2; bi >= 0; bi-- ) {
+        for ( int i = 0; i < N; i++ ) {
+          for ( int j = 0; j < N; j++ ) {
+            double val = 0.0;
+            for (int k = 0; k < N; k++ ) {
+              val += tb[ bi * N * N + i * N + k] * tb[ (bi + 1) * N * N + k * N + j ];
+            }
+            aux[ i * N + j ] = val;
+          }
+        }
+        
+        for ( int i = 0; i < N; i++ ) {
+          for ( int j = 0; j < N; j++ ) {
+            tb[ bi * N * N + i * N + j ] = aux[ i * N + j ];
+          }
+        }
+      }
+      
+      // return the first matrix of the block as the return value
+      SquareMatrix ret = new SquareMatrix(N);
+      for ( int i = 0; i < N; i++ ) {
+        for ( int j = 0; j < N; j++ ) {
+          ret.elements[ i * N + j ] = aux[ i * N + j ];
+        }
+      }
+      return ret;
+    }
+    
+    public SquareMatrix computeKhis( SquareMatrix nextTb ) {
+      // TODO finish this!
+      return null;
     }
   }
   
@@ -558,7 +636,15 @@ public class Hmm {
         int blockStart = i * blockSize;
         int blockEnd = Math.min((i + 1) * blockSize, sequenceSize);
         
-        blocks.add(new BaumWelchBlock(blockSize, i, blockStart, blockEnd, this.n, this.m));
+        blocks.add(
+                new BaumWelchBlock(
+                        blockEnd - blockStart + 1,
+                        i,
+                        blockStart,
+                        blockEnd,
+                        this.n,
+                        this.m,
+                        sequenceSize));
       }
       blocksRdd = sc.parallelize(blocks);
     }
@@ -672,14 +758,14 @@ public class Hmm {
         
       }
       
-      JavaRDD<Tuple2<Integer,SquareMatrix>> partialScansRdd =
+      JavaRDD<Tuple2<Integer,SquareMatrix>> partialTaScansRdd =
               blocksRdd.map( new TaBlockInitializer(observationBlocksRdd) );
       
       // we have initialized and partially scanned the TA matrices.
-      List<Tuple2<Integer, SquareMatrix>> partialScans = partialScansRdd.collect();
+      List<Tuple2<Integer, SquareMatrix>> partialTaScans = partialTaScansRdd.collect();
       
       // sort them by block id.
-      Collections.sort(partialScans, new Comparator<Tuple2<Integer, SquareMatrix>>(){
+      Collections.sort(partialTaScans, new Comparator<Tuple2<Integer, SquareMatrix>>(){
         @Override
         public int compare(
                 Tuple2<Integer, SquareMatrix> index1,
@@ -689,23 +775,23 @@ public class Hmm {
       });
       
       // reduce the matrices on the master
-      int partialScansSize = partialScans.size();
-      if ( partialScansSize != numBlocks ) {
+      int partialTaScansSize = partialTaScans.size();
+      if ( partialTaScansSize != numBlocks ) {
         System.out.println("Incorrect number of partial scans!");
       }
       
-      for ( int i = 1; i < partialScansSize; i++ ) {
+      for ( int i = 1; i < partialTaScansSize; i++ ) {
         SquareMatrix out = new SquareMatrix(this.n);
         
-        Tuple2<Integer, SquareMatrix> left = partialScans.get(i - 1);
-        Tuple2<Integer, SquareMatrix> right = partialScans.get(i);
+        Tuple2<Integer, SquareMatrix> left = partialTaScans.get(i - 1);
+        Tuple2<Integer, SquareMatrix> right = partialTaScans.get(i);
         
         out = right._2.multiplyOut(left._2, out);
-        partialScans.set(i, new Tuple2<Integer, SquareMatrix>(right._1, out));
+        partialTaScans.set(i, new Tuple2<Integer, SquareMatrix>(right._1, out));
       }
       
       // re-parallelize it
-      partialScansRdd = sc.parallelize(partialScans);
+      partialTaScansRdd = sc.parallelize(partialTaScans);
       
       class ComputeAlphasMapper implements Function<BaumWelchBlock, Tuple2<Integer, double[]>> {
 
@@ -739,10 +825,85 @@ public class Hmm {
       }
       // Finally reduce the TA, compute the alphaHat vectors,
       // get the last alphaHat vector of every block
-      JavaRDD<Tuple2<Integer, double[]>> lastAlphas = blocksRdd.map(new ComputeAlphasMapper(partialScansRdd));
+      JavaRDD<Tuple2<Integer, double[]>> lastAlphas =
+              blocksRdd.map(new ComputeAlphasMapper(partialTaScansRdd));
+      
+      // class to compute the Ct, and start reduction of Tb
+      class TbBlockInitializer implements
+          Function<BaumWelchBlock, Tuple2<Integer,SquareMatrix>> {
+        private static final long serialVersionUID = 1L;
+        
+        JavaRDD<Tuple2<Integer, double[]>> lastAlphasRdd;
+        
+        public TbBlockInitializer(JavaRDD<Tuple2<Integer, double[]>> lastAlphas) {
+          this.lastAlphasRdd = lastAlphas;
+        }
+        
+        @Override
+        public Tuple2<Integer,SquareMatrix> call(BaumWelchBlock arg0) throws Exception {
+          JavaRDD<Tuple2<Integer, double[]>> prevAlphaRdd =
+                  lastAlphasRdd.filter(new TupleKeyFilter<double[]>(arg0.blockId - 1));
+          
+          List<Tuple2<Integer, double[]>> prevAlphaList = prevAlphaRdd.collect();
+          
+          if (prevAlphaList.size() > 1 ) {
+            System.out.println("The previous alpha list is too big!");
+          }
+          
+          double[] prev = null;
+          if ( prevAlphaList.size() == 1 ) {
+            prev = prevAlphaList.get(0)._2;
+          }
+          
+          SquareMatrix firstTb = arg0.computeCt(prev);
+          return new Tuple2<Integer, SquareMatrix>(arg0.blockId, firstTb);
+        }
+        
+      }
       
       // propagate the last alphas, compute the Ct, start computing the TB.
+      JavaRDD<Tuple2<Integer,SquareMatrix>> partialTbScansRdd =
+              blocksRdd.map( new TbBlockInitializer(lastAlphas) );
       
+      // finish scanning the TB
+      // we have initialized and partially scanned the TA matrices.
+      List<Tuple2<Integer, SquareMatrix>> partialTbScans = partialTbScansRdd.collect();
+      
+      // sort them by block id.
+      Collections.sort(partialTbScans, new Comparator<Tuple2<Integer, SquareMatrix>>(){
+        @Override
+        public int compare(
+                Tuple2<Integer, SquareMatrix> index1,
+                Tuple2<Integer, SquareMatrix> index2) {
+            return index1._1.compareTo(index2._1);
+        }
+      });
+      
+      // reduce the matrices on the master
+      int partialTbScansSize = partialTbScans.size();
+      if ( partialTbScansSize != numBlocks ) {
+        System.out.println("Incorrect number of partial scans!");
+      }
+      
+      for ( int i = partialTbScansSize - 2; i >= 0; i-- ) {
+        SquareMatrix out = new SquareMatrix(this.n);
+        
+        Tuple2<Integer, SquareMatrix> left = partialTaScans.get(i);
+        Tuple2<Integer, SquareMatrix> right = partialTaScans.get(i + 1);
+        
+        out = left._2.multiplyOut(right._2, out);
+        partialTbScans.set(i, new Tuple2<Integer, SquareMatrix>(left._1, out));
+      }
+      
+      // re-parallelize it
+      partialTbScansRdd = sc.parallelize(partialTbScans);
+      
+      // scan the Khis
+      
+      // renormalize a
+      
+      // get the block 0 to find pi
+      // renormalize pi
     }
   }
 
