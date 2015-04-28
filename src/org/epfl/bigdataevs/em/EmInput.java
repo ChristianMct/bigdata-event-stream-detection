@@ -47,6 +47,7 @@ public class EmInput implements Serializable {
   public TimePeriod timePeriod;
   
   public int numberOfIterations = 0;
+  public List<Double> values = new ArrayList<>();
   
   /**
    * EmInput contains at least the background model, 
@@ -111,12 +112,13 @@ public class EmInput implements Serializable {
           temp = temp + (article.probabilitiesDocumentBelongsToThemes.get(theme)
                   * theme.wordsProbability.get(word));
         }
-        logLikelihood += article.words.get(word) * Math.log(
+        logLikelihood += (article.words.get(word) * Math.log(
                 (lambdaBackgroundModel * backgroundModel.get(word))
-                + ((1.0 - lambdaBackgroundModel) * temp));
+                + ((1.0 - lambdaBackgroundModel) * temp)))
+                / article.words.size();
       }
     }
-    return logLikelihood;
+    return logLikelihood/documents.size();
   }
   
   /**
