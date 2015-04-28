@@ -19,6 +19,18 @@ public class TimePeriod implements Serializable {
     this.to = to;
   }
   
+  public boolean equals(Object other) {
+    if (other instanceof TimePeriod) {
+      TimePeriod comparedTo = (TimePeriod)other;
+      return (comparedTo.from.equals(from) && comparedTo.to.equals(to));
+    }
+    return false;
+  }
+  
+  public int hashCode() {
+    return from.hashCode() + to.hashCode();
+  }
+  
   public boolean lessThan(TimePeriod other) {
     return (this.to.compareTo(other.from) <= 0); 
   }
