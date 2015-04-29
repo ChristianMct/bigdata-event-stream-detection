@@ -65,7 +65,7 @@ public class InputParser {
   public TextCollectionData getEmInput(List<TimePeriod> partitioning) {
     
     for(TimePeriod tp : partitioning) {
-      if (this.timeFrame.contains(tp)) {
+      if (!this.timeFrame.contains(tp)) {
         throw new IllegalArgumentException("Partition TimePeriod not contained in the timeFrame of this Parser");
       }
     }
