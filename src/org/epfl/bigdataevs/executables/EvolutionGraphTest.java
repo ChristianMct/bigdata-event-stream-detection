@@ -36,7 +36,6 @@ import javax.xml.stream.XMLStreamException;
 public class EvolutionGraphTest {
 
   public static void main(String[] args) throws NumberFormatException, XMLStreamException, ParseException, IOException {
-    
     System.out.println("STARTED TEST");
     
     SparkConf sparkConf = new SparkConf().setAppName("Test article processor");
@@ -198,6 +197,7 @@ public class EvolutionGraphTest {
       }
     }
    
+    
     KLDivergence kldivergence = new KLDivergence(1E10, 0.0001);
   
     System.out.println("KLDivergence starts");
@@ -221,63 +221,3 @@ public class EvolutionGraphTest {
   }
 
 }
-/*
-
-Theme :0
-{de=0.036027465416267244, la=0.01863989530131822, le=0.013699287786830187, l=0.013694201371413998, d=0.013145765521409862, ?=0.012882480224206605, et=0.012118441672381484, les=0.011968877798697347, 2=0.011247653220150085, 5=0.010935372712445419, 1=0.010737900094285964, des=0.010150890060401981, en=0.008740461891966823}
-Score:1.0
-Stats 1:33001 / 33001
-Stats 2:1.0000000000000018
-Number of EmInputs: 1
-Number of Articles: 835
-Number of iterations:14
-Number of douments:835
-Value of log-likelihood:
-   -10.47021106327416
-   -9.637067028960864
-   -8.973280036715154
-   -8.461190040744457
-   -8.124373606010323
-   -7.940761554360895
-   -7.852804626964587
-   -7.813379862595895
-   -7.796934603610762
-   -7.790823148302712
-   -7.788779215584215
-   -7.78810954695479
-   -7.787968414025956
-   -7.788099982883336
-KLDivergence starts
-Exception in thread "main" org.apache.spark.SparkException: Task not serializable
-  at org.apache.spark.util.ClosureCleaner$.ensureSerializable(ClosureCleaner.scala:166)
-  at org.apache.spark.util.ClosureCleaner$.clean(ClosureCleaner.scala:158)
-  at org.apache.spark.SparkContext.clean(SparkContext.scala:1478)
-  at org.apache.spark.rdd.RDD.flatMap(RDD.scala:295)
-  at org.apache.spark.api.java.JavaRDDLike$class.flatMap(JavaRDDLike.scala:112)
-  at org.apache.spark.api.java.JavaPairRDD.flatMap(JavaPairRDD.scala:45)
-  at org.epfl.bigdataevs.evolutiongraph.KLDivergence.compute(KLDivergence.java:33)
-  at org.epfl.bigdataevs.executables.EvolutionGraphTest.main(EvolutionGraphTest.java:206)
-  at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
-  at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
-  at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
-  at java.lang.reflect.Method.invoke(Method.java:606)
-  at org.apache.spark.deploy.SparkSubmit$.launch(SparkSubmit.scala:358)
-  at org.apache.spark.deploy.SparkSubmit$.main(SparkSubmit.scala:75)
-  at org.apache.spark.deploy.SparkSubmit.main(SparkSubmit.scala)
-Caused by: java.io.NotSerializableException: org.epfl.bigdataevs.evolutiongraph.KLDivergence
-  at java.io.ObjectOutputStream.writeObject0(ObjectOutputStream.java:1183)
-  at java.io.ObjectOutputStream.defaultWriteFields(ObjectOutputStream.java:1547)
-  at java.io.ObjectOutputStream.writeSerialData(ObjectOutputStream.java:1508)
-  at java.io.ObjectOutputStream.writeOrdinaryObject(ObjectOutputStream.java:1431)
-  at java.io.ObjectOutputStream.writeObject0(ObjectOutputStream.java:1177)
-  at java.io.ObjectOutputStream.defaultWriteFields(ObjectOutputStream.java:1547)
-  at java.io.ObjectOutputStream.writeSerialData(ObjectOutputStream.java:1508)
-  at java.io.ObjectOutputStream.writeOrdinaryObject(ObjectOutputStream.java:1431)
-  at java.io.ObjectOutputStream.writeObject0(ObjectOutputStream.java:1177)
-  at java.io.ObjectOutputStream.writeObject(ObjectOutputStream.java:347)
-  at org.apache.spark.serializer.JavaSerializationStream.writeObject(JavaSerializer.scala:42)
-  at org.apache.spark.serializer.JavaSerializerInstance.serialize(JavaSerializer.scala:73)
-  at org.apache.spark.util.ClosureCleaner$.ensureSerializable(ClosureCleaner.scala:164)
-
-
-*/
