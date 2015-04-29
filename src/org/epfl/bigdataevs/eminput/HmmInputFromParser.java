@@ -52,16 +52,6 @@ public class HmmInputFromParser implements Serializable {
     
     
     // Produce the big list of words in sorted chrono order
-   
-//    JavaRDD<String> wordStreamString = segmentedArticles.flatMap(new FlatMapFunction<SegmentedArticle, String>() {
-//      @Override
-//      public Iterable<String> call(SegmentedArticle t) throws Exception {
-//        return t.words;
-//      }
-//    });
-    
-    System.out.println(" Size of lexicon: "+this.lexicon.count());
-    
     final Map<String, Long> inMemLexicon = this.lexicon.collectAsMap();
     
     this.wordStream = segmentedArticles.flatMapToPair(
@@ -70,12 +60,14 @@ public class HmmInputFromParser implements Serializable {
         public List<Tuple2<Long, Long>> call(SegmentedArticle segArt) {
           List<Tuple2<Long, Long>> result = new LinkedList<Tuple2<Long,Long>>();
           for(String word : segArt.words) {
-            result.add(new Tuple2<Long,Long>(inMemLexicon.get(word), segArt.publication.getTime()));
+            Long longEncoding = inMemLexicon.get(word);
+            if(longEncoding != null){              
+              result.add(new Tuple2<Long,Long>(longEncoding, segArt.publication.getTime()));
+            }
           }
           return result;
         }
       }
     );
-    
   }
 }

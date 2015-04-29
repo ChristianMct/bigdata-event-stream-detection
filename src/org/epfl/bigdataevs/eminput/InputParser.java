@@ -62,7 +62,7 @@ public class InputParser {
     * @return container for the background model and word
     *     count of every individual article in each stream.
    **/
-  public TextCollectionData getEmInput(List<TimePeriod> partitioning) {
+  public EmInputFromParser getEmInput(List<TimePeriod> partitioning) {
     
     for(TimePeriod tp : partitioning) {
       if (this.timeFrame.contains(tp)) {

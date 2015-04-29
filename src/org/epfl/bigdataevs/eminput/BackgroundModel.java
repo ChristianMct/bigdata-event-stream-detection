@@ -10,7 +10,9 @@ import org.apache.spark.api.java.function.PairFlatMapFunction;
 import scala.Tuple2;
 
 import java.io.Serializable;
+import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Map;
 
 public class BackgroundModel implements Serializable {
   
@@ -60,12 +62,9 @@ public class BackgroundModel implements Serializable {
           return v1 + v2;
         } 
       });
-    
-    BigFraction cleaningTreshold = new BigFraction(1, totalAmount);
-    System.out.println("TRESH: "+cleaningTreshold.toString()+" tot amount :"+totalAmount + " size of BG :"+ wordCountRddReduced.count() );
-    
+        
     // Create the backgroundModel RDD
-    backgroundModelRdd = wordCount.mapValues(new Function<Integer, BigFraction>() {
+    backgroundModelRdd = wordCountRddReduced.mapValues(new Function<Integer, BigFraction>() {
       public BigFraction call(Integer count) {
         return new BigFraction(count, totalAmount);
       }     
