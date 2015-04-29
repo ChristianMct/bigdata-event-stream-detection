@@ -65,12 +65,12 @@ public class InputParser {
   public EmInputFromParser getEmInput(List<TimePeriod> partitioning) {
     
     for(TimePeriod tp : partitioning) {
-      if (this.timeFrame.contains(tp)) {
+      if (!this.timeFrame.contains(tp)) {
         throw new IllegalArgumentException("Partition TimePeriod not contained in the timeFrame of this Parser");
       }
     }
     
-    return null;
+    return new EmInputFromParser(backgroundModel, segmentedArticles, partitioning);
   }
   
   /**Returns the input for the HMM Algorithm.
@@ -123,7 +123,7 @@ class SegmentedArticle implements Serializable {
 class SegmentArticle implements Function<RawArticle, SegmentedArticle>, Serializable {
 
   /** Article texts are split on anything not a letter or number. **/
-  public static final String WORD_SPLIT_PATTERN = "[^\\p{L}\\p{Nd}]+";
+  public static final String WORD_SPLIT_PATTERN = "[^\\p{L}]+";
   
   /** Splits the RawArticle's text into a list of words; turn result into a SegmentedArticle.
    * instance **/
@@ -132,7 +132,8 @@ class SegmentArticle implements Function<RawArticle, SegmentedArticle>, Serializ
     String[] words = article.fullText.split(WORD_SPLIT_PATTERN);
     LinkedList<String> cleanedWords = new LinkedList<String>();
     for (String word : words) {
-      cleanedWords.add(word.toLowerCase());
+      if (word.length() > 0)
+        cleanedWords.add(word.toLowerCase());
     }
     return new SegmentedArticle(cleanedWords, article.stream, 
             article.issueDate);
