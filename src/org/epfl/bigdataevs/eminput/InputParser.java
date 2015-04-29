@@ -1,9 +1,6 @@
 package org.epfl.bigdataevs.eminput;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.spark.SparkContext;
-import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
@@ -15,7 +12,6 @@ import java.text.ParseException;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.logging.ErrorManager;
 
 import javax.xml.stream.XMLStreamException;
 
@@ -25,9 +21,7 @@ import javax.xml.stream.XMLStreamException;
 *and computes the background model for the EM algorithm
 **/
 public class InputParser {
- 
-  /** Article texts are split on anything not a letter or number. **/
-  public static final String WORD_SPLIT_PATTERN = "[^\\p{L}\\p{Nd}]+";
+
   
   private final JavaSparkContext sparkContext;
   private final JavaRDD<SegmentedArticle> segmentedArticles;
@@ -88,24 +82,6 @@ public class InputParser {
     return new HmmInputFromParser(backgroundModel, segmentedArticles, timeFrame, dt);
   }
   
-  
-  /** Acts as an intermediary processing step between a RawArticle and a ParsedArticle.
-   * The SegmentedArticle contains the ordered list of words constituting the original
-   * article text. It also has a list of TimePeriods it belongs to. **/
-  protected class SegmentedArticle implements Serializable {
-    
-    public final List<String> words;
-    public final ArticleStream stream;
-    public final Date publication;
-    
-    protected SegmentedArticle( List<String> words, ArticleStream stream, 
-            Date publication) {
-      this.words = words;
-      this.stream = stream;
-      this.publication = publication;
-    }
-  }
-  
   // TODO: Do this out of master node
    private JavaRDD<RawArticle> getRawArticleRDD(TimePeriod englobingTimePeriod,
            List<String> sourceList,
@@ -123,21 +99,42 @@ public class InputParser {
      
      return sparkContext.parallelize(rawArticleList); 
    }
-   
-   @SuppressWarnings("serial")
-   private class SegmentArticle implements Function<RawArticle, SegmentedArticle> {
+}
 
-     /** Splits the RawArticle's text into a list of words; turn result into a SegmentedArticle.
-      * instance **/
-     public SegmentedArticle call(RawArticle article) {
-       
-       String[] words = article.fullText.split(WORD_SPLIT_PATTERN);
-       LinkedList<String> cleanedWords = new LinkedList<String>();
-       for (String word : words) {
-         cleanedWords.add(word.toLowerCase());
-       }
-       return new SegmentedArticle(cleanedWords, article.stream, 
-               article.issueDate);
-     }
-   }
+
+/** Acts as an intermediary processing step between a RawArticle and a ParsedArticle.
+ * The SegmentedArticle contains the ordered list of words constituting the original
+ * article text. It also has a list of TimePeriods it belongs to. **/
+class SegmentedArticle implements Serializable {
+  
+  public final List<String> words;
+  public final ArticleStream stream;
+  public final Date publication;
+  
+  protected SegmentedArticle( List<String> words, ArticleStream stream, 
+          Date publication) {
+    this.words = words;
+    this.stream = stream;
+    this.publication = publication;
+  }
+}
+
+@SuppressWarnings("serial")
+class SegmentArticle implements Function<RawArticle, SegmentedArticle>, Serializable {
+
+  /** Article texts are split on anything not a letter or number. **/
+  public static final String WORD_SPLIT_PATTERN = "[^\\p{L}\\p{Nd}]+";
+  
+  /** Splits the RawArticle's text into a list of words; turn result into a SegmentedArticle.
+   * instance **/
+  public SegmentedArticle call(RawArticle article) {
+    
+    String[] words = article.fullText.split(WORD_SPLIT_PATTERN);
+    LinkedList<String> cleanedWords = new LinkedList<String>();
+    for (String word : words) {
+      cleanedWords.add(word.toLowerCase());
+    }
+    return new SegmentedArticle(cleanedWords, article.stream, 
+            article.issueDate);
+  }
 }

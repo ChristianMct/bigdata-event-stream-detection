@@ -1,32 +1,18 @@
 package org.epfl.bigdataevs.executables;
 
-import org.apache.commons.math3.fraction.Fraction;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.Function;
-import org.apache.spark.api.java.function.Function2;
-import org.epfl.bigdataevs.em.EmAlgo;
-import org.epfl.bigdataevs.em.EmInput;
-import org.epfl.bigdataevs.em.Theme;
+import org.epfl.bigdataevs.eminput.HmmInputFromParser;
 import org.epfl.bigdataevs.eminput.InputParser;
-import org.epfl.bigdataevs.eminput.ParsedArticle;
-import org.epfl.bigdataevs.eminput.TextCollectionData;
-import org.epfl.bigdataevs.eminput.TimePartition;
 import org.epfl.bigdataevs.eminput.TimePeriod;
-
-import scala.Tuple2;
 
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 import javax.xml.stream.XMLStreamException;
 
@@ -52,9 +38,13 @@ public class InputParserTest {
     inputPaths.add("hdfs:///projects/dh-shared/GDL/");
     //inputPaths.add("hdfs://user/christian/GDL");
     
-    TextCollectionData result = InputParser.getEmInput(timePeriods, ctx,inputPaths);
+    InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), ctx, inputPaths);
     
+    HmmInputFromParser result = parser.getHmmInput(null);
     
+    System.out.println("Size of BG model: "+result.backgroundModel.backgroundModelRdd.count());
+    System.out.println("Size of wordStream: "+result.wordStream.count());
+    System.out.println("Size of lexicon: "+result.lexicon.count());
     
   }
 

@@ -76,13 +76,13 @@ public class TextCollectionData {
   /** Returns RDD mapping each (cleaned) word to its count in the whole dataset. **/
   @SuppressWarnings("serial")
   private static JavaPairRDD<String, Integer> 
-        createWordCountRdd(JavaRDD<SegmentedArticle> data) {
+        createWordCountRdd(JavaRDD<SegmentedArticleB> data) {
     
     //temporary background model data: maps every word to its count for the whole time period
     JavaPairRDD<String, Integer> wordCountRdd = data
-            .flatMapToPair(new PairFlatMapFunction<SegmentedArticle, String, Integer>() {
+            .flatMapToPair(new PairFlatMapFunction<SegmentedArticleB, String, Integer>() {
               
-              public Iterable<Tuple2<String, Integer>> call(SegmentedArticle art) {
+              public Iterable<Tuple2<String, Integer>> call(SegmentedArticleB art) {
                 LinkedList<Tuple2<String, Integer>> countTuples = 
                         new LinkedList<Tuple2<String, Integer>>();
                 for (String word : art.words) {
@@ -113,18 +113,18 @@ public class TextCollectionData {
   
   /** Returns the textual content of articleData as a list of words (represented by their
    * unique integer ID).
-   * @param articleData JavaRDD of SegmentedArticle instances, must be chronologically
+   * @param articleData JavaRDD of SegmentedArticleB instances, must be chronologically
    * ordered
    * @param idCorrespondence the BiMap that translates a word into its id **/
   @SuppressWarnings("serial")
   private static List<Integer> generateWordConcatenation
-    (JavaRDD<SegmentedArticle> articleData, final Map<String, Integer> idCorrespondence) 
+    (JavaRDD<SegmentedArticleB> articleData, final Map<String, Integer> idCorrespondence) 
   {
     //TODO: Check that collect() keeps ordering
     return articleData.flatMap(
-            new FlatMapFunction<SegmentedArticle, Integer>() {
+            new FlatMapFunction<SegmentedArticleB, Integer>() {
               
-              public List<Integer> call(SegmentedArticle segArt) {
+              public List<Integer> call(SegmentedArticleB segArt) {
                 List<Integer> textAsWordId = new LinkedList<Integer>();
                 for (String word: segArt.words){
                   if (idCorrespondence.containsKey(word))
@@ -149,19 +149,19 @@ public class TextCollectionData {
           final List<TimePeriod> timeSegments) {
     
     /*Segments article's text into a list of words*/
-    JavaRDD<SegmentedArticle> segmentedArticles = 
-            input.map(new SegmentArticle(timeSegments));
+    JavaRDD<SegmentedArticleB> SegmentedArticleBs = 
+            input.map(new SegmentArticleB(timeSegments));
     //TODO: how many partitions am I supposed to define??? See sortBy specification
     //it's probably expensive to do partitions().size() so we MUST change that
-    segmentedArticles = segmentedArticles.sortBy(new Function<SegmentedArticle, Date>() { 
-      public Date call(SegmentedArticle segArt) {
+    SegmentedArticleBs = SegmentedArticleBs.sortBy(new Function<SegmentedArticleB, Date>() { 
+      public Date call(SegmentedArticleB segArt) {
         return segArt.publication;
       }
        
-    }, true, segmentedArticles.partitions().size());
+    }, true, SegmentedArticleBs.partitions().size());
     
 
-    JavaPairRDD<String, Integer> cleanedWordCount = createWordCountRdd(segmentedArticles);
+    JavaPairRDD<String, Integer> cleanedWordCount = createWordCountRdd(SegmentedArticleBs);
     
     //("usual" state) word -> word's count map
     Map<String, Integer> wordToCount = cleanedWordCount.collectAsMap();
@@ -201,11 +201,11 @@ public class TextCollectionData {
           }     
           });
     
-    List<Integer> wordConcat = generateWordConcatenation(segmentedArticles, 
+    List<Integer> wordConcat = generateWordConcatenation(SegmentedArticleBs, 
             wordIdMap);
     //TODO: remove cleaned words
     JavaPairRDD<TimePeriod, ParsedArticle> parsedArticles = 
-            segmentedArticles.flatMapToPair(new ProcessArticle());
+            SegmentedArticleBs.flatMapToPair(new ProcessArticle());
     
     JavaPairRDD<TimePeriod, TimePartition> partitions =   
             parsedArticles.groupByKey().mapToPair(new CreatePartitionFunction());
@@ -238,16 +238,16 @@ class CreatePartitionFunction implements
 }
   
 /** Acts as an intermediary processing step between a RawArticle and a ParsedArticle.
- * The SegmentedArticle contains the ordered list of words constituting the original
+ * The SegmentedArticleB contains the ordered list of words constituting the original
  * article text. It also has a list of TimePeriods it belongs to. **/
-class SegmentedArticle implements Serializable {
+class SegmentedArticleB implements Serializable {
   
   public final List<String> words;
   public final ArticleStream stream;
   public final Date publication;
   public final List<TimePeriod> owningTimePeriods;
   
-  public SegmentedArticle( List<String> words, ArticleStream stream, 
+  public SegmentedArticleB( List<String> words, ArticleStream stream, 
           Date publication, List<TimePeriod> owningTimePeriods) {
     this.words = words;
     this.stream = stream;
@@ -258,18 +258,18 @@ class SegmentedArticle implements Serializable {
 }
 
 @SuppressWarnings("serial")
-class SegmentArticle implements Function<RawArticle, SegmentedArticle> {
+class SegmentArticleB implements Function<RawArticle, SegmentedArticleB> {
   
   /** List of all the time partitions we will consider. Used to detect overlaps **/
   private final List<TimePeriod> timePeriods;
   
-  public SegmentArticle(List<TimePeriod> timePeriods) {
+  public SegmentArticleB(List<TimePeriod> timePeriods) {
     this.timePeriods = timePeriods;
   }
 
-  /** Splits the RawArticle's text into a list of words; turn result into a SegmentedArticle.
+  /** Splits the RawArticle's text into a list of words; turn result into a SegmentedArticleB.
    * instance **/
-  public SegmentedArticle call(RawArticle article) {         
+  public SegmentedArticleB call(RawArticle article) {         
     
     LinkedList<TimePeriod> containingPeriods = new LinkedList<TimePeriod>();
     for (TimePeriod segment : timePeriods) {
@@ -287,7 +287,7 @@ class SegmentArticle implements Function<RawArticle, SegmentedArticle> {
     for (String word : words) {
       cleanedWords.add(word.toLowerCase());
     }
-    return new SegmentedArticle(cleanedWords, article.stream, 
+    return new SegmentedArticleB(cleanedWords, article.stream, 
             article.issueDate, containingPeriods);
   }
 }
@@ -295,12 +295,12 @@ class SegmentArticle implements Function<RawArticle, SegmentedArticle> {
 
 @SuppressWarnings("serial")
 class ProcessArticle implements 
-      PairFlatMapFunction<SegmentedArticle, TimePeriod, ParsedArticle> {
+      PairFlatMapFunction<SegmentedArticleB, TimePeriod, ParsedArticle> {
 
   /** Compute the count of each word in article. Then produce a ParsedArticle
    * and return a mapping of this ParsedArticle with each of its parent
    * TimePeriod partitions. **/
-  public List<Tuple2<TimePeriod, ParsedArticle>> call(SegmentedArticle article) {         
+  public List<Tuple2<TimePeriod, ParsedArticle>> call(SegmentedArticleB article) {         
     
     List<Tuple2<TimePeriod, ParsedArticle>> result = 
             new ArrayList<Tuple2<TimePeriod, ParsedArticle>>();
