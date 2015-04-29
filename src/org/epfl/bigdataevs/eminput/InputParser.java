@@ -62,7 +62,7 @@ public class InputParser {
     * @return container for the background model and word
     *     count of every individual article in each stream.
    **/
-  public TextCollectionData getEmInput(List<TimePeriod> partitioning) {
+  public EmInputFromParser getEmInput(List<TimePeriod> partitioning) {
     
     for(TimePeriod tp : partitioning) {
       if (!this.timeFrame.contains(tp)) {
@@ -70,7 +70,7 @@ public class InputParser {
       }
     }
     
-    return null;
+    return new EmInputFromParser(backgroundModel, segmentedArticles, partitioning);
   }
   
   /**Returns the input for the HMM Algorithm.
