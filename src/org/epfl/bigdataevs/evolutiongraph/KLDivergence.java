@@ -15,7 +15,7 @@ public class KLDivergence {
   private double threshold;
   private double epsilon; //This variable is used to smooth the probability distribution
   
-  KLDivergence(double threshold, double epsilon) {
+  public KLDivergence(double threshold, double epsilon) {
     this.threshold = threshold;
     this.epsilon = epsilon;
   }
