@@ -576,7 +576,7 @@ public class Hmm implements Serializable{
         alphasScales[bi] = 1.0 / den;
       }
       
-      // set the TB matrices, and the reduce them
+      // set the TB matrices, and then reduce them
       for ( int bi = 0; bi < blockSize; bi++ ) {
         int index = blockStart + bi;
         if ( index == T - 1 ) {
@@ -633,13 +633,13 @@ public class Hmm implements Serializable{
     /**
      * Finish the reduction of TB matrices, and compute the khis
      * @param nextTb Next Tb matrix, if any
-     * @return The matrix of khis as.
+     * @return The matrix of khis as a square matrix.
      */
     public SquareMatrix computeKhis( SquareMatrix nextTb ) {
       // TODO finish this!
       if ( nextTb != null ) {
         double[] aux = new double[N * N];
-        for ( int bi = blockSize - 2; bi >= 0; bi-- ) {
+        for ( int bi = blockSize - 1; bi >= 0; bi-- ) {
           for ( int i = 0; i < N; i++ ) {
             for ( int j = 0; j < N; j++ ) {
               double val = 0.0;
@@ -660,7 +660,7 @@ public class Hmm implements Serializable{
       
       for ( int bi = 0; bi < blockSize; bi++ ) {
         int index = blockStart + bi;
-        if ( index < T - 2 ) {
+        if ( bi < blockSize - 1 ) {
           for ( int i = 0; i < N; i++ ) {
             for ( int j = 0; j < N; j++ ) {
               this.khis[ i * N + j ] += alphasHat[ bi * N + i ] * a[i][j]
@@ -669,16 +669,12 @@ public class Hmm implements Serializable{
                       
             }
           }
-        }
-        
-        if ( index == T - 2 ) {
+        } else if ( index != T - 1 ) {
           double[] beta = new double[N];
           for ( int i = 0; i < N; i++ ) {
             double val = 0.0;
             for ( int j = 0; j < N; j++ ) {
-              //TODO put true values debugging!!
-              //val += nextTb.elements[ i * N + j ];
-              val += 1;
+              val += nextTb.elements[ i * N + j ];
             }
             beta[i] = val;
           }
@@ -811,10 +807,7 @@ public class Hmm implements Serializable{
           return new Tuple2<Integer, SquareMatrix>(
                   arg0.blockId,
                   arg0.initialize(pi, a, b) );
-
-          
         }
-        
       }
       
       System.out.println("Before TA init");
@@ -958,10 +951,8 @@ public class Hmm implements Serializable{
           if ( arg0.blockId < numBlocks - 1 ) {
             next = partialScans.get(arg0.blockId + 1)._2;
           }
-          else{
-            System.out.println("problem with if");
-          }
-          System.out.println("Baum-Welch block in KhisMapper "+arg0);
+          
+          System.out.println("Baum-Welch block in KhisMapper " + arg0);
           
           SquareMatrix khis = arg0.computeKhis(next);
           return khis;
@@ -973,7 +964,7 @@ public class Hmm implements Serializable{
       JavaRDD<SquareMatrix> khisRdd = blocksRdd.map(new KhisMapper(partialTbScans));
       
       List<SquareMatrix> khis = khisRdd.collect();
-     System.out.println("first khi matrix : "+khis.get(0));
+     System.out.println("first khi matrix : " + khis.get(0));
       
       // compute and renormalize a
       double[][] aaStar = new double[n][n];
