@@ -1,9 +1,11 @@
 package org.epfl.bigdataevs.hmm;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
 
@@ -12,10 +14,13 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
+import org.apache.spark.storage.StorageLevel;
 import org.apache.commons.collections.list.TreeList;
+import org.apache.commons.math3.fraction.Fraction;
 
 import scala.Array;
 import scala.Tuple2;
+import scala.Tuple3;
 
 /**
  * A Hidden Markov Model (HMM) built to perform analysis of theme life cycles (paper section 4). An
@@ -25,7 +30,7 @@ import scala.Tuple2;
  * @author team Damien-Laurent-Sami
  *
  */
-public class Hmm {
+public class Hmm implements Serializable{
 
   private final int k;
   private final int n;
@@ -307,7 +312,7 @@ public class Hmm {
     }
   }
   
-  public final class BaumWelchBlock {
+  public final class BaumWelchBlock implements Serializable{
     public int blockSize;
     public int blockId;
     public int blockStart;// the start is inclusive
@@ -339,7 +344,8 @@ public class Hmm {
             int blockEnd,
             int N,
             int M,
-            int T){
+            int T,
+            int[] observedBlock){
       this.blockSize = blockSize;
       this.blockId = blockId;
       this.blockStart = blockStart;
@@ -348,23 +354,40 @@ public class Hmm {
       this.N = N;
       this.M = M;
       this.T = T;
+      // the observedBlock is of size blockSize + 1 !
+      this.observedBlock = observedBlock;
     }
     
+    @Override
+    public int hashCode() {
+      return blockId;
+    }
+    
+   
+    
+    @Override
+    public String toString() {
+      return "BaumWelchBlock [blockSize=" + blockSize + ", blockId=" + blockId + ", blockStart="
+              + blockStart + ", blockEnd=" + blockEnd + ", N=" + N + ", M=" + M + ", T=" + T
+              + ",\n     pi=" + Arrays.toString(pi) + ",\n     a=" + Arrays.toString(a) + ",\n     b="
+              + Arrays.toString(b) + ",\n     observedBlock=" + Arrays.toString(observedBlock) + ",\n     ta="
+              + Arrays.toString(ta) + ",\n     prevAlphaHat=" + Arrays.toString(prevAlphaHat)
+              + ",\n     alphasHat=" + Arrays.toString(alphasHat) + ",\n     alphasScales="
+              + Arrays.toString(alphasScales) + ",\n     tb=" + Arrays.toString(tb) + ",\n     nextBetaHat="
+              + Arrays.toString(nextBetaHat) + ",\n     betasHat=" + Arrays.toString(betasHat)
+              + ",\n     khis=" + Arrays.toString(khis) + "]";
+    }
+
     /**
      * Function in which we really initialize the block
      * @param pi Current starting distribution
      * @param a Current transition probability matrix
      * @param b Observation matrix.
-     * @return The last (reduced) matrix of the block
      */
     public SquareMatrix initialize(
             double[] pi,
             double[][] a,
-            double[][] b,
-            int[] observedBlock) {
-      // the observedBlock is of size blockSize + 1 !
-      this.observedBlock = observedBlock;
-      
+            double[][] b) {  
       this.pi = new double[N];
       for ( int i = 0; i < N; i++ ) {
         this.pi[i] = pi[i];
@@ -461,6 +484,7 @@ public class Hmm {
           ret.set(i, j, aux[ i * N + j]);
         }
       }
+      System.out.println("Baum-Welch block in initialize : "+this);
       return ret;
     }
     
@@ -500,7 +524,7 @@ public class Hmm {
         for ( int i = 0; i < N; i++ ) {
           double val = 0.0;
           for ( int j = 0; j < N; j++ ) {
-            val += ta[ bi * N * N * i * N + j];
+            val += ta[ bi * N * N + i * N + j];
           }
           alphasHat[ bi * N + i ] = val;
         }
@@ -565,8 +589,11 @@ public class Hmm {
         } else {
           for ( int i = 0; i < N; i++ ) {
             for ( int j = 0; j < N; j++ ) {
+              int auxTest = observedBlock[bi + 1];
               tb[ bi * N * N + i * N + j ] = alphasScales[bi]
-                      * a[i][j] * b[observedBlock[bi + 1]][j];
+                      * a[i][j] * 
+                      b[j][auxTest];
+                      //b[observedBlock[bi + 1]][j];
             }
           }
         }
@@ -637,7 +664,9 @@ public class Hmm {
           for ( int i = 0; i < N; i++ ) {
             for ( int j = 0; j < N; j++ ) {
               this.khis[ i * N + j ] += alphasHat[ bi * N + i ] * a[i][j]
-                      * betasHat[ (bi + 1) * N + j] * b[observedBlock[bi + 1]][j];
+                      * betasHat[ (bi + 1) * N + j] * b[j][observedBlock[bi + 1]];
+                      //* betasHat[ (bi + 1) * N + j] * b[observedBlock[bi + 1]][j]
+                      
             }
           }
         }
@@ -647,14 +676,17 @@ public class Hmm {
           for ( int i = 0; i < N; i++ ) {
             double val = 0.0;
             for ( int j = 0; j < N; j++ ) {
-              val += nextTb.elements[ i * N + j ];
+              //TODO put true values debugging!!
+              //val += nextTb.elements[ i * N + j ];
+              val += 1;
             }
             beta[i] = val;
           }
           for ( int i = 0; i < N; i++ ) {
             for ( int j = 0; j < N; j++ ) {
               this.khis[ i * N + j ] += alphasHat[ bi * N + i ] * a[i][j]
-                      * beta[j] * b[observedBlock[bi + 1]][j];
+                      * beta[j] * b[j][observedBlock[bi + 1]];
+                      //* beta[j] * b[observedBlock[bi + 1]][j];
             }
           }
         }
@@ -673,7 +705,7 @@ public class Hmm {
   /**
    * Perform training on a spark Rdd observation sequence.
    * @param sc Spark context to use
-   * @param observedSequence Rdd containing the sequence
+   * @param observedSequence Rdd containing the sequence (seq index, word index)
    * @param piThreshold Threshold on pi
    * @param aaThreshold  Threshold on a
    * @param maxIterations Max number of iterations
@@ -684,146 +716,111 @@ public class Hmm {
           double piThreshold,
           double aaThreshold,
           long maxIterations ) {
-    int blockSize = 1024 * 1024;
-    int sequenceSize = (int) observedSequence.count();
+    //final int blockSize = 1024 * 1024;
+    final int blockSize = 32;
+    final int N = n;
+    final int M = m;
+    final int T = (int) observedSequence.count();
     
-    int numBlocks = (sequenceSize + (blockSize - 1)) / blockSize;
+    final int numBlocks = (T + (blockSize - 1)) / blockSize;
     double piDiff = Double.POSITIVE_INFINITY;
     double aaDiff = Double.POSITIVE_INFINITY;
     
-    JavaRDD<BaumWelchBlock> blocksRdd;
     
-    { // generate the blocks
-      ArrayList<BaumWelchBlock> blocks = new ArrayList<BaumWelchBlock>();
-      
-      for ( int i = 0; i < numBlocks; i++ ) {
-        int blockStart = i * blockSize;
-        int blockEnd = Math.min((i + 1) * blockSize, sequenceSize);
-        
-        blocks.add(
-                new BaumWelchBlock(
-                        blockEnd - blockStart + 1,
-                        i,
+    JavaRDD<Tuple3<Integer, Integer, Integer>> observedSequenceWithBlockIds = observedSequence
+            .flatMap(new FlatMapFunction<Tuple2<Integer, Integer>, Tuple3<Integer, Integer, Integer>>() {
+              public Iterable<Tuple3<Integer, Integer, Integer>> call(Tuple2<Integer, Integer> tuple) {
+                List<Tuple3<Integer, Integer, Integer>> result = new LinkedList<Tuple3<Integer, Integer, Integer>>();
+                if (tuple._1 % blockSize == 0 && tuple._1 != 0) {
+                  result.add(new Tuple3<Integer, Integer, Integer>(tuple._1 / blockSize - 1,
+                          tuple._1, tuple._2));
+                }
+                result.add(new Tuple3<Integer, Integer, Integer>(tuple._1 / blockSize, tuple._1,
+                        tuple._2));
+                return result;
+              }
+            });
+    
+    System.out.println("Before seq group");
+    JavaPairRDD<Integer, Iterable<Tuple3<Integer, Integer, Integer>>> observerdGroupedByBlock = observedSequenceWithBlockIds
+            .groupBy(new Function<Tuple3<Integer, Integer, Integer>, Integer>() {
+              public Integer call(Tuple3<Integer, Integer, Integer> tuple) {
+                return tuple._1();
+              }
+            });
+    
+    
+    System.out.println("Before block creation");
+    JavaRDD<BaumWelchBlock> blocksRdd = observerdGroupedByBlock
+            .map(new Function<Tuple2<Integer, Iterable<Tuple3<Integer, Integer, Integer>>>, BaumWelchBlock>() {
+              public BaumWelchBlock call(
+                      Tuple2<Integer, Iterable<Tuple3<Integer, Integer, Integer>>> tuple) {
+
+                List<Tuple2<Integer, Integer>> filteredObservations = new ArrayList<Tuple2<Integer, Integer>>(
+                        blockSize + 1);
+                for (Tuple3<Integer, Integer, Integer> element : tuple._2()) {
+                  filteredObservations.add(new Tuple2<Integer, Integer>(element._2(), element._3()));
+                }
+
+                // sort filtered observations
+                Collections.sort(filteredObservations, new Comparator<Tuple2<Integer, Integer>>() {
+                  @Override
+                  public int compare(Tuple2<Integer, Integer> index1,
+                          Tuple2<Integer, Integer> index2) {
+                    return index1._1.compareTo(index2._1);
+                  }
+                });
+
+                if (filteredObservations.size() > blockSize + 1) {
+                  System.out.println("Filtered observation size :" + filteredObservations.size());
+                }
+                
+                int[] observedBlock = new int[blockSize + 1];
+                for (Tuple2<Integer, Integer> element : filteredObservations) {
+                  observedBlock[element._1() % blockSize] = element._2;
+                }
+                
+                int blockId = tuple._1;
+                int blockStart = blockId * blockSize;
+                int blockEnd = Math.min((blockId + 1) * blockSize, T);
+                BaumWelchBlock block = new BaumWelchBlock(
+                        blockEnd - blockStart,
+                        tuple._1(),
                         blockStart,
                         blockEnd,
-                        this.n,
-                        this.m,
-                        sequenceSize));
-      }
-      blocksRdd = sc.parallelize(blocks);
-    }
-    
-    // block id + array of observations
-    JavaRDD<Tuple2<Integer, int[]>> observationBlocksRdd;
-    
-    { // generate the observation blocks
-      final class InBlockObservationFilter implements Function<Tuple2<Integer, Integer>, Boolean> {
-        private static final long serialVersionUID = 1L;
-        BaumWelchBlock block;
-        
-        public InBlockObservationFilter( BaumWelchBlock block ) {
-          this.block = block;
-        }
-        
-        @Override
-        public Boolean call(Tuple2<Integer, Integer> arg0) throws Exception {
-          // include the observation of index blockEnd
-          return (arg0._1 >= block.blockStart) && (arg0._1 <= block.blockEnd);
-        }
-        
-      }
-      
-      final class ObservationFilter implements Function<BaumWelchBlock, Tuple2<Integer, int[]>> {
-
-        private static final long serialVersionUID = 1L;
-        
-        JavaRDD<Tuple2<Integer, Integer>> observedSequence;
-        
-        public ObservationFilter( JavaRDD<Tuple2<Integer, Integer>> observedSequence ) {
-          this.observedSequence = observedSequence;
-        }
-
-        @Override
-        public Tuple2<Integer, int[]> call(BaumWelchBlock arg0) throws Exception {
-          JavaRDD<Tuple2<Integer, Integer>> filteredObservationsRdd =
-                  observedSequence.filter(new InBlockObservationFilter(arg0));
-          
-          List<Tuple2<Integer, Integer>> filteredObservations = filteredObservationsRdd.collect();
-          
-          // sort filtered observations
-          Collections.sort(filteredObservations, new Comparator<Tuple2<Integer, Integer>>(){
-            @Override
-            public int compare(Tuple2<Integer, Integer> index1, Tuple2<Integer, Integer> index2) {
-                return index1._1.compareTo(index2._1);
-            }
-          });
-          
-          // generate observation block
-          Integer blockId = new Integer(arg0.blockId);
-          int[] observedBlock = new int[arg0.blockSize];
-          for ( int i = 0; i < arg0.blockSize; i++ ) {
-            observedBlock[i] = filteredObservations.get(i)._2;
-          }
-          Tuple2<Integer, int[]> ret = new Tuple2<Integer, int[]>(blockId, observedBlock);
-          return ret;
-        }
-        
-      }
-      
-      observationBlocksRdd = blocksRdd.map(new ObservationFilter(observedSequence));
-    }
+                        N,
+                        M,
+                        T,
+                        observedBlock);
+                System.out.println("Baum-Welch block in constructor : "+block);
+                return block;
+              }
+            });
     
     // iterate until convergence
     for ( int step = 0; step < maxIterations; step++ ) {
-      
-      class TupleKeyFilter<T> implements Function<Tuple2<Integer, T>, Boolean> {
-        private static final long serialVersionUID = 1L;
-        Integer comparisonKey;
-        
-        public TupleKeyFilter( Integer comparisonKey ) {
-          this.comparisonKey = comparisonKey;
-        }
-        
-        @Override
-        public Boolean call(Tuple2<Integer, T> arg0) throws Exception {
-          // include the observation of index blockEnd
-          return (arg0._1.intValue() == comparisonKey.intValue());
-        } 
-      }
-      
       // initialize the TA matrices.
       
       class TaBlockInitializer implements
-          Function<BaumWelchBlock, Tuple2<Integer,SquareMatrix>> {
+          Function<BaumWelchBlock, Tuple2<Integer,SquareMatrix>>, Serializable {
         private static final long serialVersionUID = 1L;
-        
-        JavaRDD<Tuple2<Integer, int[]>> observedBlocksRdd;
-        
-        public TaBlockInitializer(JavaRDD<Tuple2<Integer, int[]>> observedBlocksRdd) {
-          this.observedBlocksRdd = observedBlocksRdd;
-        }
         
         @Override
         public Tuple2<Integer,SquareMatrix> call(BaumWelchBlock arg0) throws Exception {
           
-          JavaRDD<Tuple2<Integer, int[]>> observedBlockRdd =
-                  observedBlocksRdd.filter(new TupleKeyFilter<int[]>(new Integer(arg0.blockId)));
-          
-          if ( observedBlockRdd.count() > 1 ) {
-            System.out.println("Got more than one observedBlock");
-          }
-          
-          Tuple2<Integer, int[]> observedBlock = observedBlockRdd.collect().get(0);
-          
           return new Tuple2<Integer, SquareMatrix>(
                   arg0.blockId,
-                  arg0.initialize(pi, a, b, observedBlock._2) );
+                  arg0.initialize(pi, a, b) );
+
+          
         }
         
       }
       
+      System.out.println("Before TA init");
       JavaRDD<Tuple2<Integer,SquareMatrix>> partialTaScansRdd =
-              blocksRdd.map( new TaBlockInitializer(observationBlocksRdd) );
+              blocksRdd.map( new TaBlockInitializer() );
+      blocksRdd.persist(StorageLevel.MEMORY_ONLY());
       
       // we have initialized and partially scanned the TA matrices.
       List<Tuple2<Integer, SquareMatrix>> partialTaScans = partialTaScansRdd.collect();
@@ -841,7 +838,7 @@ public class Hmm {
       // reduce the matrices on the master
       int partialTaScansSize = partialTaScans.size();
       if ( partialTaScansSize != numBlocks ) {
-        System.out.println("Incorrect number of partial scans!");
+        System.out.println("Incorrect number of partial TA scans!");
       }
       
       for ( int i = 1; i < partialTaScansSize; i++ ) {
@@ -854,80 +851,66 @@ public class Hmm {
         partialTaScans.set(i, new Tuple2<Integer, SquareMatrix>(right._1, out));
       }
       
-      // re-parallelize it
-      partialTaScansRdd = sc.parallelize(partialTaScans);
-      
-      class ComputeAlphasMapper implements Function<BaumWelchBlock, Tuple2<Integer, double[]>> {
+      class ComputeAlphasMapper implements Function<BaumWelchBlock, Tuple2<Integer, double[]>>, Serializable {
 
         private static final long serialVersionUID = 1L;
-        JavaRDD<Tuple2<Integer,SquareMatrix>> partialScansRdd;
+        List<Tuple2<Integer, SquareMatrix>> partialScans;
         
-        public ComputeAlphasMapper(JavaRDD<Tuple2<Integer,SquareMatrix>> partialScansRdd) {
-          this.partialScansRdd = partialScansRdd;
+        public ComputeAlphasMapper(List<Tuple2<Integer, SquareMatrix>> partialScans) {
+          this.partialScans = partialScans;
         }
         
         @Override
         public Tuple2<Integer, double[]> call(BaumWelchBlock arg0) throws Exception {
-          JavaRDD<Tuple2<Integer, SquareMatrix>> prevMatrixRdd =
-                  partialScansRdd.filter(new TupleKeyFilter<SquareMatrix>(arg0.blockId - 1));
-          
-          List<Tuple2<Integer, SquareMatrix>> prevMatrixList = prevMatrixRdd.collect();
-          
-          if (prevMatrixList.size() > 1 ) {
-            System.out.println("The previous matrix list is too big!");
-          }
-          
           SquareMatrix prev = null;
-          if ( prevMatrixList.size() == 1 ) {
-            prev = prevMatrixList.get(0)._2;
+          if ( arg0.blockId > 0 ) {
+            prev = partialScans.get(arg0.blockId - 1)._2;
           }
-          
+          System.out.println("Baum-Welch block in ComputeAlphasMapper : "+arg0);
           double[] lastAlpha = arg0.computeAlphas(prev);
           return new Tuple2<Integer, double[]>(arg0.blockId, lastAlpha);
         }
         
       }
+      
+      System.out.println("Before alpha map");
       // Finally reduce the TA, compute the alphaHat vectors,
       // get the last alphaHat vector of every block
-      JavaRDD<Tuple2<Integer, double[]>> lastAlphas =
-              blocksRdd.map(new ComputeAlphasMapper(partialTaScansRdd));
+      JavaRDD<Tuple2<Integer, double[]>> lastAlphasRdd =
+              blocksRdd.map(new ComputeAlphasMapper(partialTaScans));
+      blocksRdd.persist(StorageLevel.MEMORY_ONLY());
+      System.out.println("after alpha map");
+      List<Tuple2<Integer, double[]>> lastAlphas = lastAlphasRdd.collect();
       
       // class to compute the Ct, and start reduction of Tb
       class TbBlockInitializer implements
-          Function<BaumWelchBlock, Tuple2<Integer,SquareMatrix>> {
+          Function<BaumWelchBlock, Tuple2<Integer,SquareMatrix>> , Serializable{
         private static final long serialVersionUID = 1L;
         
-        JavaRDD<Tuple2<Integer, double[]>> lastAlphasRdd;
+        List<Tuple2<Integer, double[]>> lastAlphas;
         
-        public TbBlockInitializer(JavaRDD<Tuple2<Integer, double[]>> lastAlphas) {
-          this.lastAlphasRdd = lastAlphas;
+        public TbBlockInitializer(List<Tuple2<Integer, double[]>> lastAlphas) {
+          this.lastAlphas = lastAlphas;
         }
         
         @Override
         public Tuple2<Integer,SquareMatrix> call(BaumWelchBlock arg0) throws Exception {
-          JavaRDD<Tuple2<Integer, double[]>> prevAlphaRdd =
-                  lastAlphasRdd.filter(new TupleKeyFilter<double[]>(arg0.blockId - 1));
-          
-          List<Tuple2<Integer, double[]>> prevAlphaList = prevAlphaRdd.collect();
-          
-          if (prevAlphaList.size() > 1 ) {
-            System.out.println("The previous alpha list is too big!");
-          }
-          
+          System.out.println("Baum-Welch block in tbBlockInitializer "+arg0);
           double[] prev = null;
-          if ( prevAlphaList.size() == 1 ) {
-            prev = prevAlphaList.get(0)._2;
+          if ( arg0.blockId > 0 ) {
+            prev = lastAlphas.get(arg0.blockId - 1)._2;
           }
-          
           SquareMatrix firstTb = arg0.computeCt(prev);
           return new Tuple2<Integer, SquareMatrix>(arg0.blockId, firstTb);
         }
         
       }
       
+      System.out.println("Before TB init");
       // propagate the last alphas, compute the Ct, start computing the TB.
       JavaRDD<Tuple2<Integer,SquareMatrix>> partialTbScansRdd =
               blocksRdd.map( new TbBlockInitializer(lastAlphas) );
+      blocksRdd.persist(StorageLevel.MEMORY_ONLY());
       
       // finish scanning the TB
       // we have initialized and partially scanned the TA matrices.
@@ -959,34 +942,26 @@ public class Hmm {
         partialTbScans.set(i, new Tuple2<Integer, SquareMatrix>(left._1, out));
       }
       
-      // re-parallelize it
-      partialTbScansRdd = sc.parallelize(partialTbScans);
-      
       // finish scan and compute the Khis
-      class KhisMapper implements Function<BaumWelchBlock, SquareMatrix> {
+      class KhisMapper implements Function<BaumWelchBlock, SquareMatrix>, Serializable {
 
         private static final long serialVersionUID = 1L;
-        JavaRDD<Tuple2<Integer,SquareMatrix>> partialScansRdd;
+        List<Tuple2<Integer,SquareMatrix>> partialScans;
         
-        public KhisMapper(JavaRDD<Tuple2<Integer,SquareMatrix>> partialScansRdd) {
-          this.partialScansRdd = partialScansRdd;
+        public KhisMapper(List<Tuple2<Integer,SquareMatrix>> partialScans) {
+          this.partialScans = partialScans;
         }
         
         @Override
         public SquareMatrix call(BaumWelchBlock arg0) throws Exception {
-          JavaRDD<Tuple2<Integer, SquareMatrix>> nextMatrixRdd =
-                  partialScansRdd.filter(new TupleKeyFilter<SquareMatrix>(arg0.blockId + 1));
-          
-          List<Tuple2<Integer, SquareMatrix>> nextMatrixList = nextMatrixRdd.collect();
-          
-          if (nextMatrixList.size() > 1 ) {
-            System.out.println("The next matrix list is too big!");
-          }
-          
           SquareMatrix next = null;
-          if ( nextMatrixList.size() == 1 ) {
-            next = nextMatrixList.get(0)._2;
+          if ( arg0.blockId < numBlocks - 1 ) {
+            next = partialScans.get(arg0.blockId + 1)._2;
           }
+          else{
+            System.out.println("problem with if");
+          }
+          System.out.println("Baum-Welch block in KhisMapper "+arg0);
           
           SquareMatrix khis = arg0.computeKhis(next);
           return khis;
@@ -994,9 +969,11 @@ public class Hmm {
         
       }
       
-      JavaRDD<SquareMatrix> khisRdd = blocksRdd.map(new KhisMapper(partialTbScansRdd));
+      System.out.println("Before khi map");
+      JavaRDD<SquareMatrix> khisRdd = blocksRdd.map(new KhisMapper(partialTbScans));
       
       List<SquareMatrix> khis = khisRdd.collect();
+     System.out.println("first khi matrix : "+khis.get(0));
       
       // compute and renormalize a
       double[][] aaStar = new double[n][n];
@@ -1017,12 +994,13 @@ public class Hmm {
       }
       
       // get the block 0 to find pi
-      class PiFlatMapper implements FlatMapFunction<BaumWelchBlock, double[]> {
+      class PiFlatMapper implements FlatMapFunction<BaumWelchBlock, double[]>, Serializable {
 
         @Override
         public Iterable<double[]> call(BaumWelchBlock arg0) throws Exception {
           if ( arg0.blockId != 0 ) {
-            return null;
+            return new ArrayList<double[]>();
+            //return null;
           } else {
             double[] piStar = new double[arg0.N];
             for ( int i = 0; i < arg0.N; i++ ) {
@@ -1031,12 +1009,14 @@ public class Hmm {
             
             ArrayList<double[]> lpiStar = new ArrayList<double[]>();
             lpiStar.add(piStar);
-            
+            System.out.println("Baum-Welch block in PiFlatMapper " + arg0);
             return lpiStar;
           }
         }
         
       }
+      
+      System.out.println("Before pi flatmap");
       
       JavaRDD<double[]> piRdd = blocksRdd.flatMap(new PiFlatMapper());
       List<double[]> piList = piRdd.collect();
