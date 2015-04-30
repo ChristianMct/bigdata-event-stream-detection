@@ -29,8 +29,13 @@ public class InputParserTest {
     System.out.println("STARTED TEST");
     
     SparkConf sparkConf = new SparkConf().setAppName("Test article processor");
+    
+    
+    sparkConf.set("spark.executor.memory","2g");
+    sparkConf.set("spark.driver.memory", "2g");
     //sparkConf.setMaster("localhost:7077");
     JavaSparkContext ctx = new JavaSparkContext(sparkConf);
+    
     
     DateFormat format = new SimpleDateFormat("dd/MM/yyyy-HH");
     Calendar c = Calendar.getInstance(); 
@@ -48,20 +53,23 @@ public class InputParserTest {
       end = c.getTime();
     }
 
-    //System.out.println(timePeriods.get(0).includeDates(format.parse("1/1/1939-12")));
-    
     List<String> inputPaths = new LinkedList<String>();
     inputPaths.add("hdfs:///projects/dh-shared/GDL/");
     //inputPaths.add("hdfs://user/christian/GDL");
     
     InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), ctx, inputPaths);
     
-    HmmInputFromParser result = parser.getHmmInput(null);
+    HmmInputFromParser result = parser.getHmmInput();
+
+    long bgsize = result.backgroundModel.backgroundModelRdd.count();
+    long wordstrSize = result.wordStream.count();
+    long lexiconsize = result.lexicon.count();
     
-    System.out.println("Size of BG model: "+result.backgroundModel.backgroundModelRdd.count());
-    System.out.println("Size of wordStream: "+result.wordStream.count());
-    System.out.println("Size of lexicon: "+result.lexicon.count());
+    ctx.close();
     
+    System.out.println("Size of BG: "+bgsize);   
+    System.out.println("Size of wordStream: "+wordstrSize);
+    System.out.println("Size of lexicon: "+lexiconsize);
   }
 
 }

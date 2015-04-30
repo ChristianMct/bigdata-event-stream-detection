@@ -26,7 +26,7 @@ public class RawArticleStreamTest{
     Calendar cal = Calendar.getInstance();
     cal.set(1939, 0, 1,0,0,0);
     Date begin = cal.getTime();
-    cal.set(1945, 11, 31,13,0,0);
+    cal.set(1939, 0, 31,13,0,0);
     Date end = cal.getTime();  
     end.getDate();
     
@@ -42,16 +42,16 @@ public class RawArticleStreamTest{
       System.out.println(name);
     }
     
-    List<String> folder = new LinkedList<String>();
+    
     //folder.add("file:///Users/christian/dhlabProject/JDG");
     //folder.add("/Users/christian/dhlabProject/GDL");
-    folder.add("hdfs://localhost:9000/user/christian/JDG");
+    String path = "hdfs://localhost:9000/user/christian/JDG/articles1939.xml";
     
     Configuration config = new Configuration();
-    config.addResource(new Path("/usr/local/Cellar/hadoop/2.6.0/libexec/etc/hadoop/core-site.xml"));
+    //config.addResource(new Path("/usr/local/Cellar/hadoop/2.6.0/libexec/etc/hadoop/core-site.xml"));
     //config.addResource(new Path("/usr/local/Cellar/hadoop/2.6.0/libexec/etc/hadoop/hdfs-site.xml"));
     
-    RawArticleInputStream ras = new RawArticleInputStream(period, folder, config);
+    RawArticleInputStream ras = new RawArticleInputStream(period, path);
     
     RawArticle art;
     int count = 0;

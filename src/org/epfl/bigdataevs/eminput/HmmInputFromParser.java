@@ -1,9 +1,9 @@
 package org.epfl.bigdataevs.eminput;
 
 import org.apache.commons.math3.fraction.BigFraction;
+
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
@@ -11,36 +11,50 @@ import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
 import java.io.Serializable;
-import java.sql.Time;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+/** This class is encapsulates the input for the HMM algorithm from the parser.
+ * The word stream is a RDD(Long,Long) where first Long is the word ID in the 
+ * lexicon, and the second Long is it's timestamp. It also contains the BackgroundModel
+ * object for the timeFrame. The InputParser is responsible for creating this object.
+ * @author Christian
+ */
+@SuppressWarnings("serial")
 public class HmmInputFromParser implements Serializable {
   
   public final BackgroundModel backgroundModel;
   public final JavaPairRDD<Long, Long> wordStream;
   public final JavaPairRDD<String, Long> lexicon;
   
+  /** Basic constructor for this class.
+   * @param backgroundModel the backgroundModel object corresponding to the timeFrame
+   * @param segmentedArticles The RDD containing all SegmentedArticles in the timeFrame
+   * @param timeFrame The considered timeFrame in the dataset.
+   */
   @SuppressWarnings("serial")
   public HmmInputFromParser(BackgroundModel backgroundModel,
          JavaRDD<SegmentedArticle> segmentedArticles,
-         TimePeriod timeFrame,
-         Time dt) {
+         TimePeriod timeFrame) {
     
     this.backgroundModel = backgroundModel;
     
     
-    JavaPairRDD<Tuple2<String, BigFraction>, Long> bgWithId = backgroundModel.backgroundModelRdd.zipWithIndex();
+    JavaPairRDD<Tuple2<String, BigFraction>, Long> bgModelWithId = backgroundModel
+                                                                .backgroundModelRdd
+                                                                .zipWithIndex();
     
-    this.lexicon = bgWithId.mapToPair(new PairFunction<Tuple2<Tuple2<String, BigFraction>,Long>, String, Long>() {
-
-      @Override
-      public Tuple2<String, Long> call(Tuple2<Tuple2<String, BigFraction>, Long> t) throws Exception {
-        return new Tuple2<String,Long>(t._1._1, t._2);
-      }      
-    });
+    this.lexicon = bgModelWithId.mapToPair(
+      new PairFunction<Tuple2<Tuple2<String, BigFraction>,Long>, String, Long>() {
+        @Override
+        public Tuple2<String, Long> call(Tuple2<Tuple2<String, BigFraction>, Long> wordEntry) 
+                throws Exception {
+          return new Tuple2<String,Long>(wordEntry._1._1, wordEntry._2);
+        }
+      }
+    );
     
     
     // Sorts the articles by date
@@ -59,9 +73,9 @@ public class HmmInputFromParser implements Serializable {
         
         public List<Tuple2<Long, Long>> call(SegmentedArticle segArt) {
           List<Tuple2<Long, Long>> result = new LinkedList<Tuple2<Long,Long>>();
-          for(String word : segArt.words) {
+          for (String word : segArt.words) {
             Long longEncoding = inMemLexicon.get(word);
-            if(longEncoding != null){              
+            if (longEncoding != null) {              
               result.add(new Tuple2<Long,Long>(longEncoding, segArt.publication.getTime()));
             }
           }
