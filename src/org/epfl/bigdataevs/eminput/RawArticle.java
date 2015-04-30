@@ -55,7 +55,7 @@ public class RawArticle implements Serializable {
  * @author Christian
  *
  */
-class RawArticleBuilder {
+class RawArticleBuilder implements Serializable{
 
   public int charCount;
   public int pageNumber;
