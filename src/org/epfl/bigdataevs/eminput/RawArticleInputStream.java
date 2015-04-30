@@ -98,8 +98,8 @@ public class RawArticleInputStream implements Serializable{
     Configuration config = new Configuration();
     config.addResource(new Path("/usr/local/Cellar/hadoop/2.6.0/libexec/etc/hadoop/core-site.xml"));
     FileSystem fileSystem = FileSystem.get(config);
-    if (this.path != null) {     
-      Path path = new Path(this.path);
+    Path path = new Path(this.path);
+    if (path != null && fileSystem.exists(path)) {     
       InputStream fileStream = fileSystem.open(path);
       return XMLInputFactory.newInstance().createXMLStreamReader(fileStream);
     }
