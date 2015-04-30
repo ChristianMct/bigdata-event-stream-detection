@@ -1,6 +1,8 @@
 package org.epfl.bigdataevs.eminput;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -19,8 +21,7 @@ import javax.xml.stream.XMLStreamException;
 *InputParser: parses the data read from HDFS, clean them, 
 *and computes the background model for the EM algorithm
 **/
-public class InputParser {
-  private final JavaSparkContext sparkContext;
+public class InputParser implements Serializable {
   private final JavaRDD<SegmentedArticle> segmentedArticles;
   private final TimePeriod timeFrame;
   private final BackgroundModel backgroundModel;
@@ -40,14 +41,11 @@ public class InputParser {
                   throws NumberFormatException, XMLStreamException, ParseException, IOException {
     
     this.timeFrame = timeFrame;
-    this.sparkContext = sparkContext;
-    
-    Configuration config = new Configuration();
     
     List<String> sourceList = new LinkedList<String>();
     sourceList.addAll(sourcePath);
     
-    JavaRDD<RawArticle> rawArticles = getRawArticleRdd(timeFrame, sourceList, config);
+    JavaRDD<RawArticle> rawArticles = getRawArticleRdd(timeFrame, sourceList, sparkContext);
     segmentedArticles = rawArticles.map(new SegmentArticle());
     
     backgroundModel = new BackgroundModel(segmentedArticles);
@@ -80,21 +78,35 @@ public class InputParser {
   
   // TODO: Do this out of master node
   private JavaRDD<RawArticle> getRawArticleRdd(
-          TimePeriod englobingTimePeriod,
+          final TimePeriod englobingTimePeriod,
           List<String> sourceList,
-          Configuration config) 
+          JavaSparkContext sparkContext) 
           throws NumberFormatException, XMLStreamException, ParseException, IOException {
-     
-    RawArticleInputStream ras = new RawArticleInputStream(englobingTimePeriod, sourceList, config);
-     
-    RawArticle rawArticle;
-    List<RawArticle> rawArticleList = new LinkedList<RawArticle>();
-     
-    while ((rawArticle = ras.read()) != null) {
-      rawArticleList.add(rawArticle);
+    
+    List<String> sourcePaths = new LinkedList<String>();
+    for (String folder: sourceList) {
+      for (String fileName: englobingTimePeriod.getFilesNames()) {
+        sourcePaths.add(folder + '/' + fileName);
+      }
     }
     
-    return sparkContext.parallelize(rawArticleList); 
+    JavaRDD<String> pathsRdd = sparkContext.parallelize(sourcePaths, sourcePaths.size());
+    
+    
+    JavaRDD<RawArticle> rawArticles = pathsRdd.flatMap(new FlatMapFunction<String, RawArticle>() {
+      @Override
+      public Iterable<RawArticle> call(String path) throws Exception {
+        RawArticleInputStream ras = new RawArticleInputStream(englobingTimePeriod, path);
+        RawArticle rawArticle;
+        List<RawArticle> rawArticleList = new LinkedList<RawArticle>();
+        while ((rawArticle = ras.read()) != null) {
+          rawArticleList.add(rawArticle);
+        }
+        return rawArticleList;
+      }  
+    });
+    
+    return rawArticles; 
   }
 }
 

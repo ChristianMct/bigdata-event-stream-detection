@@ -7,6 +7,7 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -19,23 +20,18 @@ import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
-public class RawArticleInputStream {
+public class RawArticleInputStream implements Serializable{
 
   private String current;
   private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy-HH");
   private final RawArticleBuilder builder;
   private final TimePeriod timePeriod;
-  private final List<Path> sourcePaths;
-  private final Iterator<Path> sourcePathsIt;
-  private final Configuration config;
-  private final XMLInputFactory factory;
-  
-  private FileSystem fileSystem;
-  private XMLStreamReader reader;
+  private final String path;
 
   private boolean initCompleted;
   private boolean articleCompleted;
   private boolean shouldSkipArticle;
+  private XMLStreamReader reader;
 
 
   /**An input stream that reads all the file from a given period from the given
@@ -46,18 +42,10 @@ public class RawArticleInputStream {
    * @param config A configuration object from Hadoop
    */
   public RawArticleInputStream(TimePeriod timePeriod, 
-          List<String> articleFolders, Configuration config) {
+          String sourcePath) {
     this.timePeriod = timePeriod;
     this.builder = new RawArticleBuilder();
-    this.sourcePaths = new LinkedList<Path>();
-    for (String folder: articleFolders) {
-      for (String fileName: timePeriod.getFilesNames()) {
-        sourcePaths.add(new Path(folder + '/' + fileName));
-      }
-    }
-    this.sourcePathsIt = sourcePaths.iterator();
-    this.config = config;
-    this.factory = XMLInputFactory.newInstance();
+    this.path = sourcePath;
   }
 
   /**Reads the next RawArticle from the current file. If the file is done, loads the new one.
@@ -70,8 +58,9 @@ public class RawArticleInputStream {
    */
   public RawArticle read() throws XMLStreamException, NumberFormatException, 
     ParseException, IOException {
+    
     if (!initCompleted) {
-      init();
+      reader = init();
       initCompleted = true;
     }
     
@@ -92,7 +81,8 @@ public class RawArticleInputStream {
           endElement(reader.getLocalName());
           break;
         case XMLStreamConstants.END_DOCUMENT:
-          closeStreamAndOpenNext();
+          reader.close();
+          reader = null;
           break;
         default:
           break;
@@ -104,21 +94,16 @@ public class RawArticleInputStream {
     return null;
   }
 
-  private void init() throws IOException, XMLStreamException {
-    this.fileSystem = FileSystem.get(config);
-    if (this.sourcePathsIt.hasNext()) {      
-      InputStream fileStream = this.fileSystem.open(this.sourcePathsIt.next());
-      reader = factory.createXMLStreamReader(fileStream);
+  private XMLStreamReader init() throws IOException, XMLStreamException {
+    Configuration config = new Configuration();
+    config.addResource(new Path("/usr/local/Cellar/hadoop/2.6.0/libexec/etc/hadoop/core-site.xml"));
+    FileSystem fileSystem = FileSystem.get(config);
+    if (this.path != null) {     
+      Path path = new Path(this.path);
+      InputStream fileStream = fileSystem.open(path);
+      return XMLInputFactory.newInstance().createXMLStreamReader(fileStream);
     }
-  }
-  
-  private void closeStreamAndOpenNext() throws XMLStreamException, IOException {
-    reader.close();
-    reader = null;
-    if (sourcePathsIt.hasNext()) {
-      InputStream fileStream = this.fileSystem.open(sourcePathsIt.next());
-      reader = this.factory.createXMLStreamReader(fileStream);
-    }
+    return null;
   }
 
   private void startElement(String type) {
