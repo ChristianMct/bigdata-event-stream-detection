@@ -326,16 +326,15 @@ public class Hmm implements Serializable{
     double[][] b;
     int[] observedBlock;
     
-    double[] ta;
+    SquareMatrix[] ta;
     double[] prevAlphaHat;
     double[] alphasHat;
     double[] alphasScales;
     
-    double[] tb;
-    double[] nextBetaHat;
+    SquareMatrix[] tb;
     double[] betasHat;
     
-    double[] khis;
+    SquareMatrix khis;
     
     public BaumWelchBlock(
             int blockSize,
@@ -354,8 +353,18 @@ public class Hmm implements Serializable{
       this.N = N;
       this.M = M;
       this.T = T;
+      
       // the observedBlock is of size blockSize + 1 !
       this.observedBlock = observedBlock;
+      
+      // do not allocate every matrix
+      // because we need fresh matrices at every step
+      this.ta = new SquareMatrix[blockSize];
+      
+      // and so is the TB array! (and betasHat)
+      // do not allocate every matrix
+      // because we need fresh matrices at every step
+      this.tb = new SquareMatrix[blockSize + 1];
     }
     
     @Override
@@ -373,9 +382,8 @@ public class Hmm implements Serializable{
               + Arrays.toString(b) + ",\n     observedBlock=" + Arrays.toString(observedBlock) + ",\n     ta="
               + Arrays.toString(ta) + ",\n     prevAlphaHat=" + Arrays.toString(prevAlphaHat)
               + ",\n     alphasHat=" + Arrays.toString(alphasHat) + ",\n     alphasScales="
-              + Arrays.toString(alphasScales) + ",\n     tb=" + Arrays.toString(tb) + ",\n     nextBetaHat="
-              + Arrays.toString(nextBetaHat) + ",\n     betasHat=" + Arrays.toString(betasHat)
-              + ",\n     khis=" + Arrays.toString(khis) + "]";
+              + Arrays.toString(alphasScales) + ",\n     tb=" + Arrays.toString(tb) + ",\n     betasHat=" + Arrays.toString(betasHat)
+              + "]\n";
     }
 
     /**
@@ -407,18 +415,24 @@ public class Hmm implements Serializable{
         }
       }
       
-      this.ta = new double[ blockSize * N * N];
+      for ( int bi = 0; bi < blockSize; bi++ ) {
+        ta[bi] = new SquareMatrix(N);
+      }
       
       this.prevAlphaHat = new double[N];
       this.alphasHat = new double[ blockSize * N];
       
       this.alphasScales = new double[ blockSize ];
       
-      this.tb = new double[ blockSize * N * N];
-      this.nextBetaHat = new double[N];
-      this.betasHat = new double[blockSize * N * N];
+      // don't initialize the "next" tb matrix
+      // we will get it after a propagation step
+      for ( int bi = 0; bi < blockSize; bi++ ) {
+        tb[bi] = new SquareMatrix(N);
+      }
+      // store exactly blockSize + 1 betas vectors
+      this.betasHat = new double[(blockSize + 1) * N];
       
-      this.khis = new double[ N * N];
+      this.khis = new SquareMatrix(N);
       
       for ( int bi = 0; bi < blockSize; bi++ ) {
         int index = bi + blockStart;
@@ -427,10 +441,10 @@ public class Hmm implements Serializable{
         if ( index == 0 ) {
           for ( int i = 0; i < N; i++ ) {
             for ( int j = 0; j < N; j++ ) {
-              ta[ i * N + j * N] = 0.0;
+              ta[0].elements[ i * N + j * N] = 0.0;
             }
             double val = pi[i] * b[i][observedBlock[0]];
-            ta[ i * N + i ] = val;
+            ta[0].elements[ i * N + i ] = val;
             sum += val;
           }
         } else {
@@ -438,7 +452,7 @@ public class Hmm implements Serializable{
             for ( int j = 0; j < N; j++ ) {
               double val = a[j][i]
                       * b[i][observedBlock[bi]];
-              ta[ bi * N * N + i * N + j ] = val;
+              ta[bi].elements[ i * N + j ] = val;
               sum += val;
             }
           }
@@ -447,45 +461,20 @@ public class Hmm implements Serializable{
         // normalize
         for ( int i = 0; i < N; i++ ) {
           for ( int j = 0; j < N; j++ ) {
-            ta[ i * N + j ] /= sum;
+            ta[bi].elements[ i * N + j ] /= sum;
           }
         }
       }
       
       // perform the initial reduction.
-      double[] aux = new double[N * N];
       for ( int bi = 1; bi < blockSize; bi++ ) {
-        double sum = 0.0;
-        for ( int i = 0; i < N; i++ ) {
-          for (int j = 0; j < N; j++ ) {
-            double val = 0.0;
-            for ( int k = 0; k < N; k++ ) {
-              val += ta[ bi * N * N + i * N + k ]
-                      * ta[ (bi - 1) * N * N + k * N + j];
-            }
-            aux[ i * N + j ] = val;
-            sum += val;
-          }
-        }
-        
-        // renormalize and copy
-        for ( int i = 0; i < N; i++ ) {
-          for (int j = 0; j < N; j++ ) {
-            aux[ i * N + j ] /= sum;
-            ta[ bi * N * N + i * N + j ] = aux[ i * N + j ];
-          }
-        }
+        ta[bi] = ta[bi - 1].multiplyOut(ta[bi], new SquareMatrix(N));
+        ta[bi].scalarDivide(ta[bi].rawNorm1());
       }
       
       // return the last matrix
-      SquareMatrix ret = new SquareMatrix(N);
-      for (int i = 0; i < N; i++ ) {
-        for ( int j = 0; j < N; j++ ) {
-          ret.set(i, j, aux[ i * N + j]);
-        }
-      }
-      System.out.println("Baum-Welch block in initialize : "+this);
-      return ret;
+      System.out.println("Baum-Welch block in initialize : " + this);
+      return ta[blockSize - 1].publicClone();
     }
     
     /**
@@ -496,26 +485,9 @@ public class Hmm implements Serializable{
     public double[] computeAlphas( SquareMatrix prevMatrix ) {
       // perform scan if necessary
       if ( prevMatrix != null ) {
-        double[] aux = new double[N * N];
-        for ( int bi = 0; bi < blockSize; bi++ ) {
-          double sum = 0.0;
-          for ( int i = 0; i < N; i++ ) {
-            for ( int j = 0; j < N; j++ ) {
-              double val = 0.0;
-              for ( int k = 0; k < N; k++ ) {
-                val += ta[ bi * N * N + i * N + k ] * prevMatrix.elements[k * N + j];
-              }
-              sum += val;
-              aux[i * N + j ] = val;
-            }
-          }
-          
-          // renormalize it
-          for ( int i  = 0; i < N; i++ ) {
-            for ( int j = 0; j < N; j++ ) {
-              ta[ bi * N * N + i * N + j ] = aux[ i * N + j ] / sum;
-            }
-          }
+        for ( int bi = 1; bi < blockSize; bi++ ) {
+          ta[bi] = prevMatrix.multiplyOut(ta[bi], new SquareMatrix(N));
+          ta[bi].scalarDivide(ta[bi].rawNorm1());
         }
       }
       
@@ -524,7 +496,7 @@ public class Hmm implements Serializable{
         for ( int i = 0; i < N; i++ ) {
           double val = 0.0;
           for ( int j = 0; j < N; j++ ) {
-            val += ta[ bi * N * N + i * N + j];
+            val += ta[bi].elements[ i * N + j];
           }
           alphasHat[ bi * N + i ] = val;
         }
@@ -545,6 +517,8 @@ public class Hmm implements Serializable{
      */
     public SquareMatrix computeCt( double[] prevAlpha ) {
       // compute the Ct coefficients
+      
+      // compute for the beginning of the block
       if ( blockId == 0 ) {
         double den = 0.0;
         for ( int i = 0; i < N; i++ ) {
@@ -564,6 +538,8 @@ public class Hmm implements Serializable{
           alphasScales[0] = 1.0 / den;
         }
       }
+      
+      // compute for the end of the block
       for ( int bi = 1; bi < blockSize; bi++ ) {
         double den = 0.0;
         for ( int i = 0; i < N; i++ ) {
@@ -576,58 +552,33 @@ public class Hmm implements Serializable{
         alphasScales[bi] = 1.0 / den;
       }
       
-      // set the TB matrices, and then reduce them
+      // set the TB matrices, and then partially scan them
       for ( int bi = 0; bi < blockSize; bi++ ) {
         int index = blockStart + bi;
         if ( index == T - 1 ) {
           for ( int i = 0; i < N; i++ ) {
             for ( int j = 0; j < N; j++ ) {
-              tb[ bi * N * N + i * N + j ] = 0.0;
+              tb[bi].elements[ i * N + j ] = 0.0;
             }
-            tb[ bi * N * N + i * N + i ] = alphasScales[bi];
+            tb[bi].elements[ i * N + i ] = alphasScales[bi];
           }
         } else {
           for ( int i = 0; i < N; i++ ) {
             for ( int j = 0; j < N; j++ ) {
-              int auxTest = observedBlock[bi + 1];
-              tb[ bi * N * N + i * N + j ] = alphasScales[bi]
-                      * a[i][j] * 
-                      b[j][auxTest];
-                      //b[observedBlock[bi + 1]][j];
+              tb[bi].elements[ i * N + j ] = alphasScales[bi]
+                      * a[i][j] * b[j][observedBlock[bi + 1]];
             }
           }
         }
       }
       
-      //  reduce the matrices
-      double[] aux = new double[N * N];
-      
+      //  partially scan the matrices
       for ( int bi = blockSize - 2; bi >= 0; bi-- ) {
-        for ( int i = 0; i < N; i++ ) {
-          for ( int j = 0; j < N; j++ ) {
-            double val = 0.0;
-            for (int k = 0; k < N; k++ ) {
-              val += tb[ bi * N * N + i * N + k] * tb[ (bi + 1) * N * N + k * N + j ];
-            }
-            aux[ i * N + j ] = val;
-          }
-        }
-        
-        for ( int i = 0; i < N; i++ ) {
-          for ( int j = 0; j < N; j++ ) {
-            tb[ bi * N * N + i * N + j ] = aux[ i * N + j ];
-          }
-        }
+        tb[bi] = tb[bi].multiplyOut(tb[bi + 1], new SquareMatrix(N));
       }
       
       // return the first matrix of the block as the return value
-      SquareMatrix ret = new SquareMatrix(N);
-      for ( int i = 0; i < N; i++ ) {
-        for ( int j = 0; j < N; j++ ) {
-          ret.elements[ i * N + j ] = aux[ i * N + j ];
-        }
-      }
-      return ret;
+      return tb[0].publicClone();
     }
     
     /**
@@ -636,65 +587,57 @@ public class Hmm implements Serializable{
      * @return The matrix of khis as a square matrix.
      */
     public SquareMatrix computeKhis( SquareMatrix nextTb ) {
-      // TODO finish this!
+      // perform final stage of the scan if necessaryS
       if ( nextTb != null ) {
-        double[] aux = new double[N * N];
-        for ( int bi = blockSize - 1; bi >= 0; bi-- ) {
-          for ( int i = 0; i < N; i++ ) {
-            for ( int j = 0; j < N; j++ ) {
-              double val = 0.0;
-              for (int k = 0; k < N; k++ ) {
-                val += tb[ bi * N * N + i * N + k] * nextTb.elements[ k * N + j ];
-              }
-              aux[ i * N + j ] = val;
-            }
-          }
-          
-          for ( int i = 0; i < N; i++ ) {
-            for ( int j = 0; j < N; j++ ) {
-              tb[ bi * N * N + i * N + j ] = aux[ i * N + j ];
-            }
-          }
+        // put the next TB matrix at the end of the array
+        tb[ blockSize ] = nextTb.publicClone();
+        for ( int bi = 0; bi < blockSize; bi++ ) {
+          tb[bi] = tb[bi].multiplyOut(nextTb, new SquareMatrix(N));
         }
       }
       
+      // compute the betaHat vectors
+      // (also compute the term betasHat[blockSize])
       for ( int bi = 0; bi < blockSize; bi++ ) {
-        int index = blockStart + bi;
-        if ( bi < blockSize - 1 ) {
-          for ( int i = 0; i < N; i++ ) {
-            for ( int j = 0; j < N; j++ ) {
-              this.khis[ i * N + j ] += alphasHat[ bi * N + i ] * a[i][j]
-                      * betasHat[ (bi + 1) * N + j] * b[j][observedBlock[bi + 1]];
-                      //* betasHat[ (bi + 1) * N + j] * b[observedBlock[bi + 1]][j]
-                      
-            }
+        for ( int i = 0; i < N; i++ ) {
+          double sum = 0.0;
+          for (int j = 0; j < N; j++ ) {
+            sum += tb[bi].elements[ i * N + j ];
           }
-        } else if ( index != T - 1 ) {
-          double[] beta = new double[N];
+          betasHat[ bi * N + i ] = sum;
+        }
+      }
+      
+      { // case bi = blockSize
+        int index = blockSize + blockStart;
+        if ( index != T - 1 ) {
+          // here we must have tb[blockSize] != null
           for ( int i = 0; i < N; i++ ) {
-            double val = 0.0;
-            for ( int j = 0; j < N; j++ ) {
-              val += nextTb.elements[ i * N + j ];
+            double sum = 0.0;
+            for (int j = 0; j < N; j++ ) {
+              sum += tb[blockSize].elements[ i * N + j ];
             }
-            beta[i] = val;
+            betasHat[ blockSize * N + i ] = sum;
           }
+        } else {
           for ( int i = 0; i < N; i++ ) {
-            for ( int j = 0; j < N; j++ ) {
-              this.khis[ i * N + j ] += alphasHat[ bi * N + i ] * a[i][j]
-                      * beta[j] * b[j][observedBlock[bi + 1]];
-                      //* beta[j] * b[observedBlock[bi + 1]][j];
-            }
+            betasHat[ blockSize * N + i ] = 1.0;
           }
         }
       }
       
-      SquareMatrix ret = new  SquareMatrix(N);
-      for ( int i = 0; i < N; i++ ) {
-        for ( int j = 0; j < N; j++ ) {
-          ret.elements[ i * N + j ] = khis[ i * N + j ];
+      // compute the khis coefficients
+      for ( int bi = 0; bi < blockSize; bi++ ) {
+        for ( int i = 0; i < N; i++ ) {
+          for ( int j = 0; j < N; j++ ) {
+            khis.elements[ i * N + j ] += alphasHat[ bi * N + i ] * a[i][j]
+                    * betasHat[ (bi + 1) * N + j] * b[j][observedBlock[bi + 1]];
+                    
+          }
         }
       }
-      return ret;
+      
+      return khis.publicClone();
     }
   }
   
@@ -828,7 +771,7 @@ public class Hmm implements Serializable{
         }
       });
       
-      // reduce the matrices on the master
+      // scan the matrices on the master
       int partialTaScansSize = partialTaScans.size();
       if ( partialTaScansSize != numBlocks ) {
         System.out.println("Incorrect number of partial TA scans!");
@@ -841,6 +784,7 @@ public class Hmm implements Serializable{
         Tuple2<Integer, SquareMatrix> right = partialTaScans.get(i);
         
         out = right._2.multiplyOut(left._2, out);
+        out.scalarDivide(out.rawNorm1());
         partialTaScans.set(i, new Tuple2<Integer, SquareMatrix>(right._1, out));
       }
       
@@ -888,7 +832,7 @@ public class Hmm implements Serializable{
         
         @Override
         public Tuple2<Integer,SquareMatrix> call(BaumWelchBlock arg0) throws Exception {
-          System.out.println("Baum-Welch block in tbBlockInitializer "+arg0);
+          System.out.println("Baum-Welch block in tbBlockInitializer " + arg0);
           double[] prev = null;
           if ( arg0.blockId > 0 ) {
             prev = lastAlphas.get(arg0.blockId - 1)._2;
@@ -964,7 +908,7 @@ public class Hmm implements Serializable{
       JavaRDD<SquareMatrix> khisRdd = blocksRdd.map(new KhisMapper(partialTbScans));
       
       List<SquareMatrix> khis = khisRdd.collect();
-     System.out.println("first khi matrix : " + khis.get(0));
+      System.out.println("first khi matrix : " + khis.get(0));
       
       // compute and renormalize a
       double[][] aaStar = new double[n][n];
