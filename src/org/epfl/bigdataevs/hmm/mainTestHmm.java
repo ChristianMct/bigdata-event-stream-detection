@@ -50,8 +50,9 @@ public class mainTestHmm {
       
       JavaSparkContext sc = new JavaSparkContext("local", "EM Algorithm Test");
       
-      int seqSize = 100;
+      int seqSize = 100000;
       int[] rawSequence = hmm.generateRawObservationSequence(seqSize);
+      System.out.println("rawSequence : "+Arrays.toString(rawSequence));
       
       ArrayList<Tuple2<Integer, Integer>> rawSequenceList =
               new ArrayList<Tuple2<Integer, Integer>>();
@@ -65,8 +66,8 @@ public class mainTestHmm {
       
       JavaRDD<Tuple2<Integer, Integer>> rawSequenceRdd = sc.parallelize(rawSequenceList);
       
-      sparkTrainedHmm.rawSparkTrain(sc, rawSequenceRdd, 0.01, 0.01, 1);
-      trainedHmm2.rawTrain(rawSequence, 100);
+      sparkTrainedHmm.rawSparkTrain(sc, rawSequenceRdd, 0.0001, 0.0001, 200);
+      trainedHmm2.rawTrain(rawSequence, 100000);
    // Print Pi first
       double[] trainedPi = sparkTrainedHmm.getPi();
       System.out.println("Pi: ");

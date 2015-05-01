@@ -318,6 +318,7 @@ public class Hmm implements Serializable{
     public int blockStart;// the start is inclusive
     public int blockEnd;// the end is non inclusive
     
+    int touched =0;
     int N;
     int M;
     int T;
@@ -353,7 +354,7 @@ public class Hmm implements Serializable{
       this.N = N;
       this.M = M;
       this.T = T;
-      
+      touched++;
       // the observedBlock is of size blockSize + 1 !
       this.observedBlock = observedBlock;
       
@@ -376,7 +377,7 @@ public class Hmm implements Serializable{
     
     @Override
     public String toString() {
-      return "BaumWelchBlock [blockSize=" + blockSize + ", blockId=" + blockId + ", blockStart="
+      return "BaumWelchBlock [touched ="+touched+" blockSize=" + blockSize + ", blockId=" + blockId + ", blockStart="
               + blockStart + ", blockEnd=" + blockEnd + ", N=" + N + ", M=" + M + ", T=" + T
               + ",\n     pi=" + Arrays.toString(pi) + ",\n     a=" + Arrays.toString(a) + ",\n     b="
               + Arrays.toString(b) + ",\n     observedBlock=" + Arrays.toString(observedBlock) + ",\n     ta="
@@ -392,10 +393,11 @@ public class Hmm implements Serializable{
      * @param a Current transition probability matrix
      * @param b Observation matrix.
      */
-    public SquareMatrix initialize(
+    public BaumWelchBlock initialize(
             double[] pi,
             double[][] a,
             double[][] b) {  
+      touched++;
       this.pi = new double[N];
       for ( int i = 0; i < N; i++ ) {
         this.pi[i] = pi[i];
@@ -441,7 +443,7 @@ public class Hmm implements Serializable{
         if ( index == 0 ) {
           for ( int i = 0; i < N; i++ ) {
             for ( int j = 0; j < N; j++ ) {
-              ta[0].elements[ i * N + j * N] = 0.0;
+              ta[0].elements[ i * N + j] = 0.0;
             }
             double val = pi[i] * b[i][observedBlock[0]];
             ta[0].elements[ i * N + i ] = val;
@@ -466,14 +468,28 @@ public class Hmm implements Serializable{
         }
       }
       
+      //System.out.println("Baum-Welch block in intialize before reduction : " + this);
+
       // perform the initial reduction.
       for ( int bi = 1; bi < blockSize; bi++ ) {
-        ta[bi] = ta[bi - 1].multiplyOut(ta[bi], new SquareMatrix(N));
-        ta[bi].scalarDivide(ta[bi].rawNorm1());
+        //ta[bi] = ta[bi - 1].multiplyOut(ta[bi], new SquareMatrix(N));
+        ta[bi] = ta[bi].multiplyOut(ta[bi-1], new SquareMatrix(N));
+        if (ta[bi].rawNorm1() == 0.0) {
+          System.out.println("ERROR matrix norm is equal to zero in reduction of matrix "+bi+" of block "+this.blockId);
+        }
+        else{
+          ta[bi].scalarDivide(ta[bi].rawNorm1());
+        }
+        
       }
-      
+      //System.out.println("Baum-Welch block in intialize after reduction : " + this);
+      return this;
+    }
+    
+    public SquareMatrix getLastTa() {
+      touched++;
       // return the last matrix
-      System.out.println("Baum-Welch block in initialize : " + this);
+      //System.out.println("Baum-Welch block in getFirstTa : " + this);
       return ta[blockSize - 1].publicClone();
     }
     
@@ -482,11 +498,13 @@ public class Hmm implements Serializable{
      * @param prevMatrix Previous block matrix to apply, if any.
      * @return Return the last alpha
      */
-    public double[] computeAlphas( SquareMatrix prevMatrix ) {
+    public BaumWelchBlock computeAlphas( SquareMatrix prevMatrix ) {
+      touched++;
       // perform scan if necessary
       if ( prevMatrix != null ) {
         for ( int bi = 1; bi < blockSize; bi++ ) {
-          ta[bi] = prevMatrix.multiplyOut(ta[bi], new SquareMatrix(N));
+          //ta[bi] = prevMatrix.multiplyOut(ta[bi], new SquareMatrix(N));
+          ta[bi] = ta[bi].multiplyOut(prevMatrix, new SquareMatrix(N));
           ta[bi].scalarDivide(ta[bi].rawNorm1());
         }
       }
@@ -502,6 +520,11 @@ public class Hmm implements Serializable{
         }
       }
       
+      return this;
+    }
+    
+    public double[] getLastAlpha() {
+      touched++;
       // return the last alpha of the block
       double[] lastAlphas = new double[N];
       for ( int i = 0; i < N; i++ ) {
@@ -515,7 +538,8 @@ public class Hmm implements Serializable{
      * @param prevAlpha Previous block last alpha if any
      * @return The first TB matrix of the block
      */
-    public SquareMatrix computeCt( double[] prevAlpha ) {
+    public BaumWelchBlock computeCt( double[] prevAlpha ) {
+      touched++;
       // compute the Ct coefficients
       
       // compute for the beginning of the block
@@ -577,6 +601,11 @@ public class Hmm implements Serializable{
         tb[bi] = tb[bi].multiplyOut(tb[bi + 1], new SquareMatrix(N));
       }
       
+      return this;
+    }
+    
+    public SquareMatrix getFirstTb(){
+      touched++;
       // return the first matrix of the block as the return value
       return tb[0].publicClone();
     }
@@ -586,7 +615,8 @@ public class Hmm implements Serializable{
      * @param nextTb Next Tb matrix, if any
      * @return The matrix of khis as a square matrix.
      */
-    public SquareMatrix computeKhis( SquareMatrix nextTb ) {
+    public BaumWelchBlock computeKhis( SquareMatrix nextTb ) {
+      touched++;
       // perform final stage of the scan if necessaryS
       if ( nextTb != null ) {
         // put the next TB matrix at the end of the array
@@ -610,7 +640,7 @@ public class Hmm implements Serializable{
       
       { // case bi = blockSize
         int index = blockSize + blockStart;
-        if ( index != T - 1 ) {
+        if ( index != T ) {
           // here we must have tb[blockSize] != null
           for ( int i = 0; i < N; i++ ) {
             double sum = 0.0;
@@ -628,15 +658,23 @@ public class Hmm implements Serializable{
       
       // compute the khis coefficients
       for ( int bi = 0; bi < blockSize; bi++ ) {
-        for ( int i = 0; i < N; i++ ) {
-          for ( int j = 0; j < N; j++ ) {
-            khis.elements[ i * N + j ] += alphasHat[ bi * N + i ] * a[i][j]
-                    * betasHat[ (bi + 1) * N + j] * b[j][observedBlock[bi + 1]];
-                    
+        int index = blockStart + bi;
+        if ( index < T - 1 ) {
+          for ( int i = 0; i < N; i++ ) {
+            for ( int j = 0; j < N; j++ ) {
+              khis.elements[ i * N + j ] += alphasHat[ bi * N + i ] * a[i][j]
+                      * betasHat[ (bi + 1) * N + j] * b[j][observedBlock[bi + 1]];
+                      
+            }
           }
         }
       }
       
+      return this;
+    }
+    
+    public SquareMatrix getKhi(){
+      touched++;
       return khis.publicClone();
     }
   }
@@ -656,7 +694,7 @@ public class Hmm implements Serializable{
           double aaThreshold,
           long maxIterations ) {
     //final int blockSize = 1024 * 1024;
-    final int blockSize = 32;
+    final int blockSize = 1024;
     final int N = n;
     final int M = m;
     final int T = (int) observedSequence.count();
@@ -714,14 +752,15 @@ public class Hmm implements Serializable{
                   System.out.println("Filtered observation size :" + filteredObservations.size());
                 }
                 
-                int[] observedBlock = new int[blockSize + 1];
-                for (Tuple2<Integer, Integer> element : filteredObservations) {
-                  observedBlock[element._1() % blockSize] = element._2;
-                }
-                
                 int blockId = tuple._1;
                 int blockStart = blockId * blockSize;
                 int blockEnd = Math.min((blockId + 1) * blockSize, T);
+                
+                int[] observedBlock = new int[blockSize + 1];
+                for (Tuple2<Integer, Integer> element : filteredObservations) {
+                  observedBlock[element._1() - blockStart] = element._2;
+                }
+                
                 BaumWelchBlock block = new BaumWelchBlock(
                         blockEnd - blockStart,
                         tuple._1(),
@@ -731,16 +770,33 @@ public class Hmm implements Serializable{
                         M,
                         T,
                         observedBlock);
-                System.out.println("Baum-Welch block in constructor : "+block);
+                //System.out.println("Baum-Welch block in constructor : "+block);
                 return block;
               }
             });
     
     // iterate until convergence
     for ( int step = 0; step < maxIterations; step++ ) {
+      System.out.println("Spark iter " + step);
       // initialize the TA matrices.
       
       class TaBlockInitializer implements
+          Function<BaumWelchBlock, BaumWelchBlock>, Serializable {
+        private static final long serialVersionUID = 1L;
+        
+        @Override
+        public BaumWelchBlock call(BaumWelchBlock arg0) throws Exception {
+          
+          return arg0.initialize(pi, a, b);
+        }
+      }
+      
+      System.out.println("Before TA init");
+      JavaRDD<BaumWelchBlock> initializedBlocks = blocksRdd.map(new TaBlockInitializer());
+      initializedBlocks.persist(StorageLevel.MEMORY_ONLY());
+      
+      
+      class PartialTaScanner implements
           Function<BaumWelchBlock, Tuple2<Integer,SquareMatrix>>, Serializable {
         private static final long serialVersionUID = 1L;
         
@@ -749,14 +805,13 @@ public class Hmm implements Serializable{
           
           return new Tuple2<Integer, SquareMatrix>(
                   arg0.blockId,
-                  arg0.initialize(pi, a, b) );
+                  arg0.getLastTa() );
         }
       }
       
-      System.out.println("Before TA init");
       JavaRDD<Tuple2<Integer,SquareMatrix>> partialTaScansRdd =
-              blocksRdd.map( new TaBlockInitializer() );
-      blocksRdd.persist(StorageLevel.MEMORY_ONLY());
+              initializedBlocks.map( new PartialTaScanner() );
+      //blocksRdd.persist(StorageLevel.MEMORY_ONLY());
       
       // we have initialized and partially scanned the TA matrices.
       List<Tuple2<Integer, SquareMatrix>> partialTaScans = partialTaScansRdd.collect();
@@ -783,12 +838,16 @@ public class Hmm implements Serializable{
         Tuple2<Integer, SquareMatrix> left = partialTaScans.get(i - 1);
         Tuple2<Integer, SquareMatrix> right = partialTaScans.get(i);
         
+        if ( right._1() != i ) {
+          System.out.println("Incorrect partial scan id!");
+        }
+        
         out = right._2.multiplyOut(left._2, out);
         out.scalarDivide(out.rawNorm1());
         partialTaScans.set(i, new Tuple2<Integer, SquareMatrix>(right._1, out));
       }
       
-      class ComputeAlphasMapper implements Function<BaumWelchBlock, Tuple2<Integer, double[]>>, Serializable {
+      class ComputeAlphasMapper implements Function<BaumWelchBlock, BaumWelchBlock>, Serializable {
 
         private static final long serialVersionUID = 1L;
         List<Tuple2<Integer, SquareMatrix>> partialScans;
@@ -798,14 +857,13 @@ public class Hmm implements Serializable{
         }
         
         @Override
-        public Tuple2<Integer, double[]> call(BaumWelchBlock arg0) throws Exception {
+        public BaumWelchBlock call(BaumWelchBlock arg0) throws Exception {
           SquareMatrix prev = null;
           if ( arg0.blockId > 0 ) {
             prev = partialScans.get(arg0.blockId - 1)._2;
           }
-          System.out.println("Baum-Welch block in ComputeAlphasMapper : "+arg0);
-          double[] lastAlpha = arg0.computeAlphas(prev);
-          return new Tuple2<Integer, double[]>(arg0.blockId, lastAlpha);
+          //System.out.println("Baum-Welch block in ComputeAlphasMapper : "+arg0);
+          return arg0.computeAlphas(prev);
         }
         
       }
@@ -813,15 +871,33 @@ public class Hmm implements Serializable{
       System.out.println("Before alpha map");
       // Finally reduce the TA, compute the alphaHat vectors,
       // get the last alphaHat vector of every block
+      JavaRDD<BaumWelchBlock> computedAlphaBlocks = initializedBlocks.map(new ComputeAlphasMapper(partialTaScans));
+      
+      computedAlphaBlocks.persist(StorageLevel.MEMORY_ONLY());
+      
+      class GetLastAlphasMapper implements Function<BaumWelchBlock, Tuple2<Integer, double[]>>, Serializable {
+
+        private static final long serialVersionUID = 1L;
+        
+        @Override
+        public Tuple2<Integer, double[]> call(BaumWelchBlock arg0) throws Exception {
+          //System.out.println("Baum-Welch block in GetLastAlphasMapper : "+arg0);
+          double[] lastAlpha = arg0.getLastAlpha();
+          return new Tuple2<Integer, double[]>(arg0.blockId, lastAlpha);
+        }
+        
+      }
+      
       JavaRDD<Tuple2<Integer, double[]>> lastAlphasRdd =
-              blocksRdd.map(new ComputeAlphasMapper(partialTaScans));
-      blocksRdd.persist(StorageLevel.MEMORY_ONLY());
+              computedAlphaBlocks.map(new GetLastAlphasMapper());
+      
+      //blocksRdd.persist(StorageLevel.MEMORY_ONLY());
       System.out.println("after alpha map");
       List<Tuple2<Integer, double[]>> lastAlphas = lastAlphasRdd.collect();
       
       // class to compute the Ct, and start reduction of Tb
       class TbBlockInitializer implements
-          Function<BaumWelchBlock, Tuple2<Integer,SquareMatrix>> , Serializable{
+          Function<BaumWelchBlock, BaumWelchBlock> , Serializable{
         private static final long serialVersionUID = 1L;
         
         List<Tuple2<Integer, double[]>> lastAlphas;
@@ -831,24 +907,37 @@ public class Hmm implements Serializable{
         }
         
         @Override
-        public Tuple2<Integer,SquareMatrix> call(BaumWelchBlock arg0) throws Exception {
-          System.out.println("Baum-Welch block in tbBlockInitializer " + arg0);
+        public BaumWelchBlock call(BaumWelchBlock arg0) throws Exception {
+          //System.out.println("Baum-Welch block in tbBlockInitializer " + arg0);
           double[] prev = null;
           if ( arg0.blockId > 0 ) {
             prev = lastAlphas.get(arg0.blockId - 1)._2;
           }
-          SquareMatrix firstTb = arg0.computeCt(prev);
-          return new Tuple2<Integer, SquareMatrix>(arg0.blockId, firstTb);
+          arg0.computeCt(prev);
+          return arg0;
         }
         
       }
       
       System.out.println("Before TB init");
       // propagate the last alphas, compute the Ct, start computing the TB.
-      JavaRDD<Tuple2<Integer,SquareMatrix>> partialTbScansRdd =
-              blocksRdd.map( new TbBlockInitializer(lastAlphas) );
-      blocksRdd.persist(StorageLevel.MEMORY_ONLY());
+      JavaRDD<BaumWelchBlock> computedTbBlocksRdd =
+              computedAlphaBlocks.map( new TbBlockInitializer(lastAlphas) );
+      //blocksRdd.persist(StorageLevel.MEMORY_ONLY());
       
+      class GetFirstTbMapper implements
+      Function<BaumWelchBlock, Tuple2<Integer, SquareMatrix>> , Serializable{
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Tuple2<Integer, SquareMatrix> call(BaumWelchBlock arg0) throws Exception {
+          return new Tuple2<Integer, SquareMatrix>(arg0.blockId, arg0.getFirstTb());
+        }
+
+      }
+      
+      JavaRDD<Tuple2<Integer, SquareMatrix>> partialTbScansRdd =
+              computedTbBlocksRdd.map( new GetFirstTbMapper() );
       // finish scanning the TB
       // we have initialized and partially scanned the TA matrices.
       List<Tuple2<Integer, SquareMatrix>> partialTbScans = partialTbScansRdd.collect();
@@ -872,59 +961,72 @@ public class Hmm implements Serializable{
       for ( int i = partialTbScansSize - 2; i >= 0; i-- ) {
         SquareMatrix out = new SquareMatrix(this.n);
         
-        Tuple2<Integer, SquareMatrix> left = partialTaScans.get(i);
-        Tuple2<Integer, SquareMatrix> right = partialTaScans.get(i + 1);
+        Tuple2<Integer, SquareMatrix> left = partialTbScans.get(i);
+        Tuple2<Integer, SquareMatrix> right = partialTbScans.get(i + 1);
         
         out = left._2.multiplyOut(right._2, out);
         partialTbScans.set(i, new Tuple2<Integer, SquareMatrix>(left._1, out));
       }
       
       // finish scan and compute the Khis
-      class KhisMapper implements Function<BaumWelchBlock, SquareMatrix>, Serializable {
+      class ComputeKhisMapper implements Function<BaumWelchBlock, BaumWelchBlock>, Serializable {
 
         private static final long serialVersionUID = 1L;
         List<Tuple2<Integer,SquareMatrix>> partialScans;
         
-        public KhisMapper(List<Tuple2<Integer,SquareMatrix>> partialScans) {
+        public ComputeKhisMapper(List<Tuple2<Integer,SquareMatrix>> partialScans) {
           this.partialScans = partialScans;
         }
         
         @Override
-        public SquareMatrix call(BaumWelchBlock arg0) throws Exception {
+        public BaumWelchBlock call(BaumWelchBlock arg0) throws Exception {
           SquareMatrix next = null;
           if ( arg0.blockId < numBlocks - 1 ) {
             next = partialScans.get(arg0.blockId + 1)._2;
           }
           
-          System.out.println("Baum-Welch block in KhisMapper " + arg0);
+          //System.out.println("Baum-Welch block in KhisMapper " + arg0);
           
-          SquareMatrix khis = arg0.computeKhis(next);
-          return khis;
+          return arg0.computeKhis(next);
         }
         
       }
       
       System.out.println("Before khi map");
-      JavaRDD<SquareMatrix> khisRdd = blocksRdd.map(new KhisMapper(partialTbScans));
+      JavaRDD<BaumWelchBlock> computedKhisRdd = computedTbBlocksRdd.map(new ComputeKhisMapper(partialTbScans));
+      computedKhisRdd.persist(StorageLevel.MEMORY_ONLY());
+      class GetKhisMapper implements Function<BaumWelchBlock, SquareMatrix>, Serializable {
+
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public SquareMatrix call(BaumWelchBlock arg0) throws Exception {
+          return arg0.getKhi();
+        }
+        
+      }
+      List<SquareMatrix> khis = computedKhisRdd.map(new GetKhisMapper()).collect();
       
-      List<SquareMatrix> khis = khisRdd.collect();
-      System.out.println("first khi matrix : " + khis.get(0));
+      //System.out.println("first khi matrix : " + khis.get(0));
+      //System.out.println("second khi matrix : " + khis.get(1));
+      //System.out.println("third khi matrix : " + khis.get(2));
+      //System.out.println("fourth khi matrix : " + khis.get(3));
       
       // compute and renormalize a
       double[][] aaStar = new double[n][n];
       for ( int i = 0; i < n; i++ ) {
-        for ( int bi = 0; bi < khis.size(); bi++ ) {
-          SquareMatrix khi = khis.get(bi);
-          double sum = 0.0;
-          for ( int j = 0; j < n; j++ ) {
+        double sum = 0.0;
+        for ( int j = 0; j < n; j++ ) {
+          for ( int bi = 0; bi < khis.size(); bi++ ) {
+            SquareMatrix khi = khis.get(bi);
             double val = khi.elements[ i * n + j];
-            aaStar[i][j] = val;
+            aaStar[i][j] += val;
             sum += val;
           }
-          
-          for (int j = 0; j < n; j++ ) {
-            aaStar[i][j] /= sum;
-          }
+        }
+        
+        for ( int j = 0; j < n; j++) {
+          aaStar[i][j] /= sum;
         }
       }
       
@@ -944,16 +1046,16 @@ public class Hmm implements Serializable{
             
             ArrayList<double[]> lpiStar = new ArrayList<double[]>();
             lpiStar.add(piStar);
-            System.out.println("Baum-Welch block in PiFlatMapper " + arg0);
+            //System.out.println("Baum-Welch block in PiFlatMapper " + arg0);
             return lpiStar;
           }
         }
         
       }
       
-      System.out.println("Before pi flatmap");
+      //System.out.println("Before pi flatmap");
       
-      JavaRDD<double[]> piRdd = blocksRdd.flatMap(new PiFlatMapper());
+      JavaRDD<double[]> piRdd = computedKhisRdd.flatMap(new PiFlatMapper());
       List<double[]> piList = piRdd.collect();
       
       if ( piList.size() > 1 ) {
@@ -989,7 +1091,7 @@ public class Hmm implements Serializable{
       pi = piStar;
       
       if ( piDiff < piThreshold && aaDiff < aaThreshold ) {
-        break;
+        //break;
       }
     }
   }
@@ -1111,7 +1213,9 @@ public class Hmm implements Serializable{
     while (initRandom > 0.0 && initialState < (n - 1)) {
       initialState++;
       initRandom -= pi[initialState];
+      System.out.println("initial random in loop: " + initRandom);
     }
+    System.out.println("initial state : "+initialState);
     int currentState = initialState;
     for (int t = 0; t < length; t++) {
       // System.out.print(currentState+"     ");
