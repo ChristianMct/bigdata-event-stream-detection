@@ -30,7 +30,7 @@ public final class SquareMatrix implements PubliclyCloneable<SquareMatrix>, Seri
    */
   public double rawNorm1() {
     double res = 0.0;
-    for ( int i = 0; i < size * size; i++ ) {
+    for ( int i = 0; i < elements.length; i++ ) {
       res += elements[i];
     }
     

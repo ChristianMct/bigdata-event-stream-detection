@@ -501,6 +501,9 @@ public class Hmm implements Serializable{
     public BaumWelchBlock computeAlphas( SquareMatrix prevMatrix ) {
       touched++;
       // perform scan if necessary
+    //TODO check that final reduction is performed only once
+      //may cause problems
+      //one solution would be to fully recompute the ta of this block
       if ( prevMatrix != null ) {
         for ( int bi = 1; bi < blockSize; bi++ ) {
           //ta[bi] = prevMatrix.multiplyOut(ta[bi], new SquareMatrix(N));
@@ -617,7 +620,10 @@ public class Hmm implements Serializable{
      */
     public BaumWelchBlock computeKhis( SquareMatrix nextTb ) {
       touched++;
-      // perform final stage of the scan if necessaryS
+      // perform final stage of the scan if necessary
+      //TODO check that final reduction is performed only once
+      //may cause problems
+      //one solution would be to fully recompute the tb of this block
       if ( nextTb != null ) {
         // put the next TB matrix at the end of the array
         tb[ blockSize ] = nextTb.publicClone();
@@ -655,7 +661,12 @@ public class Hmm implements Serializable{
           }
         }
       }
-      
+      for ( int i = 0; i < N; i++ ) {
+        for ( int j = 0; j < N; j++ ) {
+          khis.elements[ i * N + j ] = 0;
+                  
+        }
+      }
       // compute the khis coefficients
       for ( int bi = 0; bi < blockSize; bi++ ) {
         int index = blockStart + bi;
@@ -694,7 +705,7 @@ public class Hmm implements Serializable{
           double aaThreshold,
           long maxIterations ) {
     //final int blockSize = 1024 * 1024;
-    final int blockSize = 1024;
+    final int blockSize = 1024 * 4;
     final int N = n;
     final int M = m;
     final int T = (int) observedSequence.count();
@@ -793,7 +804,7 @@ public class Hmm implements Serializable{
       
       System.out.println("Before TA init");
       JavaRDD<BaumWelchBlock> initializedBlocks = blocksRdd.map(new TaBlockInitializer());
-      initializedBlocks.persist(StorageLevel.MEMORY_ONLY());
+      //initializedBlocks.persist(StorageLevel.MEMORY_ONLY());
       
       
       class PartialTaScanner implements
@@ -873,7 +884,7 @@ public class Hmm implements Serializable{
       // get the last alphaHat vector of every block
       JavaRDD<BaumWelchBlock> computedAlphaBlocks = initializedBlocks.map(new ComputeAlphasMapper(partialTaScans));
       
-      computedAlphaBlocks.persist(StorageLevel.MEMORY_ONLY());
+      //computedAlphaBlocks.persist(StorageLevel.MEMORY_ONLY());
       
       class GetLastAlphasMapper implements Function<BaumWelchBlock, Tuple2<Integer, double[]>>, Serializable {
 
@@ -994,7 +1005,7 @@ public class Hmm implements Serializable{
       
       System.out.println("Before khi map");
       JavaRDD<BaumWelchBlock> computedKhisRdd = computedTbBlocksRdd.map(new ComputeKhisMapper(partialTbScans));
-      computedKhisRdd.persist(StorageLevel.MEMORY_ONLY());
+      //computedKhisRdd.persist(StorageLevel.MEMORY_ONLY());
       class GetKhisMapper implements Function<BaumWelchBlock, SquareMatrix>, Serializable {
 
         private static final long serialVersionUID = 1L;
@@ -1213,9 +1224,9 @@ public class Hmm implements Serializable{
     while (initRandom > 0.0 && initialState < (n - 1)) {
       initialState++;
       initRandom -= pi[initialState];
-      System.out.println("initial random in loop: " + initRandom);
+      //System.out.println("initial random in loop: " + initRandom);
     }
-    System.out.println("initial state : "+initialState);
+    //System.out.println("initial state : "+initialState);
     int currentState = initialState;
     for (int t = 0; t < length; t++) {
       // System.out.print(currentState+"     ");

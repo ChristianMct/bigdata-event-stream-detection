@@ -1,5 +1,6 @@
 package org.epfl.bigdataevs.hmm;
 
+import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
@@ -32,7 +33,7 @@ public class mainTestHmm {
       Hmm hmm = new Hmm(output, pi,a, b);
   
       List<String> observationSequence = hmm.generateObservationSequence(200);
-      int[] hiddenSequence = hmm.decode(observationSequence);
+      //int[] hiddenSequence = hmm.decode(observationSequence);
       System.out.println("done decoding");
       
       // Test HMM training
@@ -45,14 +46,19 @@ public class mainTestHmm {
       double[][] initialA2 = { { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 },
               { 0.25, 0.25, 0.25, 0.25 } };
       Hmm sparkTrainedHmm = new Hmm(n, m, initialPi, initialA, b);
+      Hmm2 sparkTrainedHmm2 = new Hmm2(n, m, initialPi, initialA, b);
       Hmm trainedHmm2 = new Hmm(n, m, initialPi2,
              initialA2, Arrays.copyOf(b,b.length));
       
-      JavaSparkContext sc = new JavaSparkContext("local", "EM Algorithm Test");
+      //JavaSparkContext sc = new JavaSparkContext("local", "EM Algorithm Test");
       
-      int seqSize = 100000;
+      SparkConf sparkConf = new SparkConf().setAppName("Test HMM bug");
+      //sparkConf.setMaster("localhost:7077");
+      JavaSparkContext sc = new JavaSparkContext(sparkConf);
+      
+      int seqSize = 20000000;
       int[] rawSequence = hmm.generateRawObservationSequence(seqSize);
-      System.out.println("rawSequence : "+Arrays.toString(rawSequence));
+      //System.out.println("rawSequence : "+Arrays.toString(rawSequence));
       
       ArrayList<Tuple2<Integer, Integer>> rawSequenceList =
               new ArrayList<Tuple2<Integer, Integer>>();
@@ -66,10 +72,11 @@ public class mainTestHmm {
       
       JavaRDD<Tuple2<Integer, Integer>> rawSequenceRdd = sc.parallelize(rawSequenceList);
       
-      sparkTrainedHmm.rawSparkTrain(sc, rawSequenceRdd, 0.0001, 0.0001, 200);
-      trainedHmm2.rawTrain(rawSequence, 100000);
+      //sparkTrainedHmm.rawSparkTrain(sc, rawSequenceRdd, 0.0001, 0.0001, 200);
+      sparkTrainedHmm2.rawSparkTrain(sc, rawSequenceRdd, 0.0001, 0.0001, 100,rawSequence);
+      //trainedHmm2.rawTrain(rawSequence, 10000000);
    // Print Pi first
-      double[] trainedPi = sparkTrainedHmm.getPi();
+      double[] trainedPi = sparkTrainedHmm2.getPi();
       System.out.println("Pi: ");
       for ( int i = 0; i < n; i++ ) {
         System.out.print(" " + trainedPi[i]);
@@ -77,7 +84,7 @@ public class mainTestHmm {
       System.out.println("");
       
       //  Print A then
-      double[][] trainedA = sparkTrainedHmm.getA();
+      double[][] trainedA = sparkTrainedHmm2.getA();
       System.out.println("A: ");
       for ( int i = 0; i < n; i++ ) {
         for (int j = 0; j < n; j++ ) {
@@ -87,7 +94,7 @@ public class mainTestHmm {
       }
       
       //  Print B
-      double[][] trainedB = sparkTrainedHmm.getB();
+      double[][] trainedB = sparkTrainedHmm2.getB();
       System.out.println("B: ");
       for ( int i = 0; i < n; i++ ) {
         for (int j = 0; j < m; j++ ) {
