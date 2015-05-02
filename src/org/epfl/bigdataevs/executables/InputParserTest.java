@@ -1,7 +1,11 @@
 package org.epfl.bigdataevs.executables;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.epfl.bigdataevs.em.EmAlgo;
+import org.epfl.bigdataevs.em.Theme;
+import org.epfl.bigdataevs.eminput.EmInputFromParser;
 import org.epfl.bigdataevs.eminput.HmmInputFromParser;
 import org.epfl.bigdataevs.eminput.InputParser;
 import org.epfl.bigdataevs.eminput.TimePeriod;
@@ -15,6 +19,8 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import javax.xml.stream.XMLStreamException;
 
@@ -70,6 +76,27 @@ public class InputParserTest {
     System.out.println("Size of BG: "+bgsize);   
     System.out.println("Size of wordStream: "+wordstrSize);
     System.out.println("Size of lexicon: "+lexiconsize);
+    
+    int numThemes = 10;
+    double lambda = 0.8;
+    int numRuns = 1;
+    
+    EmInputFromParser emInputFromParser = parser.getEmInput(timePeriods);
+    EmAlgo emAlgo = new EmAlgo(ctx, emInputFromParser, numThemes, lambda, numRuns);
+    
+    Map<Theme, Double> output = emAlgo.run().collectAsMap();
+    int counter = 0;
+    System.out.println("Number of themes: " + output.size());
+    for (Theme theme : output.keySet()) {
+      System.out.println("Theme " + counter);
+      counter += 1;
+      String s = "";
+      TreeMap<String, Double> bestWords = theme.sortString(12);
+      for (String string : bestWords.keySet()) {
+        s += string+" (" + bestWords.get(string) + "), ";
+      }
+      System.out.println(s);
+    }
   }
 
 }

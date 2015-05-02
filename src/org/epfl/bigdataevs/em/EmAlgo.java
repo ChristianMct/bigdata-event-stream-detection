@@ -1,5 +1,6 @@
 package org.epfl.bigdataevs.em;
 
+import org.apache.commons.math3.fraction.BigFraction;
 import org.apache.commons.math3.fraction.Fraction;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -11,8 +12,9 @@ import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.storage.StorageLevel;
+import org.epfl.bigdataevs.eminput.EmInputFromParser;
+import org.epfl.bigdataevs.eminput.InputParser;
 import org.epfl.bigdataevs.eminput.ParsedArticle;
-import org.epfl.bigdataevs.eminput.TextCollectionData;
 import org.epfl.bigdataevs.eminput.TimePartition;
 import org.epfl.bigdataevs.eminput.TimePeriod;
 
@@ -32,13 +34,13 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public class EmAlgo implements Serializable {
-  public final Map<String, Fraction> backgroundModel;
+  public final Map<String, BigFraction> backgroundModel;
   public JavaRDD<EmInput> partitions;
   public int numberOfThemes;
   public double lambdaBackgroundModel;
   public int numberOfRuns;
   public final static double epsilon = 0.0;
-  public final static double precision = 1e-4;
+  public final static double precision = 1e-2;
   public JavaRDD<EmInput> selectedPartitions;
 
   /**
@@ -49,11 +51,12 @@ public class EmAlgo implements Serializable {
    * @param lambda
    * @param numRuns
    */
-  public EmAlgo(JavaSparkContext sparkContext, TextCollectionData collectionData, int numThemes, double lambda,  int numRuns) {
+  public EmAlgo(JavaSparkContext sparkContext, EmInputFromParser collectionData, int numThemes, double lambda,  int numRuns) {
     this.numberOfThemes = numThemes;
     this.lambdaBackgroundModel = lambda;
     this.numberOfRuns = numRuns;
-    this.backgroundModel = collectionData.backgroundModel;
+    this.backgroundModel = collectionData.backgroundModel.backgroundModelRdd.collectAsMap();
+    System.out.println("Background Model: " + this.backgroundModel.size());
 
     List<Integer> runs = new ArrayList<>();
     for (int i = 0; i < this.numberOfRuns; i++) {
@@ -140,7 +143,7 @@ public class EmAlgo implements Serializable {
       @Override
       public EmInput call(EmInput inputPartition) throws Exception {
         for (int i = 0; i < numberOfThemes; i++) {
-          Theme theme = new Theme(inputPartition.timePeriod.from, inputPartition.timePeriod.to);
+          Theme theme = new Theme(inputPartition.timePeriod.from, inputPartition.timePeriod.to, i);
           theme.initialization(inputPartition);
           inputPartition.addTheme(theme);
           theme.partitionIndex = inputPartition.indexOfPartition;
@@ -150,27 +153,21 @@ public class EmAlgo implements Serializable {
       }
 
     });
+    
 
     /*Loop of the algorithm*/    
     JavaPairRDD<EmInput, Double> result = initializedPartitions.mapToPair(
             new PairFunction<EmInput, EmInput, Double>() {
       
-          public boolean checkStoppingCondition(ArrayList<Double> logLikelihoods) {
-            
-            int iteration = logLikelihoods.size();
-            if (iteration>1) {
-              return (logLikelihoods.get(iteration - 1)
-                      - logLikelihoods.get(iteration - 2)) < EmAlgo.precision || iteration > 250;
-            } else {
-              return false;
-            }            
+          public boolean checkStoppingCondition(int iter) {
+            return iter > 25;          
           }
       
           @Override
           public Tuple2<EmInput, Double> call(EmInput input) throws Exception {
-            ArrayList<Double> logLikelihoods = new ArrayList<>();
+            int iteration = 1;
             
-            while (!checkStoppingCondition(logLikelihoods)) {
+            while (!checkStoppingCondition(iteration)) {
               for (Document article : input.documents) {
                 article.updateHiddenVariablesThemes();
               }
@@ -182,16 +179,13 @@ public class EmAlgo implements Serializable {
                 article.updateProbabilitiesDocumentBelongsToThemes();
               }
               input.updateProbabilitiesOfWordsGivenTheme(input.themesOfPartition);
-              logLikelihoods.add(input.computeLogLikelihood(lambdaBackgroundModel)); 
+              //logLikelihoods.add(input.computeLogLikelihood(lambdaBackgroundModel)); 
+              iteration += 1;
               input.numberOfIterations += 1;
-              input.values = logLikelihoods;
             }
             
-            System.out.println("Number of iterations: " + logLikelihoods.size());
-            System.out.println("Log-likelihood: " + logLikelihoods.get(logLikelihoods.size() - 1));
-            
             return new Tuple2<EmInput, Double>(input,
-                    logLikelihoods.get(logLikelihoods.size() - 1));
+                    input.computeLogLikelihood(lambdaBackgroundModel));
           }
         });
 
@@ -203,12 +197,10 @@ public class EmAlgo implements Serializable {
    * Select the best EmInput for EmInputs having the same indexOfPartition.
    * @return all themes with average score
    */
-  public void run() {
+  public JavaPairRDD<Theme, Double> run() {
     
-    //this.selectedPartitions = this.algorithm().keys();
-    //this.selectedPartitions.cache();
-    
-    JavaPairRDD<TimePeriod, Tuple2<EmInput, Double>> processedPartitions = this.algorithm().mapToPair(
+    JavaPairRDD<EmInput, Double> temp = this.algorithm();   
+    JavaPairRDD<TimePeriod, Tuple2<EmInput, Double>> processedPartitions = temp.mapToPair(
             new PairFunction<Tuple2<EmInput,Double>, TimePeriod, Tuple2<EmInput, Double>>() {
             public Tuple2<TimePeriod, Tuple2<EmInput, Double>> call(Tuple2<EmInput, Double> tuple)
                     throws Exception {
@@ -216,9 +208,7 @@ public class EmAlgo implements Serializable {
             }
       });
     
-    JavaPairRDD<TimePeriod,Iterable<Tuple2<EmInput,Double>>> rdd = processedPartitions.groupByKey();
-    
-    this.selectedPartitions = processedPartitions.groupByKey().map(
+    JavaRDD<EmInput> selectedPartitions = processedPartitions.groupByKey().map(
             new Function<Tuple2<TimePeriod,Iterable<Tuple2<EmInput,Double>>>, EmInput>() {
             @Override
             public EmInput call(
@@ -234,16 +224,27 @@ public class EmAlgo implements Serializable {
               return bestInput._1;
             }
           });
-     this.selectedPartitions.cache();
-    
+     
+    return selectedPartitions.flatMapToPair(new PairFlatMapFunction<EmInput, Theme, Double>() {
+      @Override
+      public Iterable<Tuple2<Theme, Double>> call(EmInput input) throws Exception {
+        return input.relatedThemes();
+      }
+    });
   }
   
+  
+  /**
+   * Return the pair of themes for each EmInputs which them corresponding score.
+   * @return
+   */
   public JavaPairRDD<Theme, Double> relatedThemes() {
     
     JavaPairRDD<Theme, Double> listOfSelectedThemes = this.selectedPartitions.flatMapToPair(
             new PairFlatMapFunction<EmInput, Theme, Double>() {
           @Override
           public Iterable<Tuple2<Theme, Double>> call(EmInput input) throws Exception {
+            
             List<Tuple2<Theme, Double>> themesWithAverageProbability = new ArrayList<>();                  
             for (Theme theme : input.themesOfPartition) {
               double sum = 0.0;

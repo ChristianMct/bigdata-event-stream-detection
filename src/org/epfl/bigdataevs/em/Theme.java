@@ -5,6 +5,7 @@ import org.epfl.bigdataevs.eminput.TimePeriod;
 
 import scala.Tuple2;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -23,15 +24,16 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.TreeMap;
 
-public class Theme extends TimePeriod {
+public class Theme implements Serializable {
   public Map<String, Double> wordsProbability;
   public final static int RANDOM_MAX = 1000;
   public Long partitionIndex = 0L;
-  public Long id = 0L; // This variable is used for the output
+  public int index;
   
-  public Theme(Date from, Date to) {
-    super(from, to);
+  public Theme(Date from, Date to, int index) {
+    //super(from, to);
     this.wordsProbability = new HashMap<>();
+    this.index = index;
   }
     
     /**

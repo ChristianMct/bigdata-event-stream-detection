@@ -5,7 +5,6 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.epfl.bigdataevs.eminput.ArticleStream;
 import org.epfl.bigdataevs.eminput.RawArticle;
-import org.epfl.bigdataevs.eminput.TextCollectionData;
 import org.epfl.bigdataevs.eminput.TimePeriod;
 
 import java.util.ArrayList;
@@ -56,7 +55,7 @@ public class ArticleProcessorTest {
     data.add(1, testInput2);
     data.add(2, testInput3);
     JavaRDD<RawArticle> rawDocs = ctx.parallelize(data);
-    
+    /*
     System.out.println("Processing RDD...");
     TextCollectionData result = TextCollectionData
             .generateTextCollectionData(rawDocs, partitions);
@@ -72,7 +71,7 @@ public class ArticleProcessorTest {
     System.out.println("======Word chronological list======");
     for (Integer word: result.collectionWords)
       System.out.println(word);
-    
+    */
     /*System.out.println("=======Obtained " + result.parsedArticles.size() + " parsed articles====");
     int count = 1;
     for (ParsedArticle output : result.parsedArticles) {
