@@ -28,6 +28,9 @@ public class Document implements Serializable {
   public final Map<String, Integer> words;
   /**This article's stream identifier. **/
   public final ArticleStream stream;
+  /**Article's title**/
+  public final String title;
+  
   /**
    * Probability that this document belongs to the themes, Pi(d,j)
    * */
@@ -40,14 +43,16 @@ public class Document implements Serializable {
   /**Hidden variable regarding background model **/
   public HashMap<String, Double> probabilitiesHiddenVariablesBackgroundModel = new HashMap<>();
   
-  public Document(Map<String, Integer> words, ArticleStream stream) {
+  public Document(Map<String, Integer> words, ArticleStream stream, String title) {
     this.words = words;
     this.stream = stream;
+    this.title = title;
   }
   
   public Document(ParsedArticle article) {
     this.words = article.words;
     this.stream = article.stream;
+    this.title = article.title;
   }
   
   /**

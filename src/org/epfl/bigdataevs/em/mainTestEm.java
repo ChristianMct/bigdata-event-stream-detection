@@ -61,9 +61,9 @@ public class mainTestEm{
       }
     }
     
-    Document Document1 = new Document(countWords(words1), null);
-    Document Document2 = new Document(countWords(words2), null);
-    Document Document3 = new Document(countWords(words3), null);
+    Document Document1 = new Document(countWords(words1), null, "1");
+    Document Document2 = new Document(countWords(words2), null, "2");
+    Document Document3 = new Document(countWords(words3), null, "3");
     
     ArrayList<Document> articles = new ArrayList<>();
     ArrayList<EmInput> partitions = new ArrayList<>();
@@ -77,8 +77,7 @@ public class mainTestEm{
     
     EmAlgo emAlgo = new EmAlgo(sc, sc.parallelize(partitions), 3, 0.8, 1);
    
-    emAlgo.run();
-    Map<Theme, Double> result = emAlgo.relatedThemes().collectAsMap();
+    Map<Theme, Double> result = emAlgo.run().collectAsMap();
     System.out.println("Part 2");
     Map<Theme, Iterable<Document>> resultDoc = emAlgo.relatedArticles(10).collectAsMap();
     System.out.println(resultDoc.size());

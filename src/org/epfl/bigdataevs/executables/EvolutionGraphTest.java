@@ -108,7 +108,7 @@ public class EvolutionGraphTest {
     for (Theme theme : emOutputs.keySet()) {
       Tuple2<Integer, Integer> t = theme.statistics();
       System.out.println("Theme :" + i);
-      System.out.println(theme.sortString(5));
+      System.out.println(theme.sortTitleString(3));
       System.out.println("Score: " + emOutputs.get(theme));
       System.out.println("Stats 1:" + t._1 + " / " + t._2);
       System.out.println("Stats 2:" + theme.statistics2());

@@ -30,6 +30,7 @@ public class Theme implements Serializable {
   public Long partitionIndex = 0L;
   public int index;
   public TimePeriod timePeriod;
+  public List<Document> sortedArticlesByScore;
   
   public Theme(Date from, Date to, int index) {
     this.timePeriod = new TimePeriod(from, to);
@@ -127,6 +128,19 @@ public class Theme implements Serializable {
         return 1;
       } // returning 0 would merge keys
     }
+  }
+  
+  /**
+   * Get the titles of the articles that have the highest probability to belong to this theme
+   */
+  public String sortTitleString(int maxTitles) {
+    String output = "";
+    for (int i = 0; i < maxTitles; i++) {
+      String title = this.sortedArticlesByScore.get(i).title;
+      Double score = this.sortedArticlesByScore.get(i).previousProbabilitiesDocumentBelongsToThemes.get(this);
+      output += title + " : " + score + " / ";
+    }
+    return output;
   }
   
   /**

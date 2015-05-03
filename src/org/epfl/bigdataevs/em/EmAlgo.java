@@ -184,6 +184,7 @@ public class EmAlgo implements Serializable {
               input.numberOfIterations += 1;
             }
             
+            input.sortArticlesByScore();           
             return new Tuple2<EmInput, Double>(input,
                     input.computeLogLikelihood(lambdaBackgroundModel));
           }
@@ -231,33 +232,6 @@ public class EmAlgo implements Serializable {
         return input.relatedThemes();
       }
     });
-  }
-  
-  
-  /**
-   * Return the pair of themes for each EmInputs which them corresponding score.
-   * @return
-   */
-  public JavaPairRDD<Theme, Double> relatedThemes() {
-    
-    JavaPairRDD<Theme, Double> listOfSelectedThemes = this.selectedPartitions.flatMapToPair(
-            new PairFlatMapFunction<EmInput, Theme, Double>() {
-          @Override
-          public Iterable<Tuple2<Theme, Double>> call(EmInput input) throws Exception {
-            
-            List<Tuple2<Theme, Double>> themesWithAverageProbability = new ArrayList<>();                  
-            for (Theme theme : input.themesOfPartition) {
-              double sum = 0.0;
-              for (Document article : input.documents) {
-                sum += article.probabilitiesDocumentBelongsToThemes.get(theme);
-              }
-              double average = sum / input.documents.size();
-              themesWithAverageProbability.add(new Tuple2<Theme, Double>(theme, average));
-            }
-            return (Iterable<Tuple2<Theme, Double>>) themesWithAverageProbability;
-          }
-        });
-    return listOfSelectedThemes;
   }
   
   /**

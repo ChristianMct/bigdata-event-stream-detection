@@ -3,11 +3,13 @@ package org.epfl.bigdataevs.em;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.function.VoidFunction;
@@ -163,11 +165,15 @@ public class EmInput implements Serializable {
   public EmInput clone() {
     Collection<Document> articles = new ArrayList<>();
     for (Document article : this.documents) {
-      articles.add(new Document(article.words, article.stream));
+      articles.add(new Document(article.words, article.stream, article.title));
     }
     return new EmInput(this.backgroundModel, articles, this.timePeriod);
   }
   
+  /**
+   * Return the pair of themes for each EmInputs which them corresponding score.
+   * @return
+   */
   public Iterable<Tuple2<Theme, Double>> relatedThemes() {
     List<Tuple2<Theme, Double>> themesWithAverageProbability = new ArrayList<>();                  
     for (Theme theme : this.themesOfPartition) {
@@ -181,5 +187,41 @@ public class EmInput implements Serializable {
       themesWithAverageProbability.add(new Tuple2<Theme, Double>(theme, average));
     }
     return (Iterable<Tuple2<Theme, Double>>) themesWithAverageProbability;
+  }
+  
+  public void sortArticlesByScore() {
+    for (Theme theme : this.themesOfPartition) {
+      Map<Document, Double> articlesToThemes = new HashMap<Document, Double>();
+      for (Document article : this.documents) {
+        articlesToThemes.put(
+                article, article.probabilitiesDocumentBelongsToThemes.get(theme));
+      }
+      TreeMap<Document, Double> sortedMap = new TreeMap<>(
+              new ValueComparator(articlesToThemes));
+      sortedMap.putAll(articlesToThemes);
+      List<Document> highestProbArticles = new ArrayList<>();
+      for (Document document : sortedMap.keySet()) {
+        highestProbArticles.add(document);
+      }
+      theme.sortedArticlesByScore = highestProbArticles;
+    }
+  }
+  
+  class ValueComparator implements Comparator<Document> {
+
+    Map<Document, Double> base;
+    
+    public ValueComparator(Map<Document, Double> base) {
+      this.base = base;
+    }
+
+    // Note: this comparator imposes orderings that are inconsistent with equals.    
+    public int compare(Document a, Document b) {
+      if (base.get(a).compareTo(base.get(b)) == 1) {
+        return -1;
+      } else {
+        return 1;
+      } // returning 0 would merge keys
+    }
   }
 }
