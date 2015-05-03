@@ -93,7 +93,7 @@ public class EvolutionGraphTest {
     }
     
     int numberOfThemes = 20;
-    double lambdaBackgroundModel = 0.92;
+    double lambdaBackgroundModel = 0.95;
     int numberOfRuns = 1;   
     EmAlgo emAlgo = new EmAlgo(ctx, emInputFromParser, numberOfThemes, lambdaBackgroundModel, numberOfRuns);
     
@@ -113,8 +113,7 @@ public class EvolutionGraphTest {
     }
     
 
-   /*
-    
+   
     KLDivergence kldivergence = new KLDivergence(1E10, 0.0001);
   
     System.out.println("KLDivergence starts");
@@ -122,19 +121,19 @@ public class EvolutionGraphTest {
     JavaRDD<EvolutionaryTransition> transitionGraph = 
         kldivergence.compute(themesRdd.map(
                 new Function<Tuple2<Theme,Double>,Theme>(){
-                  @Override
-                  public Theme call(Tuple2<Theme, Double> arg0) throws Exception {
-                    return(arg0._1());
-                  }
-                  
+                @Override
+                public Theme call(Tuple2<Theme, Double> arg0) throws Exception {
+                  return (arg0._1());
                 }
+                
+              }
         ));
 
     System.out.println("KLDivergence done");
     
-    System.out.println("themesRdd = "+themesRdd.count());
-    System.out.println("transitionGraph = "+transitionGraph.count());
-    */
+    System.out.println("themesRdd = " + themesRdd.count());
+    System.out.println("transitionGraph = " + transitionGraph.count());
+    
   }
 
 }

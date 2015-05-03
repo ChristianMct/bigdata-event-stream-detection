@@ -29,9 +29,10 @@ public class Theme implements Serializable {
   public final static int RANDOM_MAX = 1000;
   public Long partitionIndex = 0L;
   public int index;
+  public TimePeriod timePeriod;
   
   public Theme(Date from, Date to, int index) {
-    //super(from, to);
+    this.timePeriod = new TimePeriod(from, to);
     this.wordsProbability = new HashMap<>();
     this.index = index;
   }
@@ -126,6 +127,10 @@ public class Theme implements Serializable {
         return 1;
       } // returning 0 would merge keys
     }
+  }
+  
+  public boolean lessThan(Theme other) {
+    return timePeriod.lessThan(other.timePeriod);
   }
 
   
