@@ -117,7 +117,7 @@ public class EvolutionGraphTest {
     
 
    
-    KLDivergence kldivergence = new KLDivergence(67., 100.);
+    KLDivergence kldivergence = new KLDivergence(42., 100.);
   
     System.out.println("KLDivergence starts");
     
@@ -137,7 +137,7 @@ public class EvolutionGraphTest {
     System.out.println("transitionGraph = " + transitionGraph.count());
     int transitionCount = 1;
     for (EvolutionaryTransition transition : transitionGraph.collect()) {
-      System.out.println(transitionCount++ + transition.toString());
+      System.out.println(transitionCount++ + ". " + transition.toString());
     }
     
   }
