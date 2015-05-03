@@ -24,6 +24,8 @@ public class ParsedArticle implements Serializable {
   public final ArticleStream stream;
   /**Publication date**/
   public final Date publication;
+  /**Article's title**/
+  public final String title;
   
   /**
    * Probability that this document belongs to the themes, Pi(d,j)
@@ -37,10 +39,12 @@ public class ParsedArticle implements Serializable {
   /**Hidden variable regarding background model **/
   public HashMap<String, Double> probabilitiesHiddenVariablesBackgroundModel = new HashMap<>();
   
-public ParsedArticle( Map<String, Integer> words, ArticleStream stream, Date publication) {
+public ParsedArticle( Map<String, Integer> words, ArticleStream stream, Date publication, 
+        String title) {
     this.words = words;
     this.stream = stream;
     this.publication = publication;
+    this.title = title;
   }
   
   /**

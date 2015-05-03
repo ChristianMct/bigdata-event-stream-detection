@@ -120,12 +120,14 @@ class SegmentedArticle implements Serializable {
   public final List<String> words;
   public final ArticleStream stream;
   public final Date publication;
+  public final String title;
   
   protected SegmentedArticle( List<String> words, ArticleStream stream, 
-          Date publication) {
+          Date publication, String title) {
     this.words = words;
     this.stream = stream;
     this.publication = publication;
+    this.title = title;
   }
 }
 
@@ -147,6 +149,6 @@ class SegmentArticle implements Function<RawArticle, SegmentedArticle>, Serializ
       }
     }
     return new SegmentedArticle(cleanedWords, article.stream, 
-            article.issueDate);
+            article.issueDate, article.name);
   }
 }
