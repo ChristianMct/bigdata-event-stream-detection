@@ -78,42 +78,6 @@ public class mainTestEm{
     EmAlgo emAlgo = new EmAlgo(sc, sc.parallelize(partitions), 3, 0.8, 1);
    
     Map<Theme, Double> result = emAlgo.run().collectAsMap();
-    System.out.println("Part 2");
-    Map<Theme, Iterable<Document>> resultDoc = emAlgo.relatedArticles(10).collectAsMap();
-    System.out.println(resultDoc.size());
-    for (Theme theme : result.keySet()) {
-      System.out.println(theme);
-    }
-    for (Theme theme : resultDoc.keySet()) {
-      System.out.println(theme);
-    }
-    
-    sc.close();
-    System.out.println(result.keySet().size() + " elements");
-    int i = 0;
-    for (Theme theme : result.keySet()) {
-      System.out.println("Theme :" + i);
-      System.out.println(theme.sortString(10));
-      System.out.println("Score:" + result.get(theme));
-      System.out.println("Stats 1: " + theme.statistics());
-      i += 1;
-    }
-    
-    System.out.println("--------------------");
-    for (Theme theme : resultDoc.keySet()) {
-      System.out.println("Theme :" + i);
-      System.out.println(theme.sortString(10));
-      Iterator<Document> it = resultDoc.get(theme).iterator();
-      while (it.hasNext()) {
-        Document doc = it.next();
-        String s = "Doc";
-        for (String w : doc.words.keySet()) {
-          s += " " + w;
-        }
-        System.out.println(s);
-      }
-      i += 1;
-    }
   }
 
   

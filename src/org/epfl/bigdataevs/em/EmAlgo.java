@@ -41,7 +41,6 @@ public class EmAlgo implements Serializable {
   public int numberOfRuns;
   public final static double epsilon = 0.0;
   public final static double precision = 1e-2;
-  public JavaRDD<EmInput> selectedPartitions;
 
   /**
    * Creates one instance of EmAgorithm
@@ -232,61 +231,6 @@ public class EmAlgo implements Serializable {
         return input.relatedThemes();
       }
     });
-  }
-  
-  /**
-   * Return a list of article that have the highest probability to belong to a theme.
-   * @param inputs
-   * @param nunmberArticlesPerTheme
-   * @return
-   */
-  public JavaPairRDD<Theme, Iterable<Document>> relatedArticles(final int numberArticlesPerTheme) {
-    return this.selectedPartitions.flatMapToPair(
-            new PairFlatMapFunction<EmInput, Theme , Iterable<Document>>() {
-        @Override
-        public Iterable<Tuple2<Theme, Iterable<Document>>> call(EmInput input) throws Exception {
-          
-          List<Tuple2<Theme, Iterable<Document>>> themesWithArticles = new ArrayList<>();
-          for (Theme theme : input.themesOfPartition) {
-            Map<Document, Double> articlesToThemes = new HashMap<Document, Double>();
-            for (Document article : input.documents) {
-              articlesToThemes.put(
-                      article, article.probabilitiesDocumentBelongsToThemes.get(theme));
-            }
-            TreeMap<Document, Double> sortedMap = new TreeMap<>(
-                    new ValueComparator(articlesToThemes));
-            sortedMap.putAll(articlesToThemes);
-            List<Document> highestProbArticles = new ArrayList<Document>();
-            for (Document document : sortedMap.keySet()) {
-              highestProbArticles.add(document);
-              if (highestProbArticles.size() >= numberArticlesPerTheme) {
-                break;
-              }
-            }
-            themesWithArticles.add(
-                    new Tuple2<Theme, Iterable<Document>>(theme, highestProbArticles));
-          }
-          return themesWithArticles;
-        }
-        
-        class ValueComparator implements Comparator<Document> {
-  
-          Map<Document, Double> base;
-          
-          public ValueComparator(Map<Document, Double> base) {
-            this.base = base;
-          }
-  
-          // Note: this comparator imposes orderings that are inconsistent with equals.    
-          public int compare(Document a, Document b) {
-            if (base.get(a).compareTo(base.get(b)) == 1) {
-              return -1;
-            } else {
-              return 1;
-            } // returning 0 would merge keys
-          }
-        }
-      });
   }
 
 }

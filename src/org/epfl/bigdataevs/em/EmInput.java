@@ -186,9 +186,14 @@ public class EmInput implements Serializable {
       double average = sum / (double)this.documents.size();
       themesWithAverageProbability.add(new Tuple2<Theme, Double>(theme, average));
     }
-    return (Iterable<Tuple2<Theme, Double>>) themesWithAverageProbability;
+    return (Iterable<Tuple2<Theme, Double>>) filterTheme(themesWithAverageProbability);
   }
   
+  
+  /**
+   * Sort all articles in a theme by the probability that an article belongs to this theme.
+   * Apply it to all themes
+   */
   public void sortArticlesByScore() {
     for (Theme theme : this.themesOfPartition) {
       Map<Document, Double> articlesToThemes = new HashMap<Document, Double>();
@@ -207,6 +212,11 @@ public class EmInput implements Serializable {
     }
   }
   
+  /**
+   * Comparator to sort the articles according to their probability in decreasing order.
+   * @author abastien
+   *
+   */
   class ValueComparator implements Comparator<Document> {
 
     Map<Document, Double> base;
@@ -223,5 +233,17 @@ public class EmInput implements Serializable {
         return 1;
       } // returning 0 would merge keys
     }
+  }
+  
+  
+  public List<Tuple2<Theme, Double>> filterTheme(List<Tuple2<Theme, Double>> themesWithScore) {
+    double threshold = (1.0 / this.themesOfPartition.size()) * 0.9;
+    List<Tuple2<Theme, Double>> newThemesWithScores = new ArrayList<Tuple2<Theme,Double>>();
+    for (Tuple2<Theme, Double> tuple : themesWithScore) {
+      if (tuple._2 < threshold) {
+        newThemesWithScores.add(tuple);
+      }
+    }
+    return newThemesWithScores;
   }
 }
