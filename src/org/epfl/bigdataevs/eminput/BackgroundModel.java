@@ -10,7 +10,9 @@ import org.apache.spark.api.java.function.PairFlatMapFunction;
 import scala.Tuple2;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 
 /** Class representing a BackgroundModel. This mainly has the purpose of
  * extracting some code of the main InputParser class. It wraps an 
@@ -23,10 +25,14 @@ public class BackgroundModel implements Serializable {
   
   public final JavaPairRDD<String, BigFraction> backgroundModelRdd;
   
+  private final Integer discardingTreshold;
+  
   /** Basic constructor for the class.
    * @param segmentedArticles all the SegmentedArticle in the considered timeFrame.
    */
-  public BackgroundModel(JavaRDD<SegmentedArticle> segmentedArticles) {
+  public BackgroundModel(JavaRDD<SegmentedArticle> segmentedArticles, int discardingTreshold) {
+    
+    this.discardingTreshold = discardingTreshold;
     
     //Usual wordcount stuff
     JavaPairRDD<String, Integer> wordCount = segmentedArticles.flatMapToPair(
@@ -41,16 +47,22 @@ public class BackgroundModel implements Serializable {
           }
         }
     );
+    
     JavaPairRDD<String, Integer> wordCountRddReduced = 
-        wordCount.reduceByKey(new Function2<Integer,Integer, Integer>() {  
-          public Integer call(Integer lhs, Integer rhs) { 
-            return lhs + rhs; 
-          }   
-        }
-    );
+        wordCount
+          .reduceByKey(new Function2<Integer,Integer, Integer>() {  
+            public Integer call(Integer lhs, Integer rhs) {
+              return lhs + rhs; 
+            }   
+          })
+          .filter(new Function<Tuple2<String, Integer>, Boolean>() {
+            @Override
+            public Boolean call(Tuple2<String, Integer> wordcount) throws Exception {
+              return wordcount._2 >= BackgroundModel.this.discardingTreshold;
+            } 
+          });
     
     // Counts the total number of word in all segmentedArticles
-    // TODO : check que int va pas overflow
     final int totalAmount = wordCountRddReduced
          .map(new Function<Tuple2<String,Integer>, Integer>(){
            @Override
@@ -72,13 +84,6 @@ public class BackgroundModel implements Serializable {
               public BigFraction call(Integer count) {
                 return new BigFraction(count, totalAmount);
               }     
-            })
-            .filter(new Function<Tuple2<String,BigFraction>, Boolean>() {
-              BigFraction cleaningTreshold = new BigFraction(2, totalAmount);   
-              @Override
-              public Boolean call(Tuple2<String, BigFraction> wordEntry) throws Exception {
-                return wordEntry._2.compareTo(cleaningTreshold) >= 0 ;
-              }
             });
   }
 }

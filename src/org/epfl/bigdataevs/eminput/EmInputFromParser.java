@@ -75,7 +75,7 @@ class ProcessArticle implements
     }
     //maps new parsedArticle instance to each of the time periods including it
     ParsedArticle parsedArticle = new ParsedArticle(wordCount, article.stream, 
-            article.publication);
+            article.publication, article.title);
     for (TimePeriod containingPeriod: partitioning) {
       if (containingPeriod.includeDates(article.publication) && parsedArticle.words.size() > 50)
         result.add(new Tuple2<TimePeriod, ParsedArticle>(containingPeriod, parsedArticle));
