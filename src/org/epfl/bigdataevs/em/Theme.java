@@ -129,6 +129,12 @@ public class Theme implements Serializable {
     }
   }
   
+  /**
+   * @author lfaucon & abastien
+   * 
+   * @param other : an other theme
+   * @return true when other corresponds to a time period strictly after this.timeperiod
+   */
   public boolean lessThan(Theme other) {
     return timePeriod.lessThan(other.timePeriod);
   }

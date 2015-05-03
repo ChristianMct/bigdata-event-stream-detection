@@ -117,7 +117,7 @@ public class EvolutionGraphTest {
     
 
    
-    KLDivergence kldivergence = new KLDivergence(1E10, 0.0001);
+    KLDivergence kldivergence = new KLDivergence(67., 100.);
   
     System.out.println("KLDivergence starts");
     
@@ -128,7 +128,6 @@ public class EvolutionGraphTest {
                 public Theme call(Tuple2<Theme, Double> arg0) throws Exception {
                   return (arg0._1());
                 }
-                
               }
         ));
 
@@ -136,9 +135,9 @@ public class EvolutionGraphTest {
     
     System.out.println("themesRdd = " + themesRdd.count());
     System.out.println("transitionGraph = " + transitionGraph.count());
-    
+    int transitionCount = 1;
     for (EvolutionaryTransition transition : transitionGraph.collect()) {
-      System.out.println(transition);
+      System.out.println(transitionCount++ + transition.toString());
     }
     
   }

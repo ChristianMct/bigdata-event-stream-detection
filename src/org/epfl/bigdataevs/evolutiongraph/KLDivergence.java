@@ -14,11 +14,13 @@ import java.util.Set;
 public class KLDivergence implements Serializable{
 
   private double threshold;
-  private double epsilon; //This variable is used to smooth the probability distribution
   
-  public KLDivergence(double threshold, double epsilon) {
+  //This variable is an upperbound to avoid the NaN when computing log(p/0)
+  private Double logMax;
+  
+  public KLDivergence(double threshold, double logMax) {
     this.threshold = threshold;
-    this.epsilon = epsilon;
+    this.logMax = logMax;
   }
   
   /**
@@ -39,15 +41,16 @@ public class KLDivergence implements Serializable{
               throws Exception {        
         Theme theme1 = theme._1();
         Theme theme2 = theme._2();
-        double divergence = transitionDistance(theme1,theme2);
+        double divergence = divergence(theme2,theme1);
         
         LinkedList<EvolutionaryTransition> evolutionaryTransition = 
                 new LinkedList<EvolutionaryTransition>();
         
-        if (divergence >= -0.001) {
-          evolutionaryTransition.add(new EvolutionaryTransition(theme1,theme2,divergence));
+        if (theme1.lessThan(theme2)) {
+          if (divergence < threshold) {
+            evolutionaryTransition.add(new EvolutionaryTransition(theme1,theme2,divergence));
+          }
         }
-        
         return evolutionaryTransition;
       }
     });
@@ -85,25 +88,65 @@ public class KLDivergence implements Serializable{
    */
   
   public double divergence(Theme t1, Theme t2) {
-    double result = 0.;
+    Double result = new Double(0.);
     Set<String> set = t2.wordsProbability.keySet();
-    int numberOfWords = t1.wordsProbability.size();
     
     for (String word : set) {
-      double p2 = t2.wordsProbability.get(word).doubleValue();
+      double p2 = t2.wordsProbability.get(word);
       double p1 = 0.;
       
       if (t1.wordsProbability.containsKey(word)) {
-        p1 = t1.wordsProbability.get(word).doubleValue();
+        p1 = t1.wordsProbability.get(word);
       }
       
       //smoothing
-      p1 = (p1 + epsilon) / (1. + numberOfWords * epsilon);
-      result += p2 * Math.log(p2 / p1);
+      result += p2 * smoothLog(p1,p2);
     }
-    
-    
+    return result.isNaN() ? 42 : result;
+  }
+  
+  
+  /**
+   * @author lfaucon
+   * 
+   * This Total Variation is an alternative metric that can be used instead of Kullback divergence
+   * 
+   * @param t1 A theme 
+   * @param t2 A theme
+   * @return The total variation between the two probability distributions
+   */
+  public double totalVariation(Theme t1, Theme t2) {
+    double result = 0.;
+    for (String word : t2.wordsProbability.keySet()) {
+      double p2 = t2.wordsProbability.get(word);
+      double p1 = 0.;
+      
+      if (t1.wordsProbability.containsKey(word)) {
+        p1 = t1.wordsProbability.get(word);
+      }
+      
+      if (p2 > p1) {
+        result += p2 - p1;
+      }
+    }
     return result;
   }
+  
+  /**
+   * @author lfaucon
+   * 
+   * @param p1 a probability
+   * @param p2 a probability
+   * @return log(p2/p1)
+   */
+  public Double smoothLog(double p1,double p2){
+    Double result = new Double(Math.min(100,Math.abs(Math.log(p2 / p1))));
+    if (result.isNaN()) {
+      return logMax;
+    } else {
+      return result;
+    }
+  }
+  
   
 }
