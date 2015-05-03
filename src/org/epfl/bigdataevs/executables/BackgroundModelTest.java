@@ -72,7 +72,7 @@ public class BackgroundModelTest {
     
     ctx.close();
     
-    for (long i=1; i<histMap.size(); i++) {
+    for (long i=1; i<100; i++) {
       if (histMap.containsKey(new Long(i)))
         System.out.println(i+" => "+histMap.get(new Long(i)));
     }

@@ -49,15 +49,20 @@ public class BackgroundModel implements Serializable {
     );
     
     JavaPairRDD<String, Integer> wordCountRddReduced = 
-        wordCount.reduceByKey(new Function2<Integer,Integer, Integer>() {  
-          public Integer call(Integer lhs, Integer rhs) { 
-            return lhs + rhs; 
-          }   
-        }
-    );
+        wordCount
+          .reduceByKey(new Function2<Integer,Integer, Integer>() {  
+            public Integer call(Integer lhs, Integer rhs) {
+              return lhs + rhs; 
+            }   
+          })
+          .filter(new Function<Tuple2<String, Integer>, Boolean>() {
+            @Override
+            public Boolean call(Tuple2<String, Integer> wordcount) throws Exception {
+              return wordcount._2 >= BackgroundModel.this.discardingTreshold;
+            } 
+          });
     
     // Counts the total number of word in all segmentedArticles
-    // TODO : check que int va pas overflow
     final int totalAmount = wordCountRddReduced
          .map(new Function<Tuple2<String,Integer>, Integer>(){
            @Override
@@ -75,14 +80,9 @@ public class BackgroundModel implements Serializable {
         
     // Create the backgroundModel RDD
     backgroundModelRdd = wordCountRddReduced
-            .flatMapValues(new Function<Integer, Iterable<BigFraction>>() {
-
-              public Iterable<BigFraction> call(Integer count) {
-                List<BigFraction> fraction = new ArrayList<BigFraction>(1);
-                if (count >= BackgroundModel.this.discardingTreshold) {
-                  fraction.add(new BigFraction(count, totalAmount));
-                }
-                return fraction;
+            .mapValues(new Function<Integer, BigFraction>() {
+              public BigFraction call(Integer count) {
+                return new BigFraction(count, totalAmount);
               }     
             });
   }
