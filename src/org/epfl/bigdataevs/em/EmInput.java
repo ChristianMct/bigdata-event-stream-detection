@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -71,7 +72,7 @@ public class EmInput implements Serializable {
    * @param Documents
    * @param period
    */ 
-  public EmInput(TimePartition timePartition, Map<String, Fraction> backgroundModel) {
+  public EmInput(TimePartition timePartition, Map<String, BigFraction> backgroundModel) {
     this.timePeriod = timePartition.timePeriod;
     this.themesOfPartition = new ArrayList<>();
     this.backgroundModel = new HashMap<String, Double>();
@@ -165,5 +166,20 @@ public class EmInput implements Serializable {
       articles.add(new Document(article.words, article.stream));
     }
     return new EmInput(this.backgroundModel, articles, this.timePeriod);
+  }
+  
+  public Iterable<Tuple2<Theme, Double>> relatedThemes() {
+    List<Tuple2<Theme, Double>> themesWithAverageProbability = new ArrayList<>();                  
+    for (Theme theme : this.themesOfPartition) {
+      double sum = 0.0;
+      
+      for (Document article : this.documents) {
+        sum += article.probabilitiesDocumentBelongsToThemes.get(theme);
+      }
+      
+      double average = sum / (double)this.documents.size();
+      themesWithAverageProbability.add(new Tuple2<Theme, Double>(theme, average));
+    }
+    return (Iterable<Tuple2<Theme, Double>>) themesWithAverageProbability;
   }
 }

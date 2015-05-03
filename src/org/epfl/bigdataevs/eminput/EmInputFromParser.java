@@ -24,7 +24,12 @@ public class EmInputFromParser {
   public EmInputFromParser(BackgroundModel bg, JavaRDD<SegmentedArticle> parserInput,
           List<TimePeriod> partitioning) {
     backgroundModel = bg;
-    timePartitions = parserInput.flatMapToPair(new ProcessArticle(partitioning))
+    /* For memory economy, we collect the background model's key set as a list. In the 
+     * parsed article map, we use it to filter out cleaned words.
+     * TODO: evaluate the performance cost of using a list instead of a map!*/
+    List<String> distinctWords = bg.backgroundModelRdd.keys().collect();
+    timePartitions = parserInput
+            .flatMapToPair(new ProcessArticle(partitioning, distinctWords))
             .groupByKey().mapToPair(new MapArticleToTimePartition());
   }
 }
@@ -36,9 +41,14 @@ class ProcessArticle implements
       PairFlatMapFunction<SegmentedArticle, TimePeriod, ParsedArticle> {
 
   private final List<TimePeriod> partitioning;
+  /* List of all words that haven't been cleaned from the background model. */
+  private final List<String> existingWords;
   
-  public ProcessArticle(final List<TimePeriod> partitioning) {
+  public ProcessArticle(final List<TimePeriod> partitioning, 
+          final List<String> existingWords) 
+  {
     this.partitioning = partitioning;
+    this.existingWords = existingWords;
   }
   
   /** Compute the count of each word in article. Then produce a ParsedArticle
@@ -49,23 +59,25 @@ class ProcessArticle implements
     List<Tuple2<TimePeriod, ParsedArticle>> result = 
             new ArrayList<Tuple2<TimePeriod, ParsedArticle>>();
     
-    //compute word count for this article
+    /*compute word count for this article. Words not in the background model are ignored*/
     HashMap<String, Integer> wordCount = new HashMap<String, Integer>();
     for (String word : article.words) {
+      if (!existingWords.contains(word))
+        continue;
+      
       Integer currentCount = wordCount.get(word);
       if (currentCount == null || currentCount <= 0) {
         currentCount = 1;
       } else {
         currentCount++;
       }
-
       wordCount.put(word, currentCount);
     }
     //maps new parsedArticle instance to each of the time periods including it
     ParsedArticle parsedArticle = new ParsedArticle(wordCount, article.stream, 
-            article.publication);
+            article.publication, article.title);
     for (TimePeriod containingPeriod: partitioning) {
-      if (containingPeriod.includeDates(article.publication))
+      if (containingPeriod.includeDates(article.publication) && parsedArticle.words.size() > 50)
         result.add(new Tuple2<TimePeriod, ParsedArticle>(containingPeriod, parsedArticle));
     }
       

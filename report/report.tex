@@ -1,0 +1,101 @@
+\documentclass[a4paper, 11pt]{article}
+\usepackage[utf8]{inputenc}
+
+\usepackage[a4paper]{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{float}
+\usepackage{tabularx}
+\usepackage{url}
+
+
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+
+\title{Authentication at scale}
+\author{ }
+\date{Spring 2015}
+
+\begin{document}
+
+\newgeometry{top=3cm, bottom=3cm, left=2.5cm, right=2.5cm}
+
+\begin{titlepage}
+\begin{center}
+
+\begin{figure}[h] 
+\begin{center}
+\begin{minipage}[c]{.45\linewidth}
+\begin{center}
+\includegraphics[scale=1]{images/logoEPFL.png}
+\end{center}
+\end{minipage}
+\end{center}
+\end{figure}
+
+\hfill \\[2cm]
+\HRule \\[0.5cm]
+{ \Huge \bfseries Event Stream Detection}\\[0.5cm]
+
+\HRule \\[2cm]
+\makeatletter
+\renewcommand{\thesection}{\@arabic\c@section}
+\makeatother
+\textsc{\textbf{\Large BigData2015 - CS422\\ Digital Humanities Laboratory}}\\[2cm]
+
+
+\large Laurent \textsc{ANADON}\\
+\large Antoine \textsc{BASTIEN}\\
+\large Antoine \textsc{BODIN}\\
+\large Matias \textsc{CERCHIERINI}\\
+\large Nina \textsc{DESNICA}\\
+\large Louis \textsc{FAUCON}\\
+\large Damien \textsc{HILLOULIN}\\
+\large Christian \textsc{MOUCHET}\\
+\large Sami \textsc{PERRIN}\\[2cm]
+
+
+\begin{tabular}{rl}
+\textsc{Professor:} &\textsc{Christoph KOCH}\\
+\textsc{Teaching Assistant} &\textsc{Immanuel TRUMMER}\\
+\textsc{DHLab Supervisor} &\textsc{Yannick ROCHAT}
+\end{tabular}
+
+\hfill \\[1cm]
+{\large Spring 2015}
+\end{center}
+\end{titlepage}
+
+\restoregeometry
+\tableofcontents
+\newpage
+
+
+\input{introduction}
+\newpage
+
+\section{Description of our implementation}
+
+\input{articleExtraction}
+
+\input{themeExtraction}
+
+\input{evolutionGraph}
+
+\input{hiddenMarkovModel}
+
+
+\input{results}
+
+\input{conclusion}
+
+
+
+\newpage
+
+\bibliographystyle{plain} 
+\bibliography{bibliography}
+
+\end{document}

@@ -20,13 +20,14 @@ public class KLDivergence implements Serializable{
     this.threshold = threshold;
     this.epsilon = epsilon;
   }
-    
+  
   /**
    * @author antoinexp & lfaucon
    * 
    * @param themes A JavaRDD of all the extracted themes
    * @return A JavaRDD of all the Evolutionary Transition
    */
+  
   public JavaRDD<EvolutionaryTransition> compute(final JavaRDD<Theme> themes) {
     JavaPairRDD<Theme, Theme> pairs;
     
@@ -61,6 +62,7 @@ public class KLDivergence implements Serializable{
    * @return returns the divergence(>0 always) if t1 and t2 form an Evolutionary Transition 
    *     and -1 otherwise
    */
+  
   private double transitionDistance(Theme t1,Theme t2) {
     if (t1.lessThan(t2)) {
       double divergence = divergence(t2,t1);
@@ -81,6 +83,7 @@ public class KLDivergence implements Serializable{
    * @param t2 An other theme
    * @return returns the Kullback divergence D(t1||t2)
    */
+  
   public double divergence(Theme t1, Theme t2) {
     double result = 0.;
     Set<String> set = t2.wordsProbability.keySet();
