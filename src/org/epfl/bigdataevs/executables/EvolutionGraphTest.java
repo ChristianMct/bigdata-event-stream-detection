@@ -48,7 +48,9 @@ public class EvolutionGraphTest {
     
     
     List<TimePeriod> timePeriods = new ArrayList<TimePeriod>(); 
-    timePeriods.add(new TimePeriod(format.parse("1/2/1995-0"), format.parse("8/2/1995-0")));
+    timePeriods.add(new TimePeriod(format.parse("1/2/1995-0"), format.parse("3/2/1995-0")));
+    timePeriods.add(new TimePeriod(format.parse("4/2/1995-0"), format.parse("6/2/1995-0")));
+    timePeriods.add(new TimePeriod(format.parse("7/2/1995-0"), format.parse("9/2/1995-0")));
     
     //System.out.println(timePeriods.get(0).includeDates(format.parse("1/1/1939-12")));
     
@@ -92,12 +94,13 @@ public class EvolutionGraphTest {
       System.out.println("Number of articles : " + integer);
     }
     
-    int numberOfThemes = 20;
+    int numberOfThemes = 10;
     double lambdaBackgroundModel = 0.95;
     int numberOfRuns = 1;   
     EmAlgo emAlgo = new EmAlgo(ctx, emInputFromParser, numberOfThemes, lambdaBackgroundModel, numberOfRuns);
     
-    JavaPairRDD<Theme, Double> themesRdd = emAlgo.run();    
+    JavaPairRDD<Theme, Double> themesRdd = emAlgo.run();   
+    themesRdd.cache();
     Map<Theme, Double> emOutputs = themesRdd.collectAsMap();
     
     System.out.println(emOutputs.keySet().size() + " elements");
@@ -105,7 +108,7 @@ public class EvolutionGraphTest {
     for (Theme theme : emOutputs.keySet()) {
       Tuple2<Integer, Integer> t = theme.statistics();
       System.out.println("Theme :" + i);
-      System.out.println(theme.sortString(20));
+      System.out.println(theme.sortString(5));
       System.out.println("Score: " + emOutputs.get(theme));
       System.out.println("Stats 1:" + t._1 + " / " + t._2);
       System.out.println("Stats 2:" + theme.statistics2());
@@ -133,6 +136,10 @@ public class EvolutionGraphTest {
     
     System.out.println("themesRdd = " + themesRdd.count());
     System.out.println("transitionGraph = " + transitionGraph.count());
+    
+    for (EvolutionaryTransition transition : transitionGraph.collect()) {
+      System.out.println(transition);
+    }
     
   }
 

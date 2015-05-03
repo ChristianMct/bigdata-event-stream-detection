@@ -22,4 +22,9 @@ public class EvolutionaryTransition implements Serializable {
     this.theme2 = t2;
     this.divergence = divergence;
   }
+  
+  
+  public String toString() {
+    return  "t1 : " + this.theme1 + " / t2 : " + this.theme2 + " / " + this.divergence;
+  }
 }
