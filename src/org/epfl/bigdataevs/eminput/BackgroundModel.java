@@ -10,7 +10,9 @@ import org.apache.spark.api.java.function.PairFlatMapFunction;
 import scala.Tuple2;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 
 /** Class representing a BackgroundModel. This mainly has the purpose of
  * extracting some code of the main InputParser class. It wraps an 
@@ -23,10 +25,14 @@ public class BackgroundModel implements Serializable {
   
   public final JavaPairRDD<String, BigFraction> backgroundModelRdd;
   
+  private final Integer discardingTreshold;
+  
   /** Basic constructor for the class.
    * @param segmentedArticles all the SegmentedArticle in the considered timeFrame.
    */
-  public BackgroundModel(JavaRDD<SegmentedArticle> segmentedArticles) {
+  public BackgroundModel(JavaRDD<SegmentedArticle> segmentedArticles, int discardingTreshold) {
+    
+    this.discardingTreshold = discardingTreshold;
     
     //Usual wordcount stuff
     JavaPairRDD<String, Integer> wordCount = segmentedArticles.flatMapToPair(
@@ -41,6 +47,7 @@ public class BackgroundModel implements Serializable {
           }
         }
     );
+    
     JavaPairRDD<String, Integer> wordCountRddReduced = 
         wordCount.reduceByKey(new Function2<Integer,Integer, Integer>() {  
           public Integer call(Integer lhs, Integer rhs) { 
@@ -68,17 +75,15 @@ public class BackgroundModel implements Serializable {
         
     // Create the backgroundModel RDD
     backgroundModelRdd = wordCountRddReduced
-            .mapValues(new Function<Integer, BigFraction>() {
-              public BigFraction call(Integer count) {
-                return new BigFraction(count, totalAmount);
+            .flatMapValues(new Function<Integer, Iterable<BigFraction>>() {
+
+              public Iterable<BigFraction> call(Integer count) {
+                List<BigFraction> fraction = new ArrayList<BigFraction>(1);
+                if (count >= BackgroundModel.this.discardingTreshold) {
+                  fraction.add(new BigFraction(count, totalAmount));
+                }
+                return fraction;
               }     
-            })
-            .filter(new Function<Tuple2<String,BigFraction>, Boolean>() {
-              BigFraction cleaningTreshold = new BigFraction(2, totalAmount);   
-              @Override
-              public Boolean call(Tuple2<String, BigFraction> wordEntry) throws Exception {
-                return wordEntry._2.compareTo(cleaningTreshold) >= 0 ;
-              }
             });
   }
 }

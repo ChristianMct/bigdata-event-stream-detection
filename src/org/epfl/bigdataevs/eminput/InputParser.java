@@ -26,7 +26,10 @@ public class InputParser implements Serializable {
   private final TimePeriod timeFrame;
   private final BackgroundModel backgroundModel;
   
-  /**Initialize a parser on the dataset. EM and HMM can get their input form there.
+  /**Initialize a parser on the dataset. EM and HMM can get their input form there. Sets
+   * the word discarding treshold to 5 occurence. Words having less than 5 occurences are
+   * discarded from the background model, lexicon and HMM input. Use the other constructor
+   * to set this value yourself.
    * @param timeFrame The TimePeriod for which all articles will be loaded 
    * @param sparkContext the Spark Context
    * @param sourcePath the full path to the data (HDFS or local)
@@ -39,6 +42,28 @@ public class InputParser implements Serializable {
           JavaSparkContext sparkContext,
           List<String> sourcePath) 
                   throws NumberFormatException, XMLStreamException, ParseException, IOException {
+    this(timeFrame,sparkContext,sourcePath,5);
+  }
+  
+  /**Initialize a parser on the dataset. EM and HMM can get their input form there. You can
+   * set the word discarding treshold. Words having less than this treshold occurences are
+   * discarded from the background model, lexicon and HMM input. Use the other constructor
+   * to set this value yourself.
+   * @param timeFrame The TimePeriod for which all articles will be loaded 
+   * @param sparkContext the Spark Context
+   * @param sourcePath the full path to the data (HDFS or local)
+   * @param wordDiscardTreshold minimum number of occurences for a word to appear in the
+   *        backgroundModel, Lexicon, and HMM input
+   * @throws NumberFormatException parser expected a number and found something else.
+   * @throws XMLStreamException the xml file has unexpected format.
+   * @throws ParseException could not parse a date.
+   * @throws IOException other problems.
+   */
+  public InputParser(TimePeriod timeFrame,
+          JavaSparkContext sparkContext,
+          List<String> sourcePath,
+          int wordDiscardTreshold) 
+                  throws NumberFormatException, XMLStreamException, ParseException, IOException {
     
     this.timeFrame = timeFrame;
     
@@ -48,7 +73,17 @@ public class InputParser implements Serializable {
     JavaRDD<RawArticle> rawArticles = getRawArticleRdd(timeFrame, sourceList, sparkContext);
     segmentedArticles = rawArticles.map(new SegmentArticle());
     
-    backgroundModel = new BackgroundModel(segmentedArticles);
+    backgroundModel = getBackgroundModel(wordDiscardTreshold);
+  }
+  
+  /** Get a background model from the data given the word discarding treshold. EM and HMM
+   * get their background model from their input getter: this method is meant to be for test
+   * and data analysis
+   * @param wordDiscardTreshold the minimum count for a word to be in this background model.
+   * @return a new BackgroundModel
+   */
+  public BackgroundModel getBackgroundModel(int wordDiscardTreshold) {
+    return new BackgroundModel(segmentedArticles, wordDiscardTreshold);
   }
   
   /** Returns the input for the EMAlgorithm.
