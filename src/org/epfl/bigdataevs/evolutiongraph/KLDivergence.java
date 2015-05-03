@@ -7,15 +7,16 @@ import org.epfl.bigdataevs.em.Theme;
 
 import scala.Tuple2;
 
+import java.io.Serializable;
 import java.util.LinkedList;
 import java.util.Set;
 
-public class KLDivergence {
+public class KLDivergence implements Serializable{
 
   private double threshold;
   private double epsilon; //This variable is used to smooth the probability distribution
   
-  KLDivergence(double threshold, double epsilon) {
+  public KLDivergence(double threshold, double epsilon) {
     this.threshold = threshold;
     this.epsilon = epsilon;
   }
@@ -30,7 +31,7 @@ public class KLDivergence {
     JavaPairRDD<Theme, Theme> pairs;
     
     pairs = themes.cartesian(themes);
-    pairs.flatMap(new FlatMapFunction<Tuple2<Theme,Theme>, EvolutionaryTransition>(){
+    return pairs.flatMap(new FlatMapFunction<Tuple2<Theme,Theme>, EvolutionaryTransition>(){
 
       @Override
       public Iterable<EvolutionaryTransition> call(Tuple2<Theme, Theme> theme) 
@@ -38,10 +39,11 @@ public class KLDivergence {
         Theme theme1 = theme._1();
         Theme theme2 = theme._2();
         double divergence = transitionDistance(theme1,theme2);
+        
         LinkedList<EvolutionaryTransition> evolutionaryTransition = 
                 new LinkedList<EvolutionaryTransition>();
         
-        if (divergence > 0) {
+        if (divergence >= -0.001) {
           evolutionaryTransition.add(new EvolutionaryTransition(theme1,theme2,divergence));
         }
         
@@ -49,7 +51,6 @@ public class KLDivergence {
       }
     });
     
-    return null;
   }
   
   /**
@@ -97,6 +98,7 @@ public class KLDivergence {
       p1 = (p1 + epsilon) / (1. + numberOfWords * epsilon);
       result += p2 * Math.log(p2 / p1);
     }
+    
     
     return result;
   }

@@ -2,7 +2,9 @@ package org.epfl.bigdataevs.evolutiongraph;
 
 import org.epfl.bigdataevs.em.Theme;
 
-public class EvolutionaryTransition{
+import java.io.Serializable;
+
+public class EvolutionaryTransition implements Serializable {
   public Theme theme1;
   public Theme theme2;
   public double divergence;
