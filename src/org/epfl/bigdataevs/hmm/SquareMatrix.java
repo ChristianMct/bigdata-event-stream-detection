@@ -1,6 +1,9 @@
 package org.epfl.bigdataevs.hmm;
 
-public final class SquareMatrix implements PubliclyCloneable<SquareMatrix> {
+import java.io.Serializable;
+import java.util.Arrays;
+
+public final class SquareMatrix implements PubliclyCloneable<SquareMatrix>, Serializable {
 
   int size;
   double[] elements;
@@ -15,6 +18,11 @@ public final class SquareMatrix implements PubliclyCloneable<SquareMatrix> {
     return this;
   }
   
+  @Override
+  public String toString() {
+    return "SquareMatrix [size=" + size + ", elements=" + Arrays.toString(elements) + "]";
+  }
+
   /**
    * Return the raw norm 1 value of the matrix.
    * (I.e return the sum of all coefficients without absolute value)
@@ -22,7 +30,7 @@ public final class SquareMatrix implements PubliclyCloneable<SquareMatrix> {
    */
   public double rawNorm1() {
     double res = 0.0;
-    for ( int i = 0; i < size * size; i++ ) {
+    for ( int i = 0; i < elements.length; i++ ) {
       res += elements[i];
     }
     
