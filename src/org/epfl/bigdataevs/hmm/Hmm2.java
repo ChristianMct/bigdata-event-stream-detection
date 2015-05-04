@@ -55,6 +55,21 @@ public class Hmm2 implements Serializable {
     this.a = a;
     this.b = b;
   }
+  
+  /**
+   * This method associates a state of the HMM to each word of the stream using Viterbi algorithm.
+   * 
+   * @param wordStream
+   *          the full text of the concatenated articles
+   * @return the sequence of HMM states associated with the stream : each state is represented by an
+   *         integer between 0 and k (0 for the background model)
+   */
+  public JavaRDD<Long> decode(JavaRDD<Long> wordStream) {
+    // TODO implement decode
+
+    return null;
+
+  }
 
   /**
    * Perform training on a spark Rdd observation sequence.
