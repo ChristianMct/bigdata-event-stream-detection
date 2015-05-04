@@ -8,6 +8,12 @@ import scala.Tuple2;
 
 import java.util.ArrayList;
 
+
+/**Test class for HMM based algos with generated sequences.
+ * 
+ * @author laurent
+ *
+ */
 public class MainSparkHmm {
 
   public static void main(String[] args) {

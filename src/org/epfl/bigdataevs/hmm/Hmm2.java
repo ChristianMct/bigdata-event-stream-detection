@@ -19,6 +19,16 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+
+
+/**
+ * A Hidden Markov Model (HMM) built to perform analysis of theme life cycles (paper section 4). An
+ * HMM can be trained using train() or used to decode a text stream using decode() ; all the other
+ * steps of theme life cycles analysis should not be done in this class.
+ * 
+ * @author Damien-Laurent
+ *
+ */
 public class Hmm2 implements Serializable {
   private static final long serialVersionUID = 1L;
   

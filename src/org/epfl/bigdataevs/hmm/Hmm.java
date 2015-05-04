@@ -27,11 +27,16 @@ import scala.Tuple3;
  * HMM can be trained using train() or used to decode a text stream using decode() ; all the other
  * steps of theme life cycles analysis should not be done in this class.
  * 
- * @author team Damien-Laurent-Sami
+ * @author Damien-Laurent
  *
  */
+@Deprecated
 public class Hmm implements Serializable{
 
+  /**
+   * 
+   */
+  private static final long serialVersionUID = 55L;
   private final int k;
   private final int n;
   private final int m;
