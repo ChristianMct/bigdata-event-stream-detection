@@ -186,6 +186,25 @@ public class EmInput implements Serializable {
       double average = sum / (double)this.documents.size();
       themesWithAverageProbability.add(new Tuple2<Theme, Double>(theme, average));
     }
+    return (Iterable<Tuple2<Theme, Double>>) themesWithAverageProbability;
+  }
+  
+  /**
+   * Return the filtered pair of themes for each EmInputs which them corresponding score
+   * @return
+   */
+  public Iterable<Tuple2<Theme, Double>> relatedFileteredThemes() {
+    List<Tuple2<Theme, Double>> themesWithAverageProbability = new ArrayList<>();                  
+    for (Theme theme : this.themesOfPartition) {
+      double sum = 0.0;
+      
+      for (Document article : this.documents) {
+        sum += article.probabilitiesDocumentBelongsToThemes.get(theme);
+      }
+      
+      double average = sum / (double)this.documents.size();
+      themesWithAverageProbability.add(new Tuple2<Theme, Double>(theme, average));
+    }
     return (Iterable<Tuple2<Theme, Double>>) filterTheme(themesWithAverageProbability);
   }
   

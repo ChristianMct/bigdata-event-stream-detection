@@ -12,6 +12,7 @@ import org.apache.spark.api.java.function.PairFunction;
 import org.epfl.bigdataevs.em.EmAlgo;
 import org.epfl.bigdataevs.em.EmInput;
 import org.epfl.bigdataevs.em.Theme;
+import org.epfl.bigdataevs.em.ThemeFromLargeTimePeriod;
 import org.epfl.bigdataevs.eminput.EmInputFromParser;
 import org.epfl.bigdataevs.eminput.InputParser;
 import org.epfl.bigdataevs.eminput.ParsedArticle;
@@ -47,10 +48,13 @@ public class EvolutionGraphTest {
     DateFormat format = new SimpleDateFormat("dd/MM/yyyy-HH");
     
     
-    List<TimePeriod> timePeriods = new ArrayList<TimePeriod>(); 
-    timePeriods.add(new TimePeriod(format.parse("1/2/1995-0"), format.parse("3/2/1995-0")));
-    timePeriods.add(new TimePeriod(format.parse("4/2/1995-0"), format.parse("6/2/1995-0")));
-    timePeriods.add(new TimePeriod(format.parse("7/2/1995-0"), format.parse("9/2/1995-0")));
+    List<TimePeriod> timePeriods = new ArrayList<TimePeriod>();
+    
+    for (int i = 1; i < 6; i++) {
+      timePeriods.add(new TimePeriod(
+              format.parse(i + "/2/1995-0"), format.parse((i + 1) + "/2/1995-0")));
+    }
+    //timePeriods.add(new TimePeriod(format.parse("1/2/1995-0"), format.parse("4/2/1995-0")));
     
     //System.out.println(timePeriods.get(0).includeDates(format.parse("1/1/1939-12")));
     
@@ -74,6 +78,19 @@ public class EvolutionGraphTest {
       System.out.println(word);
     */
     
+    /*
+    int numberOfThemes = 10;
+    int numberOfSelectedThemes = 15;
+    double lambdaBackgroundModel = 0.95;
+    int numberOfRuns = 1;
+    InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), ctx, inputPaths);
+    EmInputFromParser emInputFromParser = parser.getEmInput(timePeriods);
+    
+    List<Theme> relevantTheme = new ThemeFromLargeTimePeriod(ctx, emInputFromParser,
+            numberOfThemes, lambdaBackgroundModel, numberOfRuns, 3).selectThemes(numberOfSelectedThemes);
+    
+    System.out.println(relevantTheme.size());
+    */
     /*
      * Integration of the EM Algorithm
      */
@@ -139,6 +156,7 @@ public class EvolutionGraphTest {
     for (EvolutionaryTransition transition : transitionGraph.collect()) {
       System.out.println(transitionCount++ + ". " + transition.toString());
     }
+    
     
   }
 

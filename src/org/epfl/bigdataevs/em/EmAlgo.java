@@ -153,6 +153,7 @@ public class EmAlgo implements Serializable {
 
     });
     
+    
 
     /*Loop of the algorithm*/    
     JavaPairRDD<EmInput, Double> result = initializedPartitions.mapToPair(
@@ -228,7 +229,7 @@ public class EmAlgo implements Serializable {
     return selectedPartitions.flatMapToPair(new PairFlatMapFunction<EmInput, Theme, Double>() {
       @Override
       public Iterable<Tuple2<Theme, Double>> call(EmInput input) throws Exception {
-        return input.relatedThemes();
+        return input.relatedFileteredThemes();
       }
     });
   }
