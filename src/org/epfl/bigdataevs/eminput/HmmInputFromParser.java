@@ -28,6 +28,7 @@ public class HmmInputFromParser implements Serializable {
   public final BackgroundModel backgroundModel;
   public final JavaPairRDD<Long, Long> wordStream;
   public final JavaPairRDD<String, Long> lexicon;
+  public final JavaPairRDD<Long, Double> backgroundModelById;
   
   /** Basic constructor for this class.
    * @param backgroundModel the backgroundModel object corresponding to the timeFrame
@@ -55,7 +56,15 @@ public class HmmInputFromParser implements Serializable {
         }
       }
     );
-    
+    this.backgroundModelById = bgModelWithId.mapToPair(
+            new PairFunction<Tuple2<Tuple2<String, BigFraction>,Long>, Long, Double>() {
+              @Override
+              public Tuple2<Long, Double> call(Tuple2<Tuple2<String, BigFraction>, Long> wordEntry) 
+                      throws Exception {
+                return new Tuple2<Long,Double>( wordEntry._2,wordEntry._1._2.doubleValue());
+              }
+            }
+          );
     
     // Sorts the articles by date
     segmentedArticles = segmentedArticles.sortBy(new Function<SegmentedArticle, Date>() { 
