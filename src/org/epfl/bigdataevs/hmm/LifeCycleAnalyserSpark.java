@@ -158,7 +158,6 @@ public class LifeCycleAnalyserSpark {
               @Override
               public int compare(Tuple2<Tuple2<Long, Long>, Long> arg0,
                       Tuple2<Tuple2<Long, Long>, Long> arg1) {
-                // TODO Auto-generated method stub
                 return (int) (arg0._2 - arg1._2);
               }
 
@@ -169,7 +168,6 @@ public class LifeCycleAnalyserSpark {
               @Override
               public int compare(Tuple2<Tuple2<Long, Long>, Long> arg0,
                       Tuple2<Tuple2<Long, Long>, Long> arg1) {
-                // TODO Auto-generated method stub
                 return (int) (arg0._2 - arg1._2);
               }
 
@@ -194,7 +192,6 @@ public class LifeCycleAnalyserSpark {
 
               @Override
               public Boolean call(Long thisThemeIndex) throws Exception {
-                // TODO Auto-generated method stub
                 return thisThemeIndex.intValue() == themeIndex;
               }
 
