@@ -240,7 +240,7 @@ public class EmInput implements Serializable {
     double threshold = (1.0 / this.themesOfPartition.size()) * 0.9;
     List<Tuple2<Theme, Double>> newThemesWithScores = new ArrayList<Tuple2<Theme,Double>>();
     for (Tuple2<Theme, Double> tuple : themesWithScore) {
-      if (tuple._2 < threshold) {
+      if (tuple._2 > threshold) {
         newThemesWithScores.add(tuple);
       }
     }
