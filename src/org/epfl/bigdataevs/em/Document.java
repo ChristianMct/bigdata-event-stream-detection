@@ -118,7 +118,7 @@ public class Document implements Serializable {
       double numerator = backgroundModel.get(word)*lambdaB;
       double temp = 0.0;
       for (Theme otherTheme : probabilitiesDocumentBelongsToThemes.keySet()) {
-        temp = temp + (this.probabilitiesDocumentBelongsToThemes.get(otherTheme)
+        temp += (this.probabilitiesDocumentBelongsToThemes.get(otherTheme)
                 * (otherTheme.wordsProbability.get(word)));
       }
       double denominator = numerator + ((1.0 - lambdaB) * temp);
@@ -148,11 +148,8 @@ public class Document implements Serializable {
   public void updateProbabilitiesDocumentBelongsToThemes() {
     double denominator = 0.0;
     for (Theme theme : this.probabilitiesDocumentBelongsToThemes.keySet()) {
-      denominator = denominator + subUpdateProbabilitiesDocumentBelongsToThemes(theme);  
-    }
-    
-    for (Theme theme : this.probabilitiesDocumentBelongsToThemes.keySet()) {
       double numerator = subUpdateProbabilitiesDocumentBelongsToThemes(theme);
+      denominator += numerator;  
       this.probabilitiesDocumentBelongsToThemes.put(theme, numerator / (denominator + EmAlgo.epsilon));
     }
   }
