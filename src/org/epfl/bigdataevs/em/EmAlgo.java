@@ -25,6 +25,7 @@ import java.io.Serializable;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -41,6 +42,7 @@ public class EmAlgo implements Serializable {
   public int numberOfRuns;
   public final static double epsilon = 0.0;
   public final static double precision = 1e-2;
+  public int numPartitions;
 
   /**
    * Creates one instance of EmAgorithm
@@ -55,6 +57,7 @@ public class EmAlgo implements Serializable {
     this.lambdaBackgroundModel = lambda;
     this.numberOfRuns = numRuns;
     this.backgroundModel = collectionData.backgroundModel.backgroundModelRdd.collectAsMap();
+    this.numPartitions = (int)collectionData.timePartitions.count();
     System.out.println("Background Model: " + this.backgroundModel.size());
 
     List<Integer> runs = new ArrayList<>();
@@ -84,6 +87,9 @@ public class EmAlgo implements Serializable {
             return input;
           }
         });
+    
+   
+    this.partitions = this.partitions.repartition(this.numPartitions);
       
   }
  
@@ -153,9 +159,10 @@ public class EmAlgo implements Serializable {
 
     });
     
+    
 
-    /*Loop of the algorithm*/    
-    JavaPairRDD<EmInput, Double> result = initializedPartitions.mapToPair(
+    /*Loop of the algorithm*/
+    return initializedPartitions.mapToPair(
             new PairFunction<EmInput, EmInput, Double>() {
       
           public boolean checkStoppingCondition(int iter) {
@@ -184,12 +191,61 @@ public class EmAlgo implements Serializable {
             }
             
             input.sortArticlesByScore();           
-            return new Tuple2<EmInput, Double>(input,
-                    input.computeLogLikelihood(lambdaBackgroundModel));
+            return new Tuple2<EmInput, Double>(input, 1.0);
+                    //input.computeLogLikelihood(lambdaBackgroundModel));
           }
         });
+    /*
+    JavaRDD<EmInput> temp = this.partitions;
+    List<EmInput> between;
+    for (int i = 0; i < 10; i++) {
+      temp = iteration(temp);
+      temp.cache();
+      JavaRDD<Integer> intrdd= temp.map(new Function<EmInput, Integer>() {
 
-    return result;
+        @Override
+        public Integer call(EmInput v1) throws Exception {
+          // TODO Auto-generated method stub
+          return 1;
+        }
+      });
+      List<Integer> intList = intrdd.collect();
+      System.out.println(Arrays.toString(intList.toArray()));
+      System.out.println("Iteration " + i);  
+    }
+    return temp.mapToPair(new PairFunction<EmInput, EmInput, Double>() {
+
+      @Override
+      public Tuple2<EmInput, Double> call(EmInput input) throws Exception {
+        input.sortArticlesByScore();    
+        return new Tuple2<EmInput, Double>(input, 1.0);
+      }
+      
+    });
+    */
+  }
+  
+  
+  public JavaRDD<EmInput> iteration(JavaRDD<EmInput> inputs) {
+    return inputs.map(
+            new Function<EmInput, EmInput>() {    
+          @Override
+          public EmInput call(EmInput input) throws Exception {
+              for (Document article : input.documents) {
+                article.updateHiddenVariablesThemes();
+              }
+              for (Document article : input.documents) {
+                article.updateHiddenVariableBackgroundModel(
+                        input.backgroundModel, lambdaBackgroundModel);
+              }
+              for (Document article : input.documents) {
+                article.updateProbabilitiesDocumentBelongsToThemes();
+              }
+              input.updateProbabilitiesOfWordsGivenTheme(input.themesOfPartition);
+              return input;
+            }           
+          });
+    
   }
   
   /**
@@ -200,6 +256,7 @@ public class EmAlgo implements Serializable {
   public JavaPairRDD<Theme, Double> run() {
     
     JavaPairRDD<EmInput, Double> temp = this.algorithm();   
+    temp.cache();
     JavaPairRDD<TimePeriod, Tuple2<EmInput, Double>> processedPartitions = temp.mapToPair(
             new PairFunction<Tuple2<EmInput,Double>, TimePeriod, Tuple2<EmInput, Double>>() {
             public Tuple2<TimePeriod, Tuple2<EmInput, Double>> call(Tuple2<EmInput, Double> tuple)

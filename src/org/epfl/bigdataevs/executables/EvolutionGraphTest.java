@@ -51,7 +51,7 @@ public class EvolutionGraphTest {
     
     Calendar c = Calendar.getInstance();
     c.setTime(format.parse("1/2/1995-0"));
-    for(int i=0; i<3; i++){
+    for(int i=0; i<90; i++){
       Date c1 = c.getTime();
       c.add(Calendar.DATE, 2);
       Date c2 = c.getTime();
