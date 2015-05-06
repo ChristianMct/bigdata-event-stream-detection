@@ -50,11 +50,16 @@ public class EvolutionGraphTest {
     
     List<TimePeriod> timePeriods = new ArrayList<TimePeriod>();
     
-    for (int i = 1; i < 28; i++) {
-      timePeriods.add(new TimePeriod(
-              format.parse(i + "/2/1995-0"), format.parse((i + 1) + "/2/1995-0")));
+
+    Calendar c = Calendar.getInstance();
+    c.setTime(format.parse("1/2/1995-0"));
+    for(int i=0; i<3; i++){
+      Date c1 = c.getTime();
+      c.add(Calendar.DATE, 2);
+      Date c2 = c.getTime();
+      timePeriods.add(new TimePeriod(c1, c2));
+      System.out.println(c1+"-"+c2);
     }
-    //timePeriods.add(new TimePeriod(format.parse("1/2/1995-0"), format.parse("4/2/1995-0")));
     
     //System.out.println(timePeriods.get(0).includeDates(format.parse("1/1/1939-12")));
     
@@ -78,19 +83,6 @@ public class EvolutionGraphTest {
       System.out.println(word);
     */
     
-    /*
-    int numberOfThemes = 10;
-    int numberOfSelectedThemes = 15;
-    double lambdaBackgroundModel = 0.95;
-    int numberOfRuns = 1;
-    InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), ctx, inputPaths);
-    EmInputFromParser emInputFromParser = parser.getEmInput(timePeriods);
-    
-    List<Theme> relevantTheme = new ThemeFromLargeTimePeriod(ctx, emInputFromParser,
-            numberOfThemes, lambdaBackgroundModel, numberOfRuns, 3).selectThemes(numberOfSelectedThemes);
-    
-    System.out.println(relevantTheme.size());
-    */
     /*
      * Integration of the EM Algorithm
      */
