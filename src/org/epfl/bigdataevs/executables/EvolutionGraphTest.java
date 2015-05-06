@@ -50,7 +50,7 @@ public class EvolutionGraphTest {
     
     List<TimePeriod> timePeriods = new ArrayList<TimePeriod>();
     
-    for (int i = 1; i < 6; i++) {
+    for (int i = 1; i < 28; i++) {
       timePeriods.add(new TimePeriod(
               format.parse(i + "/2/1995-0"), format.parse((i + 1) + "/2/1995-0")));
     }

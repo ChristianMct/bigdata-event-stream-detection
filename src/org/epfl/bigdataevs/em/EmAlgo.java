@@ -138,7 +138,7 @@ public class EmAlgo implements Serializable {
     // Creation of RDD
     System.out.println("EM RUN");
     /*Initialize the themes*/
-    JavaRDD<EmInput> initializedPartitions = this.partitions.map(new Function<EmInput, EmInput>() {
+    this.partitions = this.partitions.map(new Function<EmInput, EmInput>() {
       @Override
       public EmInput call(EmInput inputPartition) throws Exception {
         for (int i = 0; i < numberOfThemes; i++) {
@@ -155,7 +155,7 @@ public class EmAlgo implements Serializable {
     
     
 
-    /*Loop of the algorithm*/    
+    /*Loop of the algorithm   
     JavaPairRDD<EmInput, Double> result = initializedPartitions.mapToPair(
             new PairFunction<EmInput, EmInput, Double>() {
       
@@ -189,8 +189,47 @@ public class EmAlgo implements Serializable {
                     input.computeLogLikelihood(lambdaBackgroundModel));
           }
         });
+    */
+    JavaRDD<EmInput> temp = this.partitions;
+    for (int i = 0; i < 25; i++) {
+      JavaRDD<EmInput> temp2 = iteration(temp);
+      //List<EmInput> between = temp2.collect();
+      //System.out.println(between);
+      System.out.println("Iteration " + i);  
+      temp = temp2;
+    }
+    return temp.mapToPair(new PairFunction<EmInput, EmInput, Double>() {
 
-    return result;
+      @Override
+      public Tuple2<EmInput, Double> call(EmInput input) throws Exception {
+        input.sortArticlesByScore();    
+        return new Tuple2<EmInput, Double>(input, input.computeLogLikelihood(lambdaBackgroundModel));
+      }
+      
+    });
+  }
+  
+  
+  public JavaRDD<EmInput> iteration(JavaRDD<EmInput> inputs) {
+    return inputs.map(
+            new Function<EmInput, EmInput>() {    
+          @Override
+          public EmInput call(EmInput input) throws Exception {
+              for (Document article : input.documents) {
+                article.updateHiddenVariablesThemes();
+              }
+              for (Document article : input.documents) {
+                article.updateHiddenVariableBackgroundModel(
+                        input.backgroundModel, lambdaBackgroundModel);
+              }
+              for (Document article : input.documents) {
+                article.updateProbabilitiesDocumentBelongsToThemes();
+              }
+              input.updateProbabilitiesOfWordsGivenTheme(input.themesOfPartition);
+              return input;
+            }           
+          });
+    
   }
   
   /**
@@ -201,6 +240,7 @@ public class EmAlgo implements Serializable {
   public JavaPairRDD<Theme, Double> run() {
     
     JavaPairRDD<EmInput, Double> temp = this.algorithm();   
+    temp.cache();
     JavaPairRDD<TimePeriod, Tuple2<EmInput, Double>> processedPartitions = temp.mapToPair(
             new PairFunction<Tuple2<EmInput,Double>, TimePeriod, Tuple2<EmInput, Double>>() {
             public Tuple2<TimePeriod, Tuple2<EmInput, Double>> call(Tuple2<EmInput, Double> tuple)

@@ -42,7 +42,7 @@ public class InputParser implements Serializable {
           JavaSparkContext sparkContext,
           List<String> sourcePath) 
                   throws NumberFormatException, XMLStreamException, ParseException, IOException {
-    this(timeFrame,sparkContext,sourcePath,5);
+    this(timeFrame,sparkContext,sourcePath,25);
   }
   
   /**Initialize a parser on the dataset. EM and HMM can get their input form there. You can
