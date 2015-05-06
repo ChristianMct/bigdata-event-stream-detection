@@ -82,6 +82,18 @@ public class Document implements Serializable {
    * Update hidden variables regarding themes
    */
   public void updateHiddenVariablesThemes() {
+    HashMap<String,Double> denominators = new HashMap<String,Double>();
+    for (Pair<String, Theme> pair : probabilitiesHiddenVariablesThemes.keySet()) {
+      String word = pair.getLeft();
+      if(!denominators.containsKey(word)){
+        double denominator = 0.0;
+        for (Theme otherTheme : probabilitiesDocumentBelongsToThemes.keySet()) {
+          denominator += ((this.probabilitiesDocumentBelongsToThemes.get(otherTheme)
+                  * otherTheme.wordsProbability.get(word)));
+        }
+        denominators.put(word,denominator);
+      }
+    }
     for (Pair<String, Theme> pair : probabilitiesHiddenVariablesThemes.keySet()) {
       String word = pair.getLeft();
       Theme theme = pair.getRight();
@@ -91,12 +103,7 @@ public class Document implements Serializable {
       } else {
         double numerator = this.probabilitiesDocumentBelongsToThemes.get(theme)
                 * (theme.wordsProbability.get(word));
-        double denominator = 0.0;
-        for (Theme otherTheme : probabilitiesDocumentBelongsToThemes.keySet()) {
-          denominator = denominator 
-                  + ((this.probabilitiesDocumentBelongsToThemes.get(otherTheme)
-                  * otherTheme.wordsProbability.get(word)));
-        }
+        double denominator = denominators.get(word);
         this.probabilitiesHiddenVariablesThemes.put(
                 pair, numerator / (denominator + EmAlgo.epsilon));
       }
