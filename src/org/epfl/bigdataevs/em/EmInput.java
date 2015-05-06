@@ -149,10 +149,8 @@ public class EmInput implements Serializable {
     for (Theme theme : themes) {
       double denominator = 0.0;
       for (String word : theme.wordsProbability.keySet()) {
-        denominator = denominator + subUpdateProbabilitiesOfWordsGivenTheme(word, theme);
-      }
-      for (String word : theme.wordsProbability.keySet()) {
         double numerator = subUpdateProbabilitiesOfWordsGivenTheme(word, theme);
+        denominator += numerator;
         theme.wordsProbability.put(word, numerator / (denominator + EmAlgo.epsilon));
       }
     }
