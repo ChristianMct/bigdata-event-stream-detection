@@ -48,9 +48,16 @@ public class EvolutionGraphTest {
     
     
     List<TimePeriod> timePeriods = new ArrayList<TimePeriod>(); 
-    timePeriods.add(new TimePeriod(format.parse("1/2/1995-0"), format.parse("3/2/1995-0")));
-    timePeriods.add(new TimePeriod(format.parse("4/2/1995-0"), format.parse("6/2/1995-0")));
-    timePeriods.add(new TimePeriod(format.parse("7/2/1995-0"), format.parse("9/2/1995-0")));
+    
+    Calendar c = Calendar.getInstance();
+    c.setTime(format.parse("1/2/1995-0"));
+    for(int i=0; i<3; i++){
+      Date c1 = c.getTime();
+      c.add(Calendar.DATE, 2);
+      Date c2 = c.getTime();
+      timePeriods.add(new TimePeriod(c1, c2));
+      System.out.println(c1+"-"+c2);
+    }
     
     //System.out.println(timePeriods.get(0).includeDates(format.parse("1/1/1939-12")));
     
