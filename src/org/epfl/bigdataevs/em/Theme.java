@@ -87,8 +87,10 @@ public class Theme implements Serializable {
       if (count > maxWords) {
         break;
       }
-      smallSortedMap2.put(word, this.wordsProbability.get(word));
-      count += 1;
+      if (word.length() > 5) {
+        smallSortedMap2.put(word, this.wordsProbability.get(word));
+        count += 1;
+      }
     }
     return smallSortedMap2;
   }
@@ -135,7 +137,7 @@ public class Theme implements Serializable {
    */
   public String sortTitleString(int maxTitles) {
     String output = "";
-    for (int i = 0; i < maxTitles; i++) {
+    for (int i = 0; i < Math.min(maxTitles, this.sortedArticlesByScore.size()); i++) {
       String title = this.sortedArticlesByScore.get(i).title;
       Double score = this.sortedArticlesByScore.get(i).probabilitiesDocumentBelongsToThemes.get(this);
       output += title + " : " + score + "\n\t";

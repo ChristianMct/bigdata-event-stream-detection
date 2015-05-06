@@ -19,7 +19,7 @@ import org.apache.commons.math3.fraction.BigFraction;
 import org.apache.commons.lang3.tuple.*;
 import org.apache.hadoop.util.hash.Hash;
 
-/**Team: Matias and Christian.
+/**Team: Antoine and Louis.
  * Container for the data of processed articles. An instance 
  * of this class contains the cleaned words and their count
  * in this article, as well as the stream identifier.**/
@@ -82,6 +82,18 @@ public class Document implements Serializable {
    * Update hidden variables regarding themes
    */
   public void updateHiddenVariablesThemes() {
+    HashMap<String,Double> denominators = new HashMap<String,Double>();
+    for (Pair<String, Theme> pair : probabilitiesHiddenVariablesThemes.keySet()) {
+      String word = pair.getLeft();
+      if(!denominators.containsKey(word)){
+        double denominator = 0.0;
+        for (Theme otherTheme : probabilitiesDocumentBelongsToThemes.keySet()) {
+          denominator += ((this.probabilitiesDocumentBelongsToThemes.get(otherTheme)
+                  * otherTheme.wordsProbability.get(word)));
+        }
+        denominators.put(word,denominator);
+      }
+    }
     for (Pair<String, Theme> pair : probabilitiesHiddenVariablesThemes.keySet()) {
       String word = pair.getLeft();
       Theme theme = pair.getRight();
@@ -91,12 +103,7 @@ public class Document implements Serializable {
       } else {
         double numerator = this.probabilitiesDocumentBelongsToThemes.get(theme)
                 * (theme.wordsProbability.get(word));
-        double denominator = 0.0;
-        for (Theme otherTheme : probabilitiesDocumentBelongsToThemes.keySet()) {
-          denominator = denominator 
-                  + ((this.probabilitiesDocumentBelongsToThemes.get(otherTheme)
-                  * otherTheme.wordsProbability.get(word)));
-        }
+        double denominator = denominators.get(word);
         this.probabilitiesHiddenVariablesThemes.put(
                 pair, numerator / (denominator + EmAlgo.epsilon));
       }

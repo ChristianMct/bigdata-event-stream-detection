@@ -25,6 +25,7 @@ import java.io.Serializable;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -33,6 +34,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+
+
+/**
+ * Team Antoine and Nina
+ * @author abastien
+ *
+ */
 public class EmAlgo implements Serializable {
   public final Map<String, BigFraction> backgroundModel;
   public JavaRDD<EmInput> partitions;
@@ -41,6 +49,7 @@ public class EmAlgo implements Serializable {
   public int numberOfRuns;
   public final static double epsilon = 0.0;
   public final static double precision = 1e-2;
+  public int numPartitions;
 
   /**
    * Creates one instance of EmAgorithm
@@ -55,6 +64,7 @@ public class EmAlgo implements Serializable {
     this.lambdaBackgroundModel = lambda;
     this.numberOfRuns = numRuns;
     this.backgroundModel = collectionData.backgroundModel.backgroundModelRdd.collectAsMap();
+    this.numPartitions = (int)collectionData.timePartitions.count();
     System.out.println("Background Model: " + this.backgroundModel.size());
 
     List<Integer> runs = new ArrayList<>();
@@ -84,6 +94,9 @@ public class EmAlgo implements Serializable {
             return input;
           }
         });
+    
+   
+    this.partitions = this.partitions.repartition(this.numPartitions);
       
   }
  
@@ -138,7 +151,7 @@ public class EmAlgo implements Serializable {
     // Creation of RDD
     System.out.println("EM RUN");
     /*Initialize the themes*/
-    this.partitions = this.partitions.map(new Function<EmInput, EmInput>() {
+    JavaRDD<EmInput> initializedPartitions = this.partitions.map(new Function<EmInput, EmInput>() {
       @Override
       public EmInput call(EmInput inputPartition) throws Exception {
         for (int i = 0; i < numberOfThemes; i++) {
@@ -155,8 +168,8 @@ public class EmAlgo implements Serializable {
     
     
 
-    /*Loop of the algorithm   
-    JavaPairRDD<EmInput, Double> result = initializedPartitions.mapToPair(
+    /*Loop of the algorithm*/
+    return initializedPartitions.mapToPair(
             new PairFunction<EmInput, EmInput, Double>() {
       
           public boolean checkStoppingCondition(int iter) {
@@ -185,28 +198,38 @@ public class EmAlgo implements Serializable {
             }
             
             input.sortArticlesByScore();           
-            return new Tuple2<EmInput, Double>(input,
-                    input.computeLogLikelihood(lambdaBackgroundModel));
+            return new Tuple2<EmInput, Double>(input, 1.0);
+                    //input.computeLogLikelihood(lambdaBackgroundModel));
           }
         });
-    */
+    /*
     JavaRDD<EmInput> temp = this.partitions;
-    for (int i = 0; i < 25; i++) {
-      JavaRDD<EmInput> temp2 = iteration(temp);
-      //List<EmInput> between = temp2.collect();
-      //System.out.println(between);
+    List<EmInput> between;
+    for (int i = 0; i < 10; i++) {
+      temp = iteration(temp);
+      temp.cache();
+      JavaRDD<Integer> intrdd= temp.map(new Function<EmInput, Integer>() {
+
+        @Override
+        public Integer call(EmInput v1) throws Exception {
+          // TODO Auto-generated method stub
+          return 1;
+        }
+      });
+      List<Integer> intList = intrdd.collect();
+      System.out.println(Arrays.toString(intList.toArray()));
       System.out.println("Iteration " + i);  
-      temp = temp2;
     }
     return temp.mapToPair(new PairFunction<EmInput, EmInput, Double>() {
 
       @Override
       public Tuple2<EmInput, Double> call(EmInput input) throws Exception {
         input.sortArticlesByScore();    
-        return new Tuple2<EmInput, Double>(input, input.computeLogLikelihood(lambdaBackgroundModel));
+        return new Tuple2<EmInput, Double>(input, 1.0);
       }
       
     });
+    */
   }
   
   
@@ -269,7 +292,7 @@ public class EmAlgo implements Serializable {
     return selectedPartitions.flatMapToPair(new PairFlatMapFunction<EmInput, Theme, Double>() {
       @Override
       public Iterable<Tuple2<Theme, Double>> call(EmInput input) throws Exception {
-        return input.relatedFileteredThemes();
+        return input.relatedThemes();
       }
     });
   }
