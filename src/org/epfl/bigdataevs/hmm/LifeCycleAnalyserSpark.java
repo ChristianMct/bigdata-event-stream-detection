@@ -27,7 +27,7 @@ public class LifeCycleAnalyserSpark {
   private JavaPairRDD<Long, Long> wordStream;
   private JavaPairRDD<String, Long> lexicon;
   private JavaPairRDD<Long, String> invertedLexicon;
-  private JavaRDD<Long> mostLikelySequenceThemeShifts;
+  private JavaPairRDD<Integer, Integer> mostLikelySequenceThemeShifts;
   private long numberOfThemes;
   private long numberOfWords;
   private Hmm2 hmm;
@@ -113,8 +113,9 @@ public class LifeCycleAnalyserSpark {
     outputProbabilityDistribution[0] = bgAsArray;
 
     // setting up and training the hmm
-    if(outputProbabilityDistribution == null){
-      System.out.println("error : you need to specify the themes via addAllThemesFromRDD before analyzing the sequence!");
+    if (outputProbabilityDistribution == null){
+      System.out.println("error : you need to specify the themes via"
+              + "addAllThemesFromRDD before analyzing the sequence!");
     }
     hmm = new Hmm2(numberHiddenStates, numberObservableOutputSymbols, pi,
             stateTransitionProbabilityDistribution, outputProbabilityDistribution);
@@ -132,19 +133,7 @@ public class LifeCycleAnalyserSpark {
             });
 
     hmm.rawSparkTrain(sc, observedSequenceRdd, piThreshold, aaThreshold, maxIterations, null);
-
-    JavaRDD<Long> wordStreamWithoutTimeStamp = wordStream
-            .map(new Function<Tuple2<Long, Long>, Long>() {
-
-              private static final long serialVersionUID = 1L;
-
-              @Override
-              public Long call(Tuple2<Long, Long> wordEntry) throws Exception {
-                return new Long(wordEntry._1.longValue());
-              }
-            });
-
-    mostLikelySequenceThemeShifts = hmm.decode(wordStreamWithoutTimeStamp);
+    mostLikelySequenceThemeShifts = hmm.decode(sc, observedSequenceRdd, 1024 * 1024);
   }
 
   /**
@@ -194,25 +183,25 @@ public class LifeCycleAnalyserSpark {
 
             })._2;
 
-    JavaPairRDD<Long, Long> indexedMostLikelySequenceThemeShifts = mostLikelySequenceThemeShifts
-            .zipWithIndex();
+    JavaPairRDD<Integer, Integer> indexedMostLikelySequenceThemeShifts =
+            mostLikelySequenceThemeShifts;
 
-    JavaRDD<Long> slicedMostLikelySequenceThemeShifts = indexedMostLikelySequenceThemeShifts
-            .filter(new Function<Tuple2<Long, Long>, Boolean>() {
+    JavaRDD<Integer> slicedMostLikelySequenceThemeShifts = indexedMostLikelySequenceThemeShifts
+            .filter(new Function<Tuple2<Integer, Integer>, Boolean>() {
               private static final long serialVersionUID = 1L;
 
               @Override
-              public Boolean call(Tuple2<Long, Long> wordEntry) throws Exception {
+              public Boolean call(Tuple2<Integer, Integer> wordEntry) throws Exception {
                 return wordEntry._2 >= minIndex && wordEntry._2 <= maxIndex;
               }
             }).values();
 
-    JavaRDD<Long> matchingTheme = slicedMostLikelySequenceThemeShifts
-            .filter(new Function<Long, Boolean>() {
+    JavaRDD<Integer> matchingTheme = slicedMostLikelySequenceThemeShifts
+            .filter(new Function<Integer, Boolean>() {
               private static final long serialVersionUID = 1L;
 
               @Override
-              public Boolean call(Long thisThemeIndex) throws Exception {
+              public Boolean call(Integer thisThemeIndex) throws Exception {
                 return thisThemeIndex.intValue() == themeIndex;
               }
 

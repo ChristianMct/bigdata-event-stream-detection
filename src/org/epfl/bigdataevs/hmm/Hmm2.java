@@ -1,6 +1,11 @@
 package org.epfl.bigdataevs.hmm;
 
-import org.apache.commons.collections.list.TreeList;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -8,16 +13,8 @@ import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.storage.StorageLevel;
-
 import scala.Tuple2;
 import scala.Tuple3;
-
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
 
 
 
@@ -48,7 +45,12 @@ public class Hmm2 implements Serializable {
    * @param a Hidden states transition probability matrix
    * @param b Observed state probability matrix.
    */
-  public Hmm2(int n, int m, double[] pi, double[][] a, double[][] b) {
+  public Hmm2(
+          int n,
+          int m,
+          double[] pi,
+          double[][] a,
+          double[][] b) {
     this.N = n;
     this.M = m;
     this.pi = pi;
@@ -59,16 +61,242 @@ public class Hmm2 implements Serializable {
   /**
    * This method associates a state of the HMM to each word of the stream using Viterbi algorithm.
    * 
-   * @param wordStream
-   *          the full text of the concatenated articles
+   * @param sc JavaSparkContext to use
+   * @param wordStreamRdd
+   *          the full text of the concatenated articles as (index, word index)
+   * @param blockSize Size of the blocks to process (e.g 1024*1024)
    * @return the sequence of HMM states associated with the stream : each state is represented by an
    *         integer between 0 and k (0 for the background model)
    */
-  public JavaRDD<Long> decode(JavaRDD<Long> wordStream) {
-    // TODO implement decode
+  public JavaPairRDD<Integer, Integer> decode(
+          JavaSparkContext sc,
+          JavaRDD<Tuple2<Integer, Integer>> wordStreamRdd,
+          final int blockSize ) {
+    final int T = (int) wordStreamRdd.count();
+    final int numBlocks = (T + (blockSize - 1)) / blockSize;
+    
+    double[] prevProbabilities = new double[N];
+    double[] curProbabilities = new double[N];
+    int[] backPointerBlock = new int[blockSize * N];
+    
+    JavaRDD<Tuple3<Integer, Integer, Integer>> wordStreamWithBlockIdRdd =
+            wordStreamRdd.map( new Function<Tuple2<Integer, Integer>, Tuple3<Integer, Integer, Integer>>() {
+              private static final long serialVersionUID = 1L;
 
-    return null;
+              @Override
+              public Tuple3<Integer, Integer, Integer> call(Tuple2<Integer, Integer> arg0)
+                      throws Exception {
+                int blockId = arg0._1 / blockSize;
+                return new Tuple3<Integer, Integer, Integer>(blockId, arg0._1, arg0._2);
+              }
+              
+            });
+    
+    JavaPairRDD<Integer, Iterable<Tuple3<Integer, Integer, Integer>>> groupedWordBlocksRdd =
+            wordStreamWithBlockIdRdd.groupBy( new Function<Tuple3<Integer, Integer, Integer>, Integer>() {
+              private static final long serialVersionUID = 2L;
 
+              @Override
+              public Integer call(Tuple3<Integer, Integer, Integer> arg0) throws Exception {
+                return arg0._1();
+              }
+              
+            });
+    
+    JavaPairRDD<Integer, int[]> wordBlocksRdd =
+            groupedWordBlocksRdd.mapValues(new Function<Iterable<Tuple3<Integer, Integer, Integer>>, int[]>() {
+              private static final long serialVersionUID = 3L;
+
+              @Override
+              public int[] call(Iterable<Tuple3<Integer, Integer, Integer>> arg0) throws Exception {
+                int blockId = arg0.iterator().next()._1();
+                int blockStart = blockId * blockSize;
+                int blockEnd = Math.min( (blockId + 1) * blockSize, T);
+                int trueBlockSize = (blockEnd - blockStart);
+                
+                int realBlockSize = 0;
+                for ( Tuple3<Integer, Integer, Integer> tuple : arg0 ) {
+                  realBlockSize++;
+                }
+                
+                int[] observedBlock;
+                if ( blockId == (numBlocks - 1) ) {
+                  observedBlock = new int[blockEnd - blockStart];
+                  if ( realBlockSize != (blockEnd - blockStart) ) {
+                    System.out.println("Block sizes don't match: real " + realBlockSize
+                            + " assumed " + trueBlockSize);
+                  }
+                } else {
+                  observedBlock = new int[blockSize + 1];
+                  if ( realBlockSize != blockSize + 1 ) {
+                    System.out.println("Block sizes don't match: real " + realBlockSize
+                            + " assumed " + (blockSize + 1));
+                  }
+                }
+                
+                for ( Tuple3<Integer, Integer, Integer> tuple : arg0 ) {
+                  observedBlock[ tuple._2() - blockStart] = tuple._3();
+                }
+                return observedBlock;
+              }
+            });
+    
+    JavaPairRDD<Integer, int[]> backPointerBlocksRdd = null;
+    
+    class BlockFilter implements Function<Tuple2<Integer, int[]>, Boolean> {
+      private static final long serialVersionUID = 4L;
+    
+      int block;
+      
+      public BlockFilter( int block ) {
+        this.block = block;
+      }
+      
+      @Override
+      public Boolean call(Tuple2<Integer, int[]> arg0) throws Exception {
+        return (arg0._1 == this.block);
+      }
+    }
+    
+    // up-phase
+    for ( int bi = 0; bi < numBlocks; bi++ ) {
+      // compute block information
+      final int blockStart = bi * blockSize;
+      final int blockEnd = Math.min( (bi + 1) * blockSize, T);
+      final int trueBlockSize = (blockEnd - blockStart);
+      
+      // collect word block
+      JavaPairRDD<Integer, int[]> wordBlockRdd = wordBlocksRdd.filter(new BlockFilter(bi));
+      List<Tuple2<Integer, int[]>> wordBlockList = wordBlockRdd.collect();
+      
+      if ( wordBlockList.size() != 1 ) {
+        System.out.println("Bad word block list size: " + wordBlockList.size() );
+      }
+      
+      int[] wordBlock = wordBlockList.get(0)._2;
+      
+      // do the initialization if necessary
+      int start = 0;
+      if ( bi == 0 ) {
+        start = 1;
+        for ( int i = 0; i < N; i++ ) {
+          int index = wordBlock[0];
+          prevProbabilities[i] = Math.log(pi[i] * b[i][index]);
+        }
+      }
+      
+      // compute current probabilities, choose best path,
+      // write back pointers for all elements in this block
+      for ( int bt = start;  bt < trueBlockSize; bt++ ) {
+        int observedState = wordBlock[bt];
+        
+        for ( int i = 0; i < N; i++ ) {
+          double maxProb = prevProbabilities[0] + Math.log(a[0][i] * b[i][observedState]);
+          int maxIndex = 0;
+          
+          for ( int j = 1; j < N; j++ ) {
+            double curProb = prevProbabilities[j] + Math.log(a[j][i] * b[i][observedState]);
+            if ( curProb > maxProb ) {
+              maxProb = curProb;
+              maxIndex = j;
+            }
+          }
+          
+          backPointerBlock[ bt * N + i ] = maxIndex;
+          curProbabilities[i] = maxProb;
+        }
+      }
+      
+      // put this block into the Rdd
+      // we make sure to be super safe by copying the block pointers
+      int[] backPointerBlockCopy = new int[blockSize * N];
+      for ( int bt = 0; bt < trueBlockSize; bt++ ) {
+        for ( int i = 0;  i < N; i++) {
+          backPointerBlockCopy[ bt * N + i ] = backPointerBlock[ bt * N + i];
+        }
+      }
+      
+      List<Tuple2<Integer, int[]>> backPointerBlockList = new ArrayList<Tuple2<Integer, int[]>>(1);
+      backPointerBlockList.add(new Tuple2<Integer, int[]>(bi, backPointerBlockCopy));
+      
+      JavaPairRDD<Integer, int[]> backPointerBlockRdd = sc.parallelizePairs(backPointerBlockList);
+      
+      // aggregate this block to the other blocks in the rdd
+      if ( backPointerBlocksRdd == null ) {
+        backPointerBlocksRdd = backPointerBlockRdd;
+      } else {
+        backPointerBlocksRdd = backPointerBlocksRdd.union(backPointerBlockRdd);
+      }
+      
+      // swap arrays
+      double[] temp = prevProbabilities;
+      prevProbabilities = curProbabilities;
+      curProbabilities = temp;
+    }
+    
+    JavaPairRDD<Integer, Integer> decodedStatesRdd = null;
+    int bestState = -1;
+    // lastly, walk the back-pointers
+    for ( int bi = numBlocks - 1; bi >= 0; bi-- ) {
+      // compute block information
+      final int blockStart = bi * blockSize;
+      final int blockEnd = Math.min( (bi + 1) * blockSize, T);
+      final int trueBlockSize = (blockEnd - blockStart);
+      
+      // get the correct back pointer block
+      JavaPairRDD<Integer, int[]> backPointerBlockRdd =
+              backPointerBlocksRdd.filter(new BlockFilter(bi));
+      
+      List<Tuple2<Integer, int[]>> backPointerBlockList = backPointerBlockRdd.collect();
+      
+      if ( backPointerBlockList.size() != 1 ) {
+        System.out.println("Bad back pointer block list size: " + backPointerBlockList.size());
+      }
+      
+      backPointerBlock = backPointerBlockList.get(0)._2;
+      
+      List<Tuple2<Integer, Integer>> statesList =
+              new ArrayList<Tuple2<Integer, Integer>>(trueBlockSize);
+      
+      // initialize best (last) state if necessary
+      if ( bi == (numBlocks - 1) ) {
+        double maxProb = prevProbabilities[0]; 
+        int maxIndex = 0;
+        
+        for ( int i = 1; i < N; i++ ) {
+          double curProb = prevProbabilities[i];
+          if ( curProb > maxProb ) {
+            maxProb = curProb;
+            maxIndex = i;
+          }
+        }
+        
+        bestState = maxIndex;
+        statesList.add( new Tuple2<Integer, Integer>(blockEnd - 1, bestState) );
+      }
+      
+      // walk the pointers of the block
+      int start = 0;
+      if ( bi == 0 ) {
+        start = 1;
+      }
+      
+      for ( int bt = trueBlockSize - 1; bt >= start; bt-- ) {
+        bestState =  backPointerBlock[bt];
+        statesList.add( 0, new Tuple2<Integer, Integer>(bt + blockStart, bestState));
+      }
+      
+      // aggregate the list of states
+      JavaPairRDD<Integer, Integer> decodedStatesBlockRdd = sc.parallelizePairs(statesList);
+      if ( decodedStatesRdd == null) {
+        decodedStatesRdd = decodedStatesBlockRdd;
+      } else {
+        decodedStatesRdd = decodedStatesRdd.union(decodedStatesBlockRdd);
+      }
+    }
+    
+    // return the fully aggregated decoded state list
+    return decodedStatesRdd;
   }
 
   /**
@@ -147,13 +375,15 @@ public class Hmm2 implements Serializable {
                   observedBlock = new int[blockEnd - blockStart];
                   if ( realBlockSize != (blockEnd - blockStart) )
                   {
-                    System.out.println("Block sizes don't match: real " + realBlockSize + " assumed " + trueBlockSize);
+                    System.out.println("Block sizes don't match: real " + realBlockSize
+                            + " assumed " + trueBlockSize);
                   }
                 } else {
                   observedBlock = new int[blockSize + 1];
                   if ( realBlockSize != blockSize + 1 )
                   {
-                    System.out.println("Block sizes don't match: real " + realBlockSize + " assumed " + (blockSize + 1));
+                    System.out.println("Block sizes don't match: real " + realBlockSize
+                            + " assumed " + (blockSize + 1));
                   }
                 }
                 
@@ -207,8 +437,9 @@ public class Hmm2 implements Serializable {
                     
                     double norm = ta[bi].rawNorm1();
                     
-                    if( norm <= 0.0 ) {
-                      System.out.println("Block " + blockId + " matr " + bi + " norm " + norm + " mat " + ta[bi]);
+                    if ( norm <= 0.0 ) {
+                      System.out.println("Block " + blockId + " matr " + bi 
+                              + " norm " + norm + " mat " + ta[bi]);
                     }
                     ta[bi].scalarDivide(norm);
                   }
@@ -248,7 +479,8 @@ public class Hmm2 implements Serializable {
                 
               });
       
-      List<Tuple2<Integer, SquareMatrix>> lastPartiallyScannedTa = lastPartiallyScannedTaRdd.collect();
+      List<Tuple2<Integer, SquareMatrix>> lastPartiallyScannedTa =
+              lastPartiallyScannedTaRdd.collect();
       
       // sort last partially scanned TA matrices
       Collections.sort(lastPartiallyScannedTa, new Comparator<Tuple2<Integer, SquareMatrix>>() {
@@ -304,7 +536,8 @@ public class Hmm2 implements Serializable {
               
               double norm = outResults[bi].rawNorm1();
               if ( norm <= 0.0 ) {
-                System.out.println("(FinalTAMapper) Block " + blockId + " mat " + bi + " norm " + norm);
+                System.out.println("(FinalTAMapper) Block " + blockId + " mat "
+                        + bi + " norm " + norm);
               }
               
               outResults[bi].scalarDivide(norm);
@@ -378,7 +611,8 @@ public class Hmm2 implements Serializable {
         }
       });
       
-      JavaPairRDD<Integer, Tuple2<int[], double[]>> observationsWithAlphaHats = observedBlocksRdd.join(alphaHatsRdd);
+      JavaPairRDD<Integer, Tuple2<int[], double[]>> observationsWithAlphaHats
+              = observedBlocksRdd.join(alphaHatsRdd);
       observationsWithAlphaHats.persist(StorageLevel.MEMORY_ONLY());
       alphaHatsRdd.unpersist();
       class CtMapper implements PairFunction<Tuple2<Integer, Tuple2<int[], double[]>>, Integer, double[]>{
@@ -449,9 +683,11 @@ public class Hmm2 implements Serializable {
         
       }
       
-      JavaPairRDD<Integer, double[]> ctsRdd = observationsWithAlphaHats.mapToPair( new CtMapper(lastAlphaHats));
+      JavaPairRDD<Integer, double[]> ctsRdd =
+              observationsWithAlphaHats.mapToPair( new CtMapper(lastAlphaHats));
     
-      JavaPairRDD<Integer, Tuple2<int[], double[]>> observedBlocksWithCtsRdd = observedBlocksRdd.join(ctsRdd);
+      JavaPairRDD<Integer, Tuple2<int[], double[]>> observedBlocksWithCtsRdd =
+              observedBlocksRdd.join(ctsRdd);
       
       JavaPairRDD<Integer, SquareMatrix[]> initializedTbRdd =
               observedBlocksWithCtsRdd.mapToPair( new PairFunction<Tuple2<Integer, Tuple2<int[],double[]>>, Integer,SquareMatrix[]>(){
@@ -482,14 +718,16 @@ public class Hmm2 implements Serializable {
                     } else {
                       for ( int i = 0; i < N; i++ ) {
                         for ( int j = 0; j < N; j++ ) {
-                          tb[bi].elements[ i * N + j ] = a[i][j] * b[j][observedBlock[bi + 1]] * cts[bi];
+                          tb[bi].elements[ i * N + j ] = a[i][j]
+                                  * b[j][observedBlock[bi + 1]] * cts[bi];
                         }
                       }
                     }
                     
                     double norm = tb[bi].rawNorm1();
                     if ( norm <= 0.0 ) {
-                      System.out.println("(TBInit) Block " + blockId + " mat " + bi + " norm " + norm);
+                      System.out.println("(TBInit) Block " + blockId + " mat "
+                              + bi + " norm " + norm);
                     }
                   }
                   return new Tuple2<Integer, SquareMatrix[]>(blockId, tb);
@@ -526,7 +764,8 @@ public class Hmm2 implements Serializable {
                 
               });
       
-      List<Tuple2<Integer, SquareMatrix>> firstPartiallyScannedTb = firstPartiallyScannedTbRdd.collect();
+      List<Tuple2<Integer, SquareMatrix>> firstPartiallyScannedTb =
+              firstPartiallyScannedTbRdd.collect();
       
       // sort first partially scanned TB matrices
       Collections.sort(firstPartiallyScannedTb, new Comparator<Tuple2<Integer, SquareMatrix>>() {
@@ -586,7 +825,7 @@ public class Hmm2 implements Serializable {
       JavaPairRDD<Integer, SquareMatrix[]> finalTbRdd =
               partiallyScannedTbRdd.mapToPair( new FinalTbMapper(fullyScannedTb));
       
-      JavaPairRDD<Integer, double[]> betaHatsRdd = finalTbRdd.mapValues(new Function<SquareMatrix[], double[]>(){
+      JavaPairRDD<Integer, double[]> betaHatsRdd =finalTbRdd.mapValues(new Function<SquareMatrix[], double[]>(){
         private static final long serialVersionUID = 20L;
 
         @Override
