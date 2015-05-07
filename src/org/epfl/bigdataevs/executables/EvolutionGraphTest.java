@@ -53,7 +53,7 @@ public class EvolutionGraphTest {
 
     Calendar c = Calendar.getInstance();
     c.setTime(format.parse("1/2/1995-0"));
-    for(int i=0; i<3; i++){
+    for(int i=0; i<90; i++){
       Date c1 = c.getTime();
       c.add(Calendar.DATE, 2);
       Date c2 = c.getTime();
@@ -116,9 +116,9 @@ public class EvolutionGraphTest {
     int i = 0;
     for (Theme theme : emOutputs.keySet()) {
       Tuple2<Integer, Integer> t = theme.statistics();
-      System.out.println("Theme titles :" + i);
-      System.out.println("Theme words : " + i);
+      System.out.println("Theme :" + i);
       System.out.println(theme.sortTitleString(3));
+      System.out.println(theme.sortString(12));
       System.out.println("Score: " + emOutputs.get(theme));
       System.out.println("Stats 1:" + t._1 + " / " + t._2);
       System.out.println("Stats 2:" + theme.statistics2());

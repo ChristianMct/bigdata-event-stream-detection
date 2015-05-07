@@ -198,8 +198,8 @@ public class EmAlgo implements Serializable {
             }
             
             input.sortArticlesByScore();           
-            return new Tuple2<EmInput, Double>(input, 1.0);
-                    //input.computeLogLikelihood(lambdaBackgroundModel));
+            return new Tuple2<EmInput, Double>(input,
+                    input.computeLogLikelihood(lambdaBackgroundModel));
           }
         });
     /*
@@ -292,7 +292,7 @@ public class EmAlgo implements Serializable {
     return selectedPartitions.flatMapToPair(new PairFlatMapFunction<EmInput, Theme, Double>() {
       @Override
       public Iterable<Tuple2<Theme, Double>> call(EmInput input) throws Exception {
-        return input.relatedThemes();
+        return input.relatedFileteredThemes();
       }
     });
   }
