@@ -282,7 +282,7 @@ public class Hmm2 implements Serializable {
       }
       
       for ( int bt = trueBlockSize - 1; bt >= start; bt-- ) {
-        bestState =  backPointerBlock[bt];
+        bestState =  backPointerBlock[bt * N + bestState];
         statesList.add( 0, new Tuple2<Integer, Integer>(bt + blockStart, bestState));
       }
       
