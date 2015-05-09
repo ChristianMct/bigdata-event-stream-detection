@@ -5,6 +5,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
+import org.omg.PortableInterceptor.SYSTEM_EXCEPTION;
 
 import scala.Tuple2;
 
@@ -28,9 +29,17 @@ public class EmInputFromParser {
      * parsed article map, we use it to filter out cleaned words.
      * TODO: evaluate the performance cost of using a list instead of a map!*/
     List<String> distinctWords = bg.backgroundModelRdd.keys().collect();
-    timePartitions = parserInput
-            .flatMapToPair(new ProcessArticle(partitioning, distinctWords))
-            .groupByKey().mapToPair(new MapArticleToTimePartition());
+
+    // Produces (TimePeriod, ParsedArticle) pairs, => affects an article to potentially multiple timePeriods
+    JavaPairRDD<TimePeriod, ParsedArticle> timePartitionned = parserInput
+            .repartition(partitioning.size()) //We could maybe find a less naive value here
+            .flatMapToPair(new ProcessArticle(partitioning, distinctWords));
+    
+    // Produce the grouping over TimePeriod => The TimePartition
+    JavaPairRDD<TimePeriod, Iterable<ParsedArticle>> grouped = timePartitionned.groupByKey();
+
+    // Transform the groupByKey Iterable<ParsedArticle> into a TimePartition
+    timePartitions = grouped.mapToPair(new MapArticleToTimePartition());
   }
 }
 

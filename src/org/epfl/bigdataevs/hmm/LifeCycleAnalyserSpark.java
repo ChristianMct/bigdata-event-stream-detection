@@ -7,7 +7,9 @@ import org.epfl.bigdataevs.eminput.HmmInputFromParser;
 
 import scala.Tuple2;
 
+import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -19,15 +21,16 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
 
-public class LifeCycleAnalyserSpark {
+public class LifeCycleAnalyserSpark implements Serializable{
   //private ArrayList<double[]> themes;
   double[] bgAsArray;
   double[][] outputProbabilityDistribution = null;
   JavaPairRDD<Tuple2<Theme,Double>,Long> themesWithIndex;
   private JavaPairRDD<Long, Long> wordStream;
   private JavaPairRDD<String, Long> lexicon;
+  private Map<String, Long> lexiconAsMap;
   private JavaPairRDD<Long, String> invertedLexicon;
-  private JavaPairRDD<Integer, Integer> mostLikelySequenceThemeShifts;
+  public JavaPairRDD<Integer, Integer> mostLikelySequenceThemeShifts;
   private long numberOfThemes;
   private long numberOfWords;
   private Hmm2 hmm;
@@ -43,6 +46,7 @@ public class LifeCycleAnalyserSpark {
   public LifeCycleAnalyserSpark(HmmInputFromParser hmmInput) {
     this.wordStream = hmmInput.wordStream;
     this.lexicon = hmmInput.lexicon;
+    this.lexiconAsMap = lexicon.collectAsMap();
     getInvertedLexicon();
     numberOfThemes = 0L;
     numberOfWords = lexicon.count();
@@ -120,20 +124,29 @@ public class LifeCycleAnalyserSpark {
     hmm = new Hmm2(numberHiddenStates, numberObservableOutputSymbols, pi,
             stateTransitionProbabilityDistribution, outputProbabilityDistribution);
 
-    JavaRDD<Tuple2<Integer, Integer>> observedSequenceRdd = wordStream
-            .map(new Function<Tuple2<Long, Long>, Tuple2<Integer, Integer>>() {
+    if(outputProbabilityDistribution == null){
+      System.out.println("error : you need to specify the themes via addAllThemesFromRDD before analyzing the sequence!");
+    }
+    hmm = new Hmm2(numberHiddenStates, numberObservableOutputSymbols, pi,
+            stateTransitionProbabilityDistribution, outputProbabilityDistribution);
+
+    JavaRDD<Tuple2<Integer, Integer>> observedSequenceRdd = wordStream.zipWithIndex()
+            .map(new Function<Tuple2<Tuple2<Long, Long>,Long>, Tuple2<Integer, Integer>>() {
 
               private static final long serialVersionUID = 1L;
 
               @Override
-              public Tuple2<Integer, Integer> call(Tuple2<Long, Long> wordEntry) throws Exception {
-                return new Tuple2<Integer, Integer>(new Integer(wordEntry._1.intValue()),
-                        new Integer(wordEntry._2.intValue()));
+              public Tuple2<Integer, Integer> call(Tuple2<Tuple2<Long, Long>,Long> wordEntry) throws Exception {
+                return new Tuple2<Integer, Integer>(wordEntry._2.intValue(),
+                        wordEntry._1._1.intValue());
               }
             });
 
+    System.out.println("observedSequenceRdd length : "+observedSequenceRdd.count());
+    System.out.println("observedSequenceRdd : "+Arrays.toString(Arrays.copyOf(observedSequenceRdd.collect().toArray(),50)));
     hmm.rawSparkTrain(sc, observedSequenceRdd, piThreshold, aaThreshold, maxIterations, null);
-    mostLikelySequenceThemeShifts = hmm.decode(sc, observedSequenceRdd, 1024 * 1024);
+    
+    mostLikelySequenceThemeShifts = hmm.decode(sc, observedSequenceRdd, 1024 * 32);
   }
 
   /**
@@ -268,31 +281,39 @@ public class LifeCycleAnalyserSpark {
   }
   */
   
+  /**Used to add all the themes at once from EM output, to be called before any analytics is done.
+   * 
+   * @param themesRdd
+   */
   public void addAllThemesFromRdd(JavaPairRDD<Theme, Double> themesRdd) {
     themesWithIndex = themesRdd.zipWithIndex();
     JavaPairRDD<Long,double[]> themesToArray =
             themesWithIndex.mapToPair(new PairFunction<Tuple2<Tuple2<Theme,Double>,Long>,Long,double[]>(){
 
-      @Override
-      public Tuple2<Long, double[]> call(Tuple2<Tuple2<Theme, Double>, Long> arg0) throws Exception {
-        double[] b = new double[(int) numberOfWords];
-        long themeId = arg0._2;
-        Theme theme = arg0._1._1;
-        Map<String, Double> wordsProbability = theme.wordsProbability;
-        for (Entry<String, Double> entry:wordsProbability.entrySet()) {
-          int index = lexicon.lookup(entry.getKey()).get(0).intValue();
-          b[index] = entry.getValue();
-        }
-               
-        return new Tuple2<Long,double[]>(themeId,b);
-      }      
+              @Override
+              public Tuple2<Long, double[]> call(Tuple2<Tuple2<Theme, Double>, Long> arg0)
+                      throws Exception {
+                double[] b = new double[(int) numberOfWords];
+                long themeId = arg0._2;
+                Theme theme = arg0._1._1;
+                Map<String, Double> wordsProbability = theme.wordsProbability;
+                for (Entry<String, Double> entry : wordsProbability.entrySet()) {
+                  int index = lexiconAsMap.get(entry.getKey()).intValue();
+                  b[index] = entry.getValue();
+                }
+
+                return new Tuple2<Long, double[]>(themeId, b);
+              }
     });
     List<Tuple2<Long,double[]>> themesList = themesToArray.collect();
-    numberOfThemes = 1 + themesList.size();
-    outputProbabilityDistribution = new double[(int) numberOfThemes][(int) numberOfWords];
+    numberOfThemes = themesList.size();
+    outputProbabilityDistribution = new double[(int) numberOfThemes+1][(int) numberOfWords];
     
     for (Tuple2<Long,double[]> tuple:themesList) {
       outputProbabilityDistribution[1 + tuple._1.intValue()] = tuple._2;
     }
   }
+  
+  
+  
 }

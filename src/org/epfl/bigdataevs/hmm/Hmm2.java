@@ -322,6 +322,14 @@ public class Hmm2 implements Serializable {
     double piDiff = Double.POSITIVE_INFINITY;
     double aaDiff = Double.POSITIVE_INFINITY;
     
+    System.out.println("N " + N);
+    System.out.println("a length" + a.length);
+    System.out.println("a[0] length" + a[0].length);
+    System.out.println("b length" + b.length);
+    System.out.println("T " + T);
+    System.out.println("numBlocks " + numBlocks);
+    
+    
     JavaRDD<Tuple3<Integer, Integer, Integer>> observedSequenceWithBlockIdRdd =
             observedSequenceRdd.flatMap( new FlatMapFunction<Tuple2<Integer, Integer>, Tuple3<Integer, Integer, Integer>>() {
               private static final long serialVersionUID = 8L;
@@ -424,13 +432,16 @@ public class Hmm2 implements Serializable {
                     
                     if ( t == 0 ) {
                       for ( int i = 0; i < N; i++ ) {
-                        ta[bi].elements[i * N + i] = pi[i] * b[i][observedBlock[0]];
+                        ta[bi].elements[i * N + i] = pi[i] *
+                                b[i][observedBlock[0]];
                       }
                       
                     } else {
                       for (int i = 0; i < N; i++) {
                         for (int j = 0; j < N; j++) {
-                          ta[bi].elements[i * N + j] = a[j][i] * b[i][observedBlock[bi]];
+                          ta[bi].elements[i * N + j] = 
+                                  a[j][i] * 
+                                  b[i][observedBlock[bi]];
                         }
                       }
                     }
