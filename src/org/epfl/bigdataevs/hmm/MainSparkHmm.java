@@ -1,12 +1,14 @@
 package org.epfl.bigdataevs.hmm;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import scala.Tuple2;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 
 /**Test class for HMM based algos with generated sequences.
@@ -40,7 +42,7 @@ public class MainSparkHmm {
     SparkConf sparkConf = new SparkConf().setAppName("Baum-Welch on generated sequence");
     JavaSparkContext sc = new JavaSparkContext(sparkConf);
     
-    int seqSize = 100000000;
+    int seqSize = 50;
     int[] rawSequence = realHmm.generateRawObservationSequence(seqSize);
     System.out.println("done generating sequence");
     ArrayList<Tuple2<Integer, Integer>> rawSequenceList =
@@ -94,6 +96,10 @@ public class MainSparkHmm {
       System.out.println("");
     }
     
+    
+    JavaPairRDD<Integer,Integer> decodedStreamRdd = sparkTrainedHmm2.decode(sc, rawSequenceRdd, 1024*32) ;
+    
+    System.out.println("DecodedStream : "+Arrays.toString(Arrays.copyOf(decodedStreamRdd.collect().toArray(),50)));
     
 
   }
