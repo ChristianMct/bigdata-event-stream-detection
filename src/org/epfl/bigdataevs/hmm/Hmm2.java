@@ -174,7 +174,6 @@ public class Hmm2 implements Serializable {
       }
       
       int[] wordBlock = wordBlockList.get(0)._2;
-      
       // do the initialization if necessary
       int start = 0;
       if ( bi == 0 ) {
@@ -193,7 +192,6 @@ public class Hmm2 implements Serializable {
         for ( int i = 0; i < N; i++ ) {
           double maxProb = prevProbabilities[0] + Math.log(a[0][i] * b[i][observedState]);
           int maxIndex = 0;
-          
           for ( int j = 1; j < N; j++ ) {
             double curProb = prevProbabilities[j] + Math.log(a[j][i] * b[i][observedState]);
             if ( curProb > maxProb ) {
@@ -201,10 +199,14 @@ public class Hmm2 implements Serializable {
               maxIndex = j;
             }
           }
-          
           backPointerBlock[ bt * N + i ] = maxIndex;
           curProbabilities[i] = maxProb;
         }
+        
+        // swap arrays
+        double[] temp = prevProbabilities;
+        prevProbabilities = curProbabilities;
+        curProbabilities = temp;
       }
       
       // put this block into the Rdd
@@ -215,7 +217,7 @@ public class Hmm2 implements Serializable {
           backPointerBlockCopy[ bt * N + i ] = backPointerBlock[ bt * N + i];
         }
       }
-      
+
       List<Tuple2<Integer, int[]>> backPointerBlockList = new ArrayList<Tuple2<Integer, int[]>>(1);
       backPointerBlockList.add(new Tuple2<Integer, int[]>(bi, backPointerBlockCopy));
       
@@ -227,11 +229,6 @@ public class Hmm2 implements Serializable {
       } else {
         backPointerBlocksRdd = backPointerBlocksRdd.union(backPointerBlockRdd);
       }
-      
-      // swap arrays
-      double[] temp = prevProbabilities;
-      prevProbabilities = curProbabilities;
-      curProbabilities = temp;
     }
     
     JavaPairRDD<Integer, Integer> decodedStatesRdd = null;
@@ -254,7 +251,6 @@ public class Hmm2 implements Serializable {
       }
       
       backPointerBlock = backPointerBlockList.get(0)._2;
-      
       List<Tuple2<Integer, Integer>> statesList =
               new ArrayList<Tuple2<Integer, Integer>>(trueBlockSize);
       
@@ -321,15 +317,14 @@ public class Hmm2 implements Serializable {
     final int numBlocks = (T + (blockSize - 1)) / blockSize;
     double piDiff = Double.POSITIVE_INFINITY;
     double aaDiff = Double.POSITIVE_INFINITY;
-    
+    /*
     System.out.println("N " + N);
     System.out.println("a length" + a.length);
     System.out.println("a[0] length" + a[0].length);
     System.out.println("b length" + b.length);
     System.out.println("T " + T);
     System.out.println("numBlocks " + numBlocks);
-    
-    
+    */
     JavaRDD<Tuple3<Integer, Integer, Integer>> observedSequenceWithBlockIdRdd =
             observedSequenceRdd.flatMap( new FlatMapFunction<Tuple2<Integer, Integer>, Tuple3<Integer, Integer, Integer>>() {
               private static final long serialVersionUID = 8L;

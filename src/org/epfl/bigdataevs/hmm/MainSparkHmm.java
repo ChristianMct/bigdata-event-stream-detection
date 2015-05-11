@@ -9,6 +9,7 @@ import scala.Tuple2;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 
 /**Test class for HMM based algos with generated sequences.
@@ -36,14 +37,15 @@ public class MainSparkHmm {
     Hmm2 sparkTrainedHmm2 = new Hmm2(N, M, initialPi, initialA, b);
     
     //if local test
-    //JavaSparkContext sc = new JavaSparkContext("local", "Baum-Welch Test");
+    JavaSparkContext sc = new JavaSparkContext("local", "Baum-Welch Test");
     
     //if test on cluster
     SparkConf sparkConf = new SparkConf().setAppName("Baum-Welch on generated sequence");
-    JavaSparkContext sc = new JavaSparkContext(sparkConf);
+    //JavaSparkContext sc = new JavaSparkContext(sparkConf);
     
-    int seqSize = 50;
+    int seqSize = 500;
     int[] rawSequence = realHmm.generateRawObservationSequence(seqSize);
+        
     System.out.println("done generating sequence");
     ArrayList<Tuple2<Integer, Integer>> rawSequenceList =
             new ArrayList<Tuple2<Integer, Integer>>(seqSize);
@@ -56,8 +58,8 @@ public class MainSparkHmm {
     }
     
     JavaRDD<Tuple2<Integer, Integer>> rawSequenceRdd = sc.parallelize(rawSequenceList);
-    rawSequence = null;
-    rawSequenceList = null;
+    //rawSequence = null;
+    //rawSequenceList = null;
     System.gc();
     System.out.println("done converting sequence into rdd");
     
@@ -90,16 +92,18 @@ public class MainSparkHmm {
     double[][] trainedB = sparkTrainedHmm2.getB();
     System.out.println("B: ");
     for ( int i = 0; i < N; i++ ) {
-      for (int j = 0; j < N; j++ ) {
+      for (int j = 0; j < M; j++ ) {
         System.out.print(" " + trainedB[i][j]);
       }
       System.out.println("");
     }
     
     
-    JavaPairRDD<Integer,Integer> decodedStreamRdd = sparkTrainedHmm2.decode(sc, rawSequenceRdd, 1024*32) ;
+    JavaPairRDD<Integer,Integer> decodedStreamRdd = sparkTrainedHmm2.decode(sc, rawSequenceRdd, 32) ;
     
-    System.out.println("DecodedStream : "+Arrays.toString(Arrays.copyOf(decodedStreamRdd.collect().toArray(),50)));
+    List<Tuple2<Integer, Integer>> l = decodedStreamRdd.collect();
+    System.out.println("seq " + Arrays.toString(rawSequence));
+    System.out.println("DecodedStream : "+Arrays.toString(Arrays.copyOfRange(l.toArray(),450,499)));
     
 
   }

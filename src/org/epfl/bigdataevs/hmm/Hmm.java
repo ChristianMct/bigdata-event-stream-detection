@@ -1231,10 +1231,11 @@ public class Hmm implements Serializable{
       initRandom -= pi[initialState];
       //System.out.println("initial random in loop: " + initRandom);
     }
-    //System.out.println("initial state : "+initialState);
+    System.out.println("Sequence of hidden states");
+    System.out.println("initial state : " + initialState);
     int currentState = initialState;
     for (int t = 0; t < length; t++) {
-      // System.out.print(currentState+"     ");
+      System.out.print(currentState + "     ");
       double randOutput = Math.random();
       double randTransition = Math.random();
       int outIndex = -1;
