@@ -26,9 +26,9 @@ public class EvolutionaryTransition implements Serializable {
   
   public String toString() {
     return "Evolutionary Transition\n"
-            + "Theme 1 :\n\t" 
+            + "Theme 1 :\n" 
             + this.theme1.sortString(6) 
-            + "\nTheme2 :\n\t" 
+            + "\nTheme2 :\n" 
             + this.theme2.sortString(6) 
             + "\nDivergence :" 
             + this.divergence

@@ -140,7 +140,7 @@ public class Theme implements Serializable {
     for (int i = 0; i < Math.min(maxTitles, this.sortedArticlesByScore.size()); i++) {
       String title = this.sortedArticlesByScore.get(i).title;
       Double score = this.sortedArticlesByScore.get(i).probabilitiesDocumentBelongsToThemes.get(this);
-      output += title + " : " + score + "\n\t";
+      output += "\t" + title + " : " + score + "\n";
     }
     return output;
   }
