@@ -22,6 +22,7 @@ import javax.xml.stream.XMLStreamException;
 *and computes the background model for the EM algorithm
 **/
 public class InputParser implements Serializable {
+  protected static final int PAGE_NUMBER_TRESHOLD = 3;
   private final JavaRDD<SegmentedArticle> segmentedArticles;
   private final TimePeriod timeFrame;
   private final BackgroundModel backgroundModel;
@@ -135,7 +136,9 @@ public class InputParser implements Serializable {
         RawArticle rawArticle;
         List<RawArticle> rawArticleList = new LinkedList<RawArticle>();
         while ((rawArticle = ras.read()) != null) {
-          rawArticleList.add(rawArticle);
+          if(rawArticle.pageNumber < PAGE_NUMBER_TRESHOLD) {
+            rawArticleList.add(rawArticle);
+          }
         }
         return rawArticleList;
       }  

@@ -263,7 +263,8 @@ public class EmAlgo implements Serializable {
   public JavaPairRDD<Theme, Double> run() {
     
     JavaPairRDD<EmInput, Double> temp = this.algorithm();   
-    temp.cache();
+    temp.persist(StorageLevel.MEMORY_AND_DISK());
+    
     JavaPairRDD<TimePeriod, Tuple2<EmInput, Double>> processedPartitions = temp.mapToPair(
             new PairFunction<Tuple2<EmInput,Double>, TimePeriod, Tuple2<EmInput, Double>>() {
             public Tuple2<TimePeriod, Tuple2<EmInput, Double>> call(Tuple2<EmInput, Double> tuple)
@@ -271,6 +272,26 @@ public class EmAlgo implements Serializable {
               return new Tuple2<TimePeriod, Tuple2<EmInput, Double>>(tuple._1.timePeriod, tuple);
             }
       });
+    
+    List<List<Double>> loglikelihoods = processedPartitions.groupByKey().values().map(new Function<Iterable<Tuple2<EmInput,Double>>, List<Double>>() {
+
+      @Override
+      public List<Double> call(Iterable<Tuple2<EmInput, Double>> array) throws Exception {
+        List<Double> output = new ArrayList<Double>();
+        for (Tuple2<EmInput, Double> tuple : array) {
+          output.add(tuple._2);
+        }
+        return output;
+      }
+    }).collect();
+    
+    for (List<Double> list : loglikelihoods) {
+      String s = "";
+      for (Double val : list) {
+        s += " / " + val;
+      }
+      System.out.println(s);
+    }
     
     JavaRDD<EmInput> selectedPartitions = processedPartitions.groupByKey().map(
             new Function<Tuple2<TimePeriod,Iterable<Tuple2<EmInput,Double>>>, EmInput>() {

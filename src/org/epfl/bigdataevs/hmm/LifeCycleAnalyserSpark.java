@@ -21,11 +21,12 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
 
-public class LifeCycleAnalyserSpark implements Serializable{
-  //private ArrayList<double[]> themes;
+public class LifeCycleAnalyserSpark implements Serializable {
+  // private ArrayList<double[]> themes;
   double[] bgAsArray;
   double[][] outputProbabilityDistribution = null;
-  JavaPairRDD<Tuple2<Theme,Double>,Long> themesWithIndex;
+  JavaPairRDD<Tuple2<Theme, Double>, Long> themesWithIndex;
+  JavaRDD<Tuple2<Theme, ArrayList<Tuple2<Long, Long>>>> themesWithStrength;
   private JavaPairRDD<Long, Long> wordStream;
   private JavaPairRDD<String, Long> lexicon;
   private Map<String, Long> lexiconAsMap;
@@ -50,29 +51,32 @@ public class LifeCycleAnalyserSpark implements Serializable{
     getInvertedLexicon();
     numberOfThemes = 0L;
     numberOfWords = lexicon.count();
-    //themes = new ArrayList<double[]>();
+    // themes = new ArrayList<double[]>();
     setBackgroundModelAsThemebyId(hmmInput.backgroundModelById);
   }
 
   private void setBackgroundModelAsThemebyId(JavaPairRDD<Long, Double> backgroundModelById) {
     List<Tuple2<Long, Double>> bgCollected = backgroundModelById.collect();
     bgAsArray = new double[(int) numberOfWords];
-    for (Tuple2<Long,Double> tuple: bgCollected) {
+    for (Tuple2<Long, Double> tuple : bgCollected) {
       bgAsArray[tuple._1.intValue()] = tuple._2;
     }
   }
 
   /**
-   * Produce, train and decode the Hmm. Must be done after adding theme
-   * and before calculating any strengths.
+   * Produce, train and decode the Hmm. Must be done after adding theme and before calculating any
+   * strengths.
    * 
-   * @param sc the spark context
-   * @param piThreshold Threshold on pi
-   * @param aaThreshold Threshold on a
-   * @param maxIterations Max number of iterations
+   * @param sc
+   *          the spark context
+   * @param piThreshold
+   *          Threshold on pi
+   * @param aaThreshold
+   *          Threshold on a
+   * @param maxIterations
+   *          Max number of iterations
    */
-  public void analyse(JavaSparkContext sc, double piThreshold, double aaThreshold,
-          int maxIterations) {
+  public void analyse(JavaSparkContext sc, double piThreshold, double aaThreshold, int maxIterations) {
     int numberHiddenStates = (int) (numberOfThemes + 1);
 
     int numberObservableOutputSymbols = (int) numberOfWords;
@@ -85,8 +89,7 @@ public class LifeCycleAnalyserSpark implements Serializable{
     }
 
     // setting up state transition probability distribution
-    double[][] stateTransitionProbabilityDistribution =
-            new double[numberHiddenStates][numberObservableOutputSymbols];
+    double[][] stateTransitionProbabilityDistribution = new double[numberHiddenStates][numberObservableOutputSymbols];
     double halfInitialStateDistribution = initialStateDistribution / 2.0;
     for (int i = 0; i < numberHiddenStates; i++) {
       for (int j = 0; j < numberObservableOutputSymbols; j++) {
@@ -110,43 +113,71 @@ public class LifeCycleAnalyserSpark implements Serializable{
     }
 
     // setting up output probability distribution
-    //TODO change this to retrieve the output of the EM algo
+    // TODO change this to retrieve the output of the EM algo
     // and use addAllThemes instead
-    
-    //outputProbabilityDistribution = (double[][]) themes.toArray();
+
+    // outputProbabilityDistribution = (double[][]) themes.toArray();
     outputProbabilityDistribution[0] = bgAsArray;
 
     // setting up and training the hmm
-    if (outputProbabilityDistribution == null){
+    if (outputProbabilityDistribution == null) {
       System.out.println("error : you need to specify the themes via"
               + "addAllThemesFromRDD before analyzing the sequence!");
     }
     hmm = new Hmm2(numberHiddenStates, numberObservableOutputSymbols, pi,
             stateTransitionProbabilityDistribution, outputProbabilityDistribution);
 
-    if(outputProbabilityDistribution == null){
-      System.out.println("error : you need to specify the themes via addAllThemesFromRDD before analyzing the sequence!");
+    if (outputProbabilityDistribution == null) {
+      System.out
+              .println("error : you need to specify the themes via addAllThemesFromRDD before analyzing the sequence!");
     }
     hmm = new Hmm2(numberHiddenStates, numberObservableOutputSymbols, pi,
             stateTransitionProbabilityDistribution, outputProbabilityDistribution);
 
-    JavaRDD<Tuple2<Integer, Integer>> observedSequenceRdd = wordStream.zipWithIndex()
-            .map(new Function<Tuple2<Tuple2<Long, Long>,Long>, Tuple2<Integer, Integer>>() {
+    JavaRDD<Tuple2<Integer, Integer>> observedSequenceRdd = wordStream.zipWithIndex().map(
+            new Function<Tuple2<Tuple2<Long, Long>, Long>, Tuple2<Integer, Integer>>() {
 
               private static final long serialVersionUID = 1L;
 
               @Override
-              public Tuple2<Integer, Integer> call(Tuple2<Tuple2<Long, Long>,Long> wordEntry) throws Exception {
-                return new Tuple2<Integer, Integer>(wordEntry._2.intValue(),
-                        wordEntry._1._1.intValue());
+              public Tuple2<Integer, Integer> call(Tuple2<Tuple2<Long, Long>, Long> wordEntry)
+                      throws Exception {
+                return new Tuple2<Integer, Integer>(wordEntry._2.intValue(), wordEntry._1._1
+                        .intValue());
               }
             });
 
-    System.out.println("observedSequenceRdd length : "+observedSequenceRdd.count());
-    System.out.println("observedSequenceRdd : "+Arrays.toString(Arrays.copyOf(observedSequenceRdd.collect().toArray(),50)));
+    System.out.println("observedSequenceRdd length : " + observedSequenceRdd.count());
+    System.out.println("observedSequenceRdd : "
+            + Arrays.toString(Arrays.copyOf(observedSequenceRdd.collect().toArray(), 50)));
     hmm.rawSparkTrain(sc, observedSequenceRdd, piThreshold, aaThreshold, maxIterations, null);
-    
+
     mostLikelySequenceThemeShifts = hmm.decode(sc, observedSequenceRdd, 1024 * 32);
+  }
+
+  public void allAbsoluteStrength(String path, final long startTime, final long endTime, final long window,
+          final long numberOfValuePerTheme) {
+    themesWithStrength = themesWithIndex
+            .map(new Function<Tuple2<Tuple2<Theme, Double>, Long>, Tuple2<Theme, ArrayList<Tuple2<Long, Long>>>>() {
+
+              private static final long serialVersionUID = 1L;
+
+              @Override
+              public Tuple2<Theme, ArrayList<Tuple2<Long, Long>>> call(
+                      Tuple2<Tuple2<Theme, Double>, Long> themeEntry) throws Exception {
+                ArrayList<Tuple2<Long, Long>> themeStrength = new ArrayList<Tuple2<Long, Long>>();
+                Long themeIndex = themeEntry._2;
+                for (int i = 0; i < numberOfValuePerTheme; i++) {
+                  float pc = (float) i / numberOfValuePerTheme;
+                  long localStartTime = (long) (startTime + pc * (endTime - startTime));
+                  int strength = absoluteStrength(themeIndex.intValue(), localStartTime, window);
+                  themeStrength.add(new Tuple2<Long, Long>((long) strength, localStartTime));
+                }
+                return new Tuple2<Theme, ArrayList<Tuple2<Long, Long>>>(themeEntry._1._1,
+                        themeStrength);
+              }
+            });
+    themesWithStrength.saveAsTextFile(path);
   }
 
   /**
@@ -196,8 +227,7 @@ public class LifeCycleAnalyserSpark implements Serializable{
 
             })._2;
 
-    JavaPairRDD<Integer, Integer> indexedMostLikelySequenceThemeShifts =
-            mostLikelySequenceThemeShifts;
+    JavaPairRDD<Integer, Integer> indexedMostLikelySequenceThemeShifts = mostLikelySequenceThemeShifts;
 
     JavaRDD<Integer> slicedMostLikelySequenceThemeShifts = indexedMostLikelySequenceThemeShifts
             .filter(new Function<Tuple2<Integer, Integer>, Boolean>() {
@@ -235,31 +265,26 @@ public class LifeCycleAnalyserSpark implements Serializable{
               }
             });
   }
-/*
-  private void setBackgroundModelAsTheme(BackgroundModel backgroundModel) {
-    JavaPairRDD<String, BigFraction> backgroundModelRdd = backgroundModel.backgroundModelRdd;
 
-    JavaRDD<Double> asDouble = backgroundModelRdd
-            .map(new Function<Tuple2<String, BigFraction>, Double>() {
-
-              private static final long serialVersionUID = 1L;
-
-              @Override
-              public Double call(Tuple2<String, BigFraction> wordEntry) throws Exception {
-                return wordEntry._2.doubleValue();
-              }
-            });
-
-    Double[] copyBeforeConversion = null;
-    copyBeforeConversion = asDouble.collect().toArray(copyBeforeConversion);
-    double[] backgroundModelOutputProbability = new double[(int) numberOfWords];
-    for (int i = 0; i < numberOfWords; i++) {
-      backgroundModelOutputProbability[i] = copyBeforeConversion[i];
-    }
-
-    themes.set(0, backgroundModelOutputProbability);
-  }
-*/
+  /*
+   * private void setBackgroundModelAsTheme(BackgroundModel backgroundModel) { JavaPairRDD<String,
+   * BigFraction> backgroundModelRdd = backgroundModel.backgroundModelRdd;
+   * 
+   * JavaRDD<Double> asDouble = backgroundModelRdd .map(new Function<Tuple2<String, BigFraction>,
+   * Double>() {
+   * 
+   * private static final long serialVersionUID = 1L;
+   * 
+   * @Override public Double call(Tuple2<String, BigFraction> wordEntry) throws Exception { return
+   * wordEntry._2.doubleValue(); } });
+   * 
+   * Double[] copyBeforeConversion = null; copyBeforeConversion =
+   * asDouble.collect().toArray(copyBeforeConversion); double[] backgroundModelOutputProbability =
+   * new double[(int) numberOfWords]; for (int i = 0; i < numberOfWords; i++) {
+   * backgroundModelOutputProbability[i] = copyBeforeConversion[i]; }
+   * 
+   * themes.set(0, backgroundModelOutputProbability); }
+   */
   /**
    * Used to add all the themes before any analytics is done.
    * 
@@ -268,27 +293,23 @@ public class LifeCycleAnalyserSpark implements Serializable{
    * @return the theme index
    */
   /*
-  public int addTheme(Theme theme) {
-    double[] themeOutputProbability = new double[(int) numberOfWords];
-    for (int i = 0; i < numberOfWords; i++) {
-      String outputString = invertedLexicon.lookup((long) i).get(0);
-      themeOutputProbability[i] = theme.wordsProbability.get(outputString);
-    }
-    themes.set((int) this.numberOfThemes + 1, themeOutputProbability);
-    this.numberOfThemes++;
-    System.out.println("Je suis un fruit ;) ");
-    return (int) this.numberOfThemes;
-  }
-  */
-  
-  /**Used to add all the themes at once from EM output, to be called before any analytics is done.
+   * public int addTheme(Theme theme) { double[] themeOutputProbability = new double[(int)
+   * numberOfWords]; for (int i = 0; i < numberOfWords; i++) { String outputString =
+   * invertedLexicon.lookup((long) i).get(0); themeOutputProbability[i] =
+   * theme.wordsProbability.get(outputString); } themes.set((int) this.numberOfThemes + 1,
+   * themeOutputProbability); this.numberOfThemes++; System.out.println("Je suis un fruit ;) ");
+   * return (int) this.numberOfThemes; }
+   */
+
+  /**
+   * Used to add all the themes at once from EM output, to be called before any analytics is done.
    * 
    * @param themesRdd
    */
   public void addAllThemesFromRdd(JavaPairRDD<Theme, Double> themesRdd) {
     themesWithIndex = themesRdd.zipWithIndex();
-    JavaPairRDD<Long,double[]> themesToArray =
-            themesWithIndex.mapToPair(new PairFunction<Tuple2<Tuple2<Theme,Double>,Long>,Long,double[]>(){
+    JavaPairRDD<Long, double[]> themesToArray = themesWithIndex
+            .mapToPair(new PairFunction<Tuple2<Tuple2<Theme, Double>, Long>, Long, double[]>() {
 
               @Override
               public Tuple2<Long, double[]> call(Tuple2<Tuple2<Theme, Double>, Long> arg0)
@@ -304,16 +325,14 @@ public class LifeCycleAnalyserSpark implements Serializable{
 
                 return new Tuple2<Long, double[]>(themeId, b);
               }
-    });
-    List<Tuple2<Long,double[]>> themesList = themesToArray.collect();
+            });
+    List<Tuple2<Long, double[]>> themesList = themesToArray.collect();
     numberOfThemes = themesList.size();
-    outputProbabilityDistribution = new double[(int) numberOfThemes+1][(int) numberOfWords];
-    
-    for (Tuple2<Long,double[]> tuple:themesList) {
+    outputProbabilityDistribution = new double[(int) numberOfThemes + 1][(int) numberOfWords];
+
+    for (Tuple2<Long, double[]> tuple : themesList) {
       outputProbabilityDistribution[1 + tuple._1.intValue()] = tuple._2;
     }
   }
-  
-  
-  
+
 }
