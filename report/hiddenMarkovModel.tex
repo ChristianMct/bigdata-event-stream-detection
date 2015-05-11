@@ -1,1 +1,18 @@
-\subsection{Hidden Markov Model}
+\subsection{Evaluate Themes Strength over time using Hidden Markov Models}
+The previous approach was detecting topics in short time periods and expliciting relations between them. Here, we consider the recurrent topics that would happen several times in the whole study period or would last numerous time periods. For this themes, the goal is to be able to determine how the importance of a theme is varying over time.
+
+\subsubsection{Overall Method}
+To be able to perform the themes strength analysis, the themes first need to be detected. These themes are \emph{trans-collection themes}. The most straightforward way to find them would be to perform themes detection over very long durations (several years or decades), but the performance of the EM algorithm does not allow that. Indeed, the EM algorithm is well parallelized and efficient when processing many short time periods but a single long window of time would be analyzed sequentially which would require a huge amount of time. Two work-around strategies have been found for this issue :
+\begin{itemize}
+\item perform the analysis over several shorter time periods and retain only the themes that have the highest probability. Then try to analyse if some of them last longer than other or are recurrent in time.
+\item perform the two steps  : EM algorithm and evolutionnary transitions computation. This will leave us with a graph of temporal dependencies between themes. Then the trans-collection themes can be identified as the longest connex components -to be checked!!- in our graph. This allows us to detect the themes that last long or that are recurrent. Finally to obtain the trans-collection themes, the probabilities of the short themes are averaged.
+
+We need a picture here! 
+
+\end{itemize}
+
+\subsubsection{Baum-Welch Algorithm}
+
+\subsubsection{Viterbi Algorithm and Scoring functions}
+
+
