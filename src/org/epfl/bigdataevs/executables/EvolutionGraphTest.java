@@ -39,6 +39,7 @@ import javax.xml.stream.XMLStreamException;
 public class EvolutionGraphTest {
 
   public static void main(String[] args) throws NumberFormatException, XMLStreamException, ParseException, IOException {
+    
     System.out.println("STARTED TEST");
     
     SparkConf sparkConf = new SparkConf().setAppName("Test article processor");
@@ -53,9 +54,9 @@ public class EvolutionGraphTest {
 
     Calendar c = Calendar.getInstance();
     c.setTime(format.parse("1/2/1995-0"));
-    for(int i=0; i<90; i++){
+    for(int i=0; i<4; i++){
       Date c1 = c.getTime();
-      c.add(Calendar.DATE, 2);
+      c.add(Calendar.DATE, 3);
       Date c2 = c.getTime();
       timePeriods.add(new TimePeriod(c1, c2));
       System.out.println(c1+"-"+c2);
@@ -110,28 +111,39 @@ public class EvolutionGraphTest {
     
     JavaPairRDD<Theme, Double> themesRdd = emAlgo.run();   
     themesRdd.cache();
+    
+    /* The following code raises
+     * 
+     * java.lang.OutOfMemoryError: GC overhead limit exceeded
+     * or
+     * java.lang.OutOfMemoryError: Java heap space
+     * 
+     * set option '--driver-memory 32G' to avoid these 
+     */
+    
     Map<Theme, Double> emOutputs = themesRdd.collectAsMap();
     
     System.out.println(emOutputs.keySet().size() + " elements");
     int i = 0;
     for (Theme theme : emOutputs.keySet()) {
       Tuple2<Integer, Integer> t = theme.statistics();
-      System.out.println("Theme :" + i);
-      System.out.println(theme.sortTitleString(3));
-      System.out.println(theme.sortString(12));
-      System.out.println("Score: " + emOutputs.get(theme));
-      System.out.println("Stats 1:" + t._1 + " / " + t._2);
-      System.out.println("Stats 2:" + theme.statistics2());
+      String themeLog = "Theme :" + i
+              + "\n" + theme.sortTitleString(3)
+              + "\n" + theme.sortString(12)
+              + "\n" + "Score: " + emOutputs.get(theme)
+              + "\n" + "Stats 1:" + t._1 + " / " + t._2
+              + "\n" + "Stats 2:" + theme.statistics2()
+              + "\n";
       
+      System.out.println(themeLog);
       i += 1;
     }
     
-
-   
-    KLDivergence kldivergence = new KLDivergence(42., 100.);
-  
-    System.out.println("KLDivergence starts");
+    int themeCount = (int) themesRdd.count();
+    System.out.println("themesRdd = " + themeCount);
     
+    System.out.println("KLDivergence starts");
+    KLDivergence kldivergence = new KLDivergence(24., 100.,500);
     JavaRDD<EvolutionaryTransition> transitionGraph = 
         kldivergence.compute(themesRdd.map(
                 new Function<Tuple2<Theme,Double>,Theme>(){
@@ -141,17 +153,18 @@ public class EvolutionGraphTest {
                 }
               }
         ));
+    
+    transitionGraph.cache();
+    int transitionCount = (int) transitionGraph.count();
+    System.out.println("transitionGraph = " + transitionCount);
 
     System.out.println("KLDivergence done");
-    
-    System.out.println("themesRdd = " + themesRdd.count());
-    System.out.println("transitionGraph = " + transitionGraph.count());
-    int transitionCount = 1;
+
+    int transitionCounter = 1;
     for (EvolutionaryTransition transition : transitionGraph.collect()) {
-      System.out.println(transitionCount++ + ". " + transition.toString());
+      System.out.println(transitionCounter++ + ". " + transition.toString());
     }
-    
-    
+      
   }
 
 }

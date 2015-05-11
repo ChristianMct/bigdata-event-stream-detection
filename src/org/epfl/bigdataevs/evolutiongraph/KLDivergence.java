@@ -14,13 +14,14 @@ import java.util.Set;
 public class KLDivergence implements Serializable{
 
   private double threshold;
-  
+  private int numPartitions;
   //This variable is an upperbound to avoid the NaN when computing log(p/0)
   private Double logMax;
   
-  public KLDivergence(double threshold, double logMax) {
+  public KLDivergence(double threshold, double logMax, int numPartitions) {
     this.threshold = threshold;
     this.logMax = logMax;
+    this.numPartitions = numPartitions;
   }
   
   /**
@@ -32,8 +33,9 @@ public class KLDivergence implements Serializable{
   
   public JavaRDD<EvolutionaryTransition> compute(final JavaRDD<Theme> themes) {
     JavaPairRDD<Theme, Theme> pairs;
-    
     pairs = themes.cartesian(themes);
+    pairs.repartition(numPartitions);
+
     return pairs.flatMap(new FlatMapFunction<Tuple2<Theme,Theme>, EvolutionaryTransition>(){
 
       @Override
