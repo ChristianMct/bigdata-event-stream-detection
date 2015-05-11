@@ -11,7 +11,95 @@ We need a picture here!
 
 \end{itemize}
 
-\subsubsection{Baum-Welch Algorithm}
+\subsubsection{Parallel Baum-Welch Algorithm}
+The Baum-Welch algorithm is a classic algorithm to train a Hidden Markov Model given an observed sequence. The algorithm is capable of estimating the initial probability distribution, the transition probability distribution, and the emission probability distribution.
+In its original form described as presented in [CITATION HERE], the algorithm uses a forward-backward procedure: the algorithm computes some probabilities from the beginning of the observed sequence to the end, and some other probabilities from the end of the observed sequence to the beginning. It has the advantage to be fast compared to other algorithms like [ CITATION HERE ] but uses a lot of memory, and is sequential by nature.
+Some work has to be done to make it parallel on the observed sequence (as presented for example in [CITATION HERE]), or precise ( as presented for example in [CITATION HERE]). However it seems like no paper presented a variant being precise, and also accelerated in parallel over the observed sequence.
+Thus, we extended the known algorithms to design a precise and parallel algorithm for very long observation sequences.
+Our algorithm let us to train our Hidden Markov Model over a sequence of more than 500 millions observations on a cluster of hundreds of machines using Spark, or on GPUs. It uses more memory than the original forward-backward version and also makes more computations, but can be run on as many cores as available (as long as there are less processors than observations...).
+We will present in the rest of this section the original forward-backward algorithm, the precise variant, and our precise parallel algorithm.
+
+In all the rest of this section, we use the same notations and definitions as on the Wikipedia (English) article of the Baum-Welch algorithm. We first present the original algorithm as on the Wikipedia article, then present the precise version suggested in [RABINER CITATION HERE], then the parallel version suggested in [TURIN, WILLIAM CITATION HERE], and ultimately our precise parallel version which is built upon the two ideas.
+
+\paragraph{Hidden Markov Model}
+(This section is a mere copy of the wikipedia article).
+Let $X_t$ be the hidden variables (each taking $N$ possible values) and $Y_t$ the observation variables (each taking $M$ possible values). We assume that the Markov chain is homogeneous, that is $P(X_t|X_{t-1})$ is independent from the time $t$.
+It is therefore possible to define the transition probability matrix $A = \{a_{i,j}\} = P(X_t = j | X_{t-1} = i)$.
+We can define the initial probability distribution as $\pi_i = P(X_1=i)$ and the emission probabilities as $b_j(y_t) = P(Y_t = y_t | X_t = j)$. Usually is defined the emission probability matrix $B = \{b_j(y_i)\} = P(Y_i=y_i | X_j)$.
+
+With such definitions, we can define the parameters of a Hidden Markov Model as the triplet $\Theta = (A, B, \pi)$, where $A$ is the transition probability matrix, $B$ is the emission probability matrix, and $\pi$ is the initial probability distribution.
+\paragraph{Baum-Welch Algorithm}
+(This section is a mere copy of the wikipedia article).
+The Baum-Welch algorithm is an algorithm using the Expectation-Maximization principle to find the parameters $\Theta^*$ such that $P(Y_1,...,Y_T| \Theta^* )$ is a local maximum.
+In its forward-backward version,it is necessary to compute first during the forward procedure the coefficients $\alpha_i(t) = P(Y_1=y_1,...,Y_t = y_t, X_t = i | \Theta )$ by using the relation
+\begin{equation}
+\begin{cases}
+\alpha_i(1) = \pi_i b_i(y_1) & \\
+\alpha_i(t) = b_i(y_t)\sum_{j=1}^{N}{a_{j,i}\alpha_j(t-1)} & \text{for t \textgreater 1}
+\end{cases}
+\end{equation}
+
+It is then necessary to compute the coefficients $\beta_i(t) = P(Y_{t+1}=y_{t+1},...,Y_T = y_T| X_t = i, \Theta )$ by using the relation
+\begin{equation}
+\begin{cases}
+\beta_i(T) = 1 & \\
+\beta_i(t) = b_j(y_{t+1})\sum_{j=1}^{N}{a_{i,j}\beta_j(t+1)} & \text{for t \textless 1}
+\end{cases}
+\end{equation}
+
+It is then possible to compute some temporary variables
+\[\gamma_i(t)=P(X_t=i|Y,\theta) = \frac{\alpha_i(t)\beta_i(t)}{\sum_{j=1}^N \alpha_j(t)\beta_j(t)}\]
+And the variables
+\[\xi_{ij}(t)=P(X_t=i,X_{t+1}=j|Y,\theta)=\frac{\alpha_i(t) a_{ij} \beta_j(t+1) b_j(y_{t+1})}{\sum_{k=1}^N \alpha_k(t)  \beta_k(t)}\]
+
+Thanks to these temporary variables, we can update the initial probability distribution as
+\[\pi_i^* = \gamma_i(1)\]
+
+The transition probability matrix as
+\[a_{ij}^*=\frac{\sum^{T-1}_{t=1}\xi_{ij}(t)}{\sum^{T-1}_{t=1}\gamma_i(t)}\]
+
+And the emission probability matrix as
+\[b_i^*(v_k)=\frac{\sum^T_{t=1} 1_{y_t=v_k} \gamma_i(t)}{\sum^T_{t=1} \gamma_i(t)}\]
+
+We have used this forward-backward algorithm as the starting point of our algorithm.
+
+\paragraph{Precise Froward-Backward algorithm}
+The algorithm presented on the previous section suffers from precision problems (underflows) when the size of the sequence size grows up.
+As presented in [RABINER CITATION HERE], one way to fix that is by defining a family of scaled coefficients $\hat{\alpha}_i(t)$ and $\hat{\beta}_i(t)$ defined by the relations:
+\begin{equation}
+\begin{cases}
+\bar{\alpha}_i(1) = \pi_i b_i(y_1) & \\
+\bar{\alpha}_i(t) = b_i(y_t)\sum_{j=1}^{N}{a_{j,i}\bar{\alpha}_j(t-1)} & \text{for t \textgreater 1} \\
+c_t = \frac{1}{\sum^N_{j=1} \bar{\alpha}_j(t)} & \\
+\hat{\alpha}_i(t) = c_t \bar{\alpha}_i(t) & \text{for all t}
+\end{cases}
+\end{equation}
+
+And
+\begin{equation}
+\begin{cases}
+\bar{\beta}_i(T) = 1 & \\
+\bar{\beta}_i(t) = b_j(y_{t+1})\sum_{j=1}^{N}{a_{i,j}\hat{\beta}_j(t+1)} & \text{for t \textless 1} \\
+\hat{\beta}_i(t) = c_t \bar{\beta}_i(t)
+\end{cases}
+\end{equation}
+
+We can use some new temporary variables:
+\[\hat{\gamma}_i(t) = \hat{\alpha}_i(t)\hat{\beta}_i(t)\]
+And
+\[\hat{\xi}_{ij}(t)= \hat{\alpha}_i(t) a_{ij} \hat{\beta}_j(t+1) b_j(y_{t+1})\]
+
+To perform the initial distribution update with
+\[\pi_i^* = \frac{\hat{\gamma}_i(1)}{\sum_{j=1}^{N}\hat{\gamma}_j(1)}\]
+
+The transition distribution update with
+\[a_{ij}^*=\frac{\sum^{T-1}_{t=1}\xi_{ij}(t)}{\sum^{N}_{j=1}\sum^{T-1}_{t=1}\xi_{ij}(t)}\]
+And the emission distribution update using
+\[b_i^*(v_k)=\frac{\sum^T_{t=1} 1_{y_t=v_k} \hat{\gamma}_i(t)}{\sum^T_{t=1} \hat{\gamma}_i(t)}\]
+
+\paragraph{Precise parallel Forward-Backward algorithm}
+As described in [TURIN, WILLIAM CITATION HERE], it is possible to design a parallel forward-backward algorithm from the traditional forward-backward algorithm as the relations defining the forward and backward coefficients are linear. However, the way scaling is done in the precise version of algorithm seems to block this. This is not the case, and we show how in this section.
+
 
 \subsubsection{Viterbi Algorithm and Scoring functions}
 
