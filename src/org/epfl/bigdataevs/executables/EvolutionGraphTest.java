@@ -11,6 +11,7 @@ import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
 import org.epfl.bigdataevs.em.EmAlgo;
 import org.epfl.bigdataevs.em.EmInput;
+import org.epfl.bigdataevs.em.LightTheme;
 import org.epfl.bigdataevs.em.Theme;
 import org.epfl.bigdataevs.em.ThemeFromLargeTimePeriod;
 import org.epfl.bigdataevs.eminput.EmInputFromParser;
@@ -19,6 +20,7 @@ import org.epfl.bigdataevs.eminput.ParsedArticle;
 import org.epfl.bigdataevs.eminput.TimePartition;
 import org.epfl.bigdataevs.eminput.TimePeriod;
 import org.epfl.bigdataevs.evolutiongraph.EvolutionaryTransition;
+import org.epfl.bigdataevs.evolutiongraph.GraphVisualization;
 import org.epfl.bigdataevs.evolutiongraph.KLDivergence;
 
 import scala.Tuple2;
@@ -53,7 +55,8 @@ public class EvolutionGraphTest {
     
 
     Calendar c = Calendar.getInstance();
-    c.setTime(format.parse("1/2/1995-0"));
+    Date startDate = format.parse("1/2/1995-0");
+    c.setTime(startDate);
     for(int i=0; i<4; i++){
       Date c1 = c.getTime();
       c.add(Calendar.DATE, 3);
@@ -61,6 +64,7 @@ public class EvolutionGraphTest {
       timePeriods.add(new TimePeriod(c1, c2));
       System.out.println(c1+"-"+c2);
     }
+    Date endDate = c.getTime();
     
     //System.out.println(timePeriods.get(0).includeDates(format.parse("1/1/1939-12")));
     
@@ -143,16 +147,17 @@ public class EvolutionGraphTest {
     System.out.println("themesRdd = " + themeCount);
     
     System.out.println("KLDivergence starts");
-    KLDivergence kldivergence = new KLDivergence(24., 100.,500);
-    JavaRDD<EvolutionaryTransition> transitionGraph = 
-        kldivergence.compute(themesRdd.map(
-                new Function<Tuple2<Theme,Double>,Theme>(){
-                @Override
-                public Theme call(Tuple2<Theme, Double> arg0) throws Exception {
-                  return (arg0._1());
-                }
-              }
-        ));
+    KLDivergence kldivergence = new KLDivergence(16., 100.,themeCount);
+    
+    JavaRDD<LightTheme> themes = themesRdd.map(
+            new Function<Tuple2<Theme,Double>,LightTheme>(){
+            @Override
+            public LightTheme call(Tuple2<Theme, Double> arg0) throws Exception {
+              return new LightTheme(arg0._1());
+            }
+          }
+    );
+    JavaRDD<EvolutionaryTransition> transitionGraph = kldivergence.compute(themes);
     
     transitionGraph.cache();
     int transitionCount = (int) transitionGraph.count();
@@ -165,6 +170,9 @@ public class EvolutionGraphTest {
       System.out.println(transitionCounter++ + ". " + transition.toString());
     }
       
+    // generate the graph
+    TimePeriod timePeriod = new TimePeriod(startDate, endDate);
+    GraphVisualization.generateGraphFromRdd("graph.dot", timePeriod, themes, transitionGraph);
   }
 
 }

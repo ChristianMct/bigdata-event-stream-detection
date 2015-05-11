@@ -3,7 +3,7 @@ package org.epfl.bigdataevs.evolutiongraph;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
-import org.epfl.bigdataevs.em.Theme;
+import org.epfl.bigdataevs.em.LightTheme;
 
 import scala.Tuple2;
 
@@ -31,18 +31,19 @@ public class KLDivergence implements Serializable{
    * @return A JavaRDD of all the Evolutionary Transition
    */
   
-  public JavaRDD<EvolutionaryTransition> compute(final JavaRDD<Theme> themes) {
-    JavaPairRDD<Theme, Theme> pairs;
+  public JavaRDD<EvolutionaryTransition> compute(final JavaRDD<LightTheme> themes) {
+    themes.repartition(numPartitions);
+    JavaPairRDD<LightTheme, LightTheme> pairs;
     pairs = themes.cartesian(themes);
-    pairs.repartition(numPartitions);
+    //pairs.repartition(numPartitions);
 
-    return pairs.flatMap(new FlatMapFunction<Tuple2<Theme,Theme>, EvolutionaryTransition>(){
+    return pairs.flatMap(new FlatMapFunction<Tuple2<LightTheme,LightTheme>, EvolutionaryTransition>(){
 
       @Override
-      public Iterable<EvolutionaryTransition> call(Tuple2<Theme, Theme> theme) 
+      public Iterable<EvolutionaryTransition> call(Tuple2<LightTheme, LightTheme> theme) 
               throws Exception {        
-        Theme theme1 = theme._1();
-        Theme theme2 = theme._2();
+        LightTheme theme1 = theme._1();
+        LightTheme theme2 = theme._2();
         double divergence = divergence(theme2,theme1);
         
         LinkedList<EvolutionaryTransition> evolutionaryTransition = 
@@ -68,7 +69,7 @@ public class KLDivergence implements Serializable{
    *     and -1 otherwise
    */
   
-  private double transitionDistance(Theme t1,Theme t2) {
+  private double transitionDistance(LightTheme t1,LightTheme t2) {
     if (t1.lessThan(t2)) {
       double divergence = divergence(t2,t1);
       if (divergence < threshold) {
@@ -89,7 +90,7 @@ public class KLDivergence implements Serializable{
    * @return returns the Kullback divergence D(t1||t2)
    */
   
-  public double divergence(Theme t1, Theme t2) {
+  public double divergence(LightTheme t1, LightTheme t2) {
     Double result = new Double(0.);
     Set<String> set = t2.wordsProbability.keySet();
     
@@ -117,7 +118,7 @@ public class KLDivergence implements Serializable{
    * @param t2 A theme
    * @return The total variation between the two probability distributions
    */
-  public double totalVariation(Theme t1, Theme t2) {
+  public double totalVariation(LightTheme t1, LightTheme t2) {
     double result = 0.;
     for (String word : t2.wordsProbability.keySet()) {
       double p2 = t2.wordsProbability.get(word);
