@@ -273,26 +273,6 @@ public class EmAlgo implements Serializable {
             }
       });
     
-    List<List<Double>> loglikelihoods = processedPartitions.groupByKey().values().map(new Function<Iterable<Tuple2<EmInput,Double>>, List<Double>>() {
-
-      @Override
-      public List<Double> call(Iterable<Tuple2<EmInput, Double>> array) throws Exception {
-        List<Double> output = new ArrayList<Double>();
-        for (Tuple2<EmInput, Double> tuple : array) {
-          output.add(tuple._2);
-        }
-        return output;
-      }
-    }).collect();
-    
-    for (List<Double> list : loglikelihoods) {
-      String s = "";
-      for (Double val : list) {
-        s += " / " + val;
-      }
-      System.out.println(s);
-    }
-    
     JavaRDD<EmInput> selectedPartitions = processedPartitions.groupByKey().map(
             new Function<Tuple2<TimePeriod,Iterable<Tuple2<EmInput,Double>>>, EmInput>() {
             @Override

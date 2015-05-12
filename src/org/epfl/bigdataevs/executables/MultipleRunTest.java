@@ -53,10 +53,10 @@ public class MultipleRunTest {
     
 
     Calendar c = Calendar.getInstance();
-    c.setTime(format.parse("1/2/1942-0"));
-    for(int i=0; i<90; i++){
+    c.setTime(format.parse("18/12/1915-0"));
+    for(int i=0; i<2; i++){
       Date c1 = c.getTime();
-      c.add(Calendar.DATE, 3);
+      c.add(Calendar.DATE, 7);
       Date c2 = c.getTime();
       timePeriods.add(new TimePeriod(c1, c2));
       System.out.println(c1+"-"+c2);
@@ -73,10 +73,15 @@ public class MultipleRunTest {
      * Integration of the EM Algorithm
      */
     
-    InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), ctx, inputPaths);
+    int wordsThreshold = 5;
+    int pageThreshold = 3;
+    
+    InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods),
+            ctx, inputPaths, wordsThreshold, pageThreshold);
     EmInputFromParser emInputFromParser = parser.getEmInput(timePeriods);
     
-    List<Integer> numArticles = emInputFromParser.timePartitions.map(new Function<Tuple2<TimePeriod,TimePartition>, Integer>() {
+    List<Integer> numArticles = emInputFromParser.timePartitions.map(
+            new Function<Tuple2<TimePeriod,TimePartition>, Integer>() {
 
       @Override
       public Integer call(Tuple2<TimePeriod, TimePartition> v1) throws Exception {

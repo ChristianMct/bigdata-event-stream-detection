@@ -91,8 +91,11 @@ public class EvolutionGraphTest {
     /*
      * Integration of the EM Algorithm
      */
+    int wordsThreshold = 5;
+    int pageThreshold = 3;
     
-    InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), ctx, inputPaths);
+    InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), 
+            ctx, inputPaths, wordsThreshold, pageThreshold);
     EmInputFromParser emInputFromParser = parser.getEmInput(timePeriods);
     
     List<Integer> numArticles = emInputFromParser.timePartitions.map(new Function<Tuple2<TimePeriod,TimePartition>, Integer>() {
