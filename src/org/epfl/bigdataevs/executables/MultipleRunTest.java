@@ -11,7 +11,6 @@ import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
 import org.epfl.bigdataevs.em.EmAlgo;
 import org.epfl.bigdataevs.em.EmInput;
-import org.epfl.bigdataevs.em.LightTheme;
 import org.epfl.bigdataevs.em.Theme;
 import org.epfl.bigdataevs.em.ThemeFromLargeTimePeriod;
 import org.epfl.bigdataevs.eminput.EmInputFromParser;
@@ -20,7 +19,6 @@ import org.epfl.bigdataevs.eminput.ParsedArticle;
 import org.epfl.bigdataevs.eminput.TimePartition;
 import org.epfl.bigdataevs.eminput.TimePeriod;
 import org.epfl.bigdataevs.evolutiongraph.EvolutionaryTransition;
-import org.epfl.bigdataevs.evolutiongraph.GraphVisualization;
 import org.epfl.bigdataevs.evolutiongraph.KLDivergence;
 
 import scala.Tuple2;
@@ -38,7 +36,7 @@ import java.util.Map;
 
 import javax.xml.stream.XMLStreamException;
 
-public class EvolutionGraphTest {
+public class MultipleRunTest {
 
   public static void main(String[] args) throws NumberFormatException, XMLStreamException, ParseException, IOException {
     
@@ -55,16 +53,14 @@ public class EvolutionGraphTest {
     
 
     Calendar c = Calendar.getInstance();
-    Date startDate = format.parse("1/2/1995-0");
-    c.setTime(startDate);
-    for(int i=0; i<4; i++){
+    c.setTime(format.parse("1/2/1942-0"));
+    for(int i=0; i<90; i++){
       Date c1 = c.getTime();
       c.add(Calendar.DATE, 3);
       Date c2 = c.getTime();
       timePeriods.add(new TimePeriod(c1, c2));
       System.out.println(c1+"-"+c2);
     }
-    Date endDate = c.getTime();
     
     //System.out.println(timePeriods.get(0).includeDates(format.parse("1/1/1939-12")));
     
@@ -72,21 +68,6 @@ public class EvolutionGraphTest {
     inputPaths.add("hdfs:///projects/dh-shared/GDL/");
     //inputPaths.add("hdfs://user/christian/GDL");
  
-    
-    /*
-    System.out.println("======Background model's content======");
-    for(int background_word_id : result.backgroundWordMap.keySet()) {
-      String background_word = result.backgroundWordMap.get(background_word_id);
-      System.out.println(background_word
-        + "(ID: " + background_word_id + "): " 
-        + result.backgroundModel.get(background_word) + " distribution proba.");
-    }
-    
-    
-    System.out.println("======Word chronological list======");
-    for (Integer word: result.collectionWords)
-      System.out.println(word);
-    */
     
     /*
      * Integration of the EM Algorithm
@@ -116,15 +97,6 @@ public class EvolutionGraphTest {
     JavaPairRDD<Theme, Double> themesRdd = emAlgo.run();   
     themesRdd.cache();
     
-    /* The following code raises
-     * 
-     * java.lang.OutOfMemoryError: GC overhead limit exceeded
-     * or
-     * java.lang.OutOfMemoryError: Java heap space
-     * 
-     * set option '--driver-memory 32G' to avoid these 
-     */
-    
     Map<Theme, Double> emOutputs = themesRdd.collectAsMap();
     
     System.out.println(emOutputs.keySet().size() + " elements");
@@ -142,37 +114,7 @@ public class EvolutionGraphTest {
       System.out.println(themeLog);
       i += 1;
     }
-    
-    int themeCount = (int) themesRdd.count();
-    System.out.println("themesRdd = " + themeCount);
-    
-    System.out.println("KLDivergence starts");
-    KLDivergence kldivergence = new KLDivergence(16., 100.,themeCount);
-    
-    JavaRDD<LightTheme> themes = themesRdd.map(
-            new Function<Tuple2<Theme,Double>,LightTheme>(){
-            @Override
-            public LightTheme call(Tuple2<Theme, Double> arg0) throws Exception {
-              return new LightTheme(arg0._1());
-            }
-          }
-    );
-    JavaRDD<EvolutionaryTransition> transitionGraph = kldivergence.compute(themes);
-    
-    transitionGraph.cache();
-    int transitionCount = (int) transitionGraph.count();
-    System.out.println("transitionGraph = " + transitionCount);
-
-    System.out.println("KLDivergence done");
-
-    int transitionCounter = 1;
-    for (EvolutionaryTransition transition : transitionGraph.collect()) {
-      System.out.println(transitionCounter++ + ". " + transition.toString());
-    }
       
-    // generate the graph
-    TimePeriod timePeriod = new TimePeriod(startDate, endDate);
-    GraphVisualization.generateGraphFromRdd("graph.dot", timePeriod, themes, transitionGraph);
   }
 
 }
