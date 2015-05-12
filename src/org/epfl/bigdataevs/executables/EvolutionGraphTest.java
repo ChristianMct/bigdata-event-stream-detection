@@ -55,11 +55,11 @@ public class EvolutionGraphTest {
     
 
     Calendar c = Calendar.getInstance();
-    Date startDate = format.parse("1/2/1995-0");
+    Date startDate = format.parse("20/10/1992-0");
     c.setTime(startDate);
-    for(int i=0; i<200; i++){
+    for (int i = 0; i < 8; i++) {
       Date c1 = c.getTime();
-      c.add(Calendar.DATE, 7);
+      c.add(Calendar.DATE, 5);
       Date c2 = c.getTime();
       timePeriods.add(new TimePeriod(c1, c2));
       System.out.println(c1 + "-" + c2);
@@ -99,13 +99,11 @@ public class EvolutionGraphTest {
     EmInputFromParser emInputFromParser = parser.getEmInput(timePeriods);
     
     List<Integer> numArticles = emInputFromParser.timePartitions.map(new Function<Tuple2<TimePeriod,TimePartition>, Integer>() {
-
       @Override
       public Integer call(Tuple2<TimePeriod, TimePartition> v1) throws Exception {
         // TODO Auto-generated method stub
         return v1._2.parsedArticles.size();
       }
-      
     }).collect();
     for (Integer integer : numArticles) {
       System.out.println("Number of articles : " + integer);
@@ -150,7 +148,7 @@ public class EvolutionGraphTest {
     System.out.println("themesRdd = " + themeCount);
     
     System.out.println("KLDivergence starts");
-    KLDivergence kldivergence = new KLDivergence(16., 100.,themeCount);
+    KLDivergence kldivergence = new KLDivergence(8., 1000.,themeCount);
     
     JavaRDD<LightTheme> themes = themesRdd.map(
             new Function<Tuple2<Theme,Double>,LightTheme>(){
@@ -164,15 +162,18 @@ public class EvolutionGraphTest {
     
     transitionGraph.cache();
     int transitionCount = (int) transitionGraph.count();
+    System.out.println("themesRdd = " + themeCount);
     System.out.println("transitionGraph = " + transitionCount);
 
     System.out.println("KLDivergence done");
-/*
+
     int transitionCounter = 1;
     for (EvolutionaryTransition transition : transitionGraph.collect()) {
       System.out.println(transitionCounter++ + ". " + transition.toString());
     }
-
+    System.out.println("themesRdd = " + themeCount);
+    System.out.println("transitionGraph = " + transitionCount);
+/*
     // generate the graph
     TimePeriod timePeriod = new TimePeriod(startDate, endDate);
     GraphVisualization.generateGraphFromRdd("graph.dot", timePeriod, themes, transitionGraph);
