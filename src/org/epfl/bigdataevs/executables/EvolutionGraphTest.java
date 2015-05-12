@@ -57,12 +57,12 @@ public class EvolutionGraphTest {
     Calendar c = Calendar.getInstance();
     Date startDate = format.parse("1/2/1995-0");
     c.setTime(startDate);
-    for(int i=0; i<4; i++){
+    for(int i=0; i<200; i++){
       Date c1 = c.getTime();
-      c.add(Calendar.DATE, 3);
+      c.add(Calendar.DATE, 7);
       Date c2 = c.getTime();
       timePeriods.add(new TimePeriod(c1, c2));
-      System.out.println(c1+"-"+c2);
+      System.out.println(c1 + "-" + c2);
     }
     Date endDate = c.getTime();
     
@@ -127,7 +127,7 @@ public class EvolutionGraphTest {
      * 
      * set option '--driver-memory 32G' to avoid these 
      */
-    
+    /*
     Map<Theme, Double> emOutputs = themesRdd.collectAsMap();
     
     System.out.println(emOutputs.keySet().size() + " elements");
@@ -145,7 +145,7 @@ public class EvolutionGraphTest {
       System.out.println(themeLog);
       i += 1;
     }
-    
+    */
     int themeCount = (int) themesRdd.count();
     System.out.println("themesRdd = " + themeCount);
     
@@ -167,15 +167,16 @@ public class EvolutionGraphTest {
     System.out.println("transitionGraph = " + transitionCount);
 
     System.out.println("KLDivergence done");
-
+/*
     int transitionCounter = 1;
     for (EvolutionaryTransition transition : transitionGraph.collect()) {
       System.out.println(transitionCounter++ + ". " + transition.toString());
     }
-      
+
     // generate the graph
     TimePeriod timePeriod = new TimePeriod(startDate, endDate);
     GraphVisualization.generateGraphFromRdd("graph.dot", timePeriod, themes, transitionGraph);
+*/
   }
 
 }
