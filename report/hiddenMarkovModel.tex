@@ -31,40 +31,13 @@ With such definitions, we can define the parameters of a Hidden Markov Model as 
 \paragraph{Baum-Welch Algorithm}
 (This section is a mere copy of the wikipedia article).
 The Baum-Welch algorithm is an algorithm using the Expectation-Maximization principle to find the parameters $\Theta^*$ such that $P(Y_1,...,Y_T| \Theta^* )$ is a local maximum.
-In its forward-backward version,it is necessary to compute first during the forward procedure the coefficients $\alpha_i(t) = P(Y_1=y_1,...,Y_t = y_t, X_t = i | \Theta )$ by using the relation
-\begin{equation}
-\begin{cases}
-\alpha_i(1) = \pi_i b_i(y_1) & \\
-\alpha_i(t) = b_i(y_t)\sum_{j=1}^{N}{a_{j,i}\alpha_j(t-1)} & \text{for t \textgreater 1}
-\end{cases}
-\end{equation}
+In its forward-backward version,it is necessary to compute first during the forward procedure the coefficients $\alpha_i(t) = P(Y_1=y_1,...,Y_t = y_t, X_t = i | \Theta )$ and then it is necessary to compute the coefficients $\beta_i(t) = P(Y_{t+1}=y_{t+1},...,Y_T = y_T| X_t = i, \Theta )$.
 
-It is then necessary to compute the coefficients $\beta_i(t) = P(Y_{t+1}=y_{t+1},...,Y_T = y_T| X_t = i, \Theta )$ by using the relation
-\begin{equation}
-\begin{cases}
-\beta_i(T) = 1 & \\
-\beta_i(t) = b_j(y_{t+1})\sum_{j=1}^{N}{a_{i,j}\beta_j(t+1)} & \text{for t \textless T}
-\end{cases}
-\end{equation}
-
-It is then possible to compute some temporary variables
-\[\gamma_i(t)=P(X_t=i|Y,\theta) = \frac{\alpha_i(t)\beta_i(t)}{\sum_{j=1}^N \alpha_j(t)\beta_j(t)}\]
-And the variables
-\[\xi_{ij}(t)=P(X_t=i,X_{t+1}=j|Y,\theta)=\frac{\alpha_i(t) a_{ij} \beta_j(t+1) b_j(y_{t+1})}{\sum_{k=1}^N \alpha_k(t)  \beta_k(t)}\]
-
-Thanks to these temporary variables, we can update the initial probability distribution as
-\[\pi_i^* = \gamma_i(1)\]
-
-The transition probability matrix as
-\[a_{ij}^*=\frac{\sum^{T-1}_{t=1}\xi_{ij}(t)}{\sum^{T-1}_{t=1}\gamma_i(t)}\]
-
-And the emission probability matrix as
-\[b_i^*(v_k)=\frac{\sum^T_{t=1} 1_{y_t=v_k} \gamma_i(t)}{\sum^T_{t=1} \gamma_i(t)}\]
+Once those forward and backward coefficients are computed, it is possible to update the initial distribution, transition probability matrix and the emission matries, as shown in [RABINER CITATION HERE] or [WIKIPEDIA ARTICLE HERE].
 
 We have used this forward-backward algorithm as the starting point of our algorithm.
-
 \paragraph{Precise Froward-Backward algorithm}
-The algorithm presented in the previous section suffers from precision problems (underflows) when the size of the sequence size grows up.
+The original Baum-Welch algorithm depicted in the previous section suffers from precision problems (underflows) when the size of the sequence size grows up.
 As presented in [RABINER CITATION HERE], one way to fix that is by defining a family of scaled coefficients $\hat{\alpha}_i(t)$ and $\hat{\beta}_i(t)$ defined by the relations:
 \begin{equation}
 \begin{cases}
@@ -84,18 +57,7 @@ And
 \end{cases}
 \end{equation}
 
-We can use some new temporary variables:
-\[\hat{\gamma}_i(t) = \hat{\alpha}_i(t)\hat{\beta}_i(t)\]
-And
-\[\hat{\xi}_{ij}(t)= \hat{\alpha}_i(t) a_{ij} \hat{\beta}_j(t+1) b_j(y_{t+1})\]
-
-To perform the initial distribution update with
-\[\pi_i^* = \frac{\hat{\gamma}_i(1)}{\sum_{j=1}^{N}\hat{\gamma}_j(1)}\]
-
-The transition distribution update with
-\[a_{ij}^*=\frac{\sum^{T-1}_{t=1}\xi_{ij}(t)}{\sum^{N}_{j=1}\sum^{T-1}_{t=1}\xi_{ij}(t)}\]
-And the emission distribution update using
-\[b_i^*(v_k)=\frac{\sum^T_{t=1} 1_{y_t=v_k} \hat{\gamma}_i(t)}{\sum^T_{t=1} \hat{\gamma}_i(t)}\]
+The new update rules are described in [RABINER CITATION HERE].
 
 \paragraph{Precise parallel Forward-Backward algorithm}
 As described in [TURIN, WILLIAM CITATION HERE], it is possible to design a parallel forward-backward algorithm from the traditional forward-backward algorithm as the relations defining the forward and backward coefficients are linear. However, the way scaling is done in the precise version of algorithm seems to block this. This is not the case, and we show how in this section.
