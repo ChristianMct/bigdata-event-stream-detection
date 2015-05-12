@@ -16,7 +16,7 @@ The Baum-Welch algorithm is a classic algorithm to train a Hidden Markov Model g
 In its original form described as presented in [CITATION HERE], the algorithm uses a forward-backward procedure: the algorithm computes some probabilities from the beginning of the observed sequence to the end, and some other probabilities from the end of the observed sequence to the beginning. It has the advantage to be fast compared to other algorithms like [ CITATION HERE ] but uses a lot of memory, and is sequential by nature.
 Some work has to be done to make it parallel on the observed sequence (as presented for example in [CITATION HERE]), or precise ( as presented for example in [CITATION HERE]). However it seems like no paper presented a variant being precise, and also accelerated in parallel over the observed sequence.
 Thus, we extended the known algorithms to design a precise and parallel algorithm for very long observation sequences.
-Our algorithm let us to train our Hidden Markov Model over a sequence of more than 500 millions observations on a cluster of hundreds of machines using Spark, or on GPUs. It uses more memory than the original forward-backward version and also makes more computations, but can be run on as many cores as available (as long as there are less processors than observations...).
+Our algorithm let us to train our Hidden Markov Model over a sequence of more than 5 billion observations on a cluster of thousands of processors using Spark. It uses more memory than the original forward-backward version and also makes more computations, but can be run on as many cores as available (as long as there are less processors than observations...).
 We will present in the rest of this section the original forward-backward algorithm, the precise variant, and our precise parallel algorithm.
 
 In all the rest of this section, we use the same notations and definitions as on the Wikipedia (English) article of the Baum-Welch algorithm. We first present the original algorithm as on the Wikipedia article, then present the precise version suggested in [RABINER CITATION HERE], then the parallel version suggested in [TURIN, WILLIAM CITATION HERE], and ultimately our precise parallel version which is built upon the two ideas.
@@ -43,7 +43,7 @@ It is then necessary to compute the coefficients $\beta_i(t) = P(Y_{t+1}=y_{t+1}
 \begin{equation}
 \begin{cases}
 \beta_i(T) = 1 & \\
-\beta_i(t) = b_j(y_{t+1})\sum_{j=1}^{N}{a_{i,j}\beta_j(t+1)} & \text{for t \textless 1}
+\beta_i(t) = b_j(y_{t+1})\sum_{j=1}^{N}{a_{i,j}\beta_j(t+1)} & \text{for t \textless T}
 \end{cases}
 \end{equation}
 
@@ -64,7 +64,7 @@ And the emission probability matrix as
 We have used this forward-backward algorithm as the starting point of our algorithm.
 
 \paragraph{Precise Froward-Backward algorithm}
-The algorithm presented on the previous section suffers from precision problems (underflows) when the size of the sequence size grows up.
+The algorithm presented in the previous section suffers from precision problems (underflows) when the size of the sequence size grows up.
 As presented in [RABINER CITATION HERE], one way to fix that is by defining a family of scaled coefficients $\hat{\alpha}_i(t)$ and $\hat{\beta}_i(t)$ defined by the relations:
 \begin{equation}
 \begin{cases}
@@ -79,7 +79,7 @@ And
 \begin{equation}
 \begin{cases}
 \bar{\beta}_i(T) = 1 & \\
-\bar{\beta}_i(t) = b_j(y_{t+1})\sum_{j=1}^{N}{a_{i,j}\hat{\beta}_j(t+1)} & \text{for t \textless 1} \\
+\bar{\beta}_i(t) = b_j(y_{t+1})\sum_{j=1}^{N}{a_{i,j}\hat{\beta}_j(t+1)} & \text{for t \textless T} \\
 \hat{\beta}_i(t) = c_t \bar{\beta}_i(t)
 \end{cases}
 \end{equation}
@@ -100,7 +100,75 @@ And the emission distribution update using
 \paragraph{Precise parallel Forward-Backward algorithm}
 As described in [TURIN, WILLIAM CITATION HERE], it is possible to design a parallel forward-backward algorithm from the traditional forward-backward algorithm as the relations defining the forward and backward coefficients are linear. However, the way scaling is done in the precise version of algorithm seems to block this. This is not the case, and we show how in this section.
 
+In the previous section, the relations defining the scaled forward coefficients can be in fact reinterpreted as the following relations:
+\begin{equation}
+\begin{cases}
+\bar{\alpha}_i(1) = \pi_i b_i(y_1) & \\
+\bar{\alpha}_i(t) = b_i(y_t)\sum_{j=1}^{N}{a_{j,i}\bar{\alpha}_j(t-1)} & \text{for t \textgreater 1} \\
+\hat{\alpha}_i(t) = c_t \bar{\alpha}_i(t) & \text{for all t} \\
+\text{with } c_t \text{ such that } \sum_{j=1}^{N}{\hat{\alpha}_j(t)} = 1 & \text{for }t \ge 1
+\end{cases}
+\end{equation}
 
+While it was previously not possible to design a parallel algorithm due to the definition of the $c_t$ coefficients (hindering the parallel computation of the $\hat{\alpha}_i(t)$ coefficients), it is now possible.
+If we define the matrices $\bar{Fo}(t_1 \rightarrow t_1 + 1)$ (one step forward matrices), the matrices $\bar{Ba}( t_1 \leftarrow t_1 + 1)$ (one step backward matrices), the vectors $\bar{\alpha}(t)=(\bar{\alpha}_i(t))$, and the vectors $\bar{\beta}(t)=(\bar{\beta}_i(t))$ with the following relations:
+
+\begin{equation}
+\begin{cases}
+\bar{Fo}( t - 1 \rightarrow t) =  \{b_i(y_{t+1})a_{ji}\} & \\
+\bar{\alpha}(1) =  (\pi_i b_i(y_1))_{1 \le i \le N} & \\
+\bar{\alpha}(t) =  \bar{Fo}( t - 1 \rightarrow t) \hat{\alpha}_i(t - 1) & \text{for t \textgreater 1} \\
+\hat{\alpha}(t) = c_t \bar{\alpha}(t) &
+\end{cases}
+\begin{cases}
+\bar{Ba}( t \leftarrow t + 1) = \{b_j(y_{t+1})a_{ij}\} & \\
+\bar{\beta}(T) = (1)_{1 \le i \le N} & \\
+\bar{\beta}(t) =  \bar{Ba}( t \leftarrow t + 1) \hat{\beta}(t + 1) & \text{for t \textless T} \\
+\hat{\beta}(t) = c_t \bar{\beta}(t) &
+\end{cases}
+\end{equation}
+
+It is possible to go parallel with some more general matrices $\bar{Fo}(t_1 \rightarrow t_2)$ (forward matrices), $\bar{Ba}(t_1 \leftarrow t_2)$ (backward matrices), $\hat{Fo}(t_1 \rightarrow t_2)$ (precise forward matrices), $\hat{Ba}(t_1 \leftarrow t_2)$ (precise backward matrices), following these constitutive relations:
+
+\begin{equation}
+\begin{cases}
+\bar{Fo}( t - 1 \rightarrow t) =  \{b_i(y_{t+1})a_{ji}\} & \\
+\bar{Fo}( t_1 \rightarrow t_3) =   \bar{Fo}( t_2 \rightarrow t_3) \hat{Fo}( t_1 \rightarrow t_2)& \\
+\hat{Fo}( t_1 \rightarrow t_3) =   \hat{Fo}( t_2 \rightarrow t_3) \hat{Fo}( t_1 \rightarrow t_2)& \\
+\bar{\alpha}(t_2) =  \bar{Fo}( t_1 \rightarrow t_2) \hat{\alpha}(t_1) & \\
+\hat{\alpha}(t_2) =  \hat{Fo}( t_1 \rightarrow t_2) \hat{\alpha}(t_1) &
+\end{cases}
+\begin{cases}
+\bar{Ba}( t \leftarrow t + 1) = \{b_j(y_{t+1})a_{ij}\} & \\
+\bar{Ba}(t_1 \leftarrow t_3) = \bar{Ba}(t_1 \leftarrow t_2) \hat{Ba}(t_2 \leftarrow t_3) & \\
+\hat{Ba}(t_1 \leftarrow t_3) = \hat{Ba}(t_1 \leftarrow t_2) \hat{Ba}(t_2 \leftarrow t_3) & \\
+\bar{\beta}(t_1) =  \bar{Ba}( t_1 \leftarrow t_2) \hat{\beta}(t_2) & \\
+\hat{\beta}(t_1) =  \hat{Ba}( t_1 \leftarrow t_2) \hat{\beta}(t_2) & \\
+\end{cases}
+\end{equation}
+
+It is possible to go parallel as in fact we can choose any families of matrices $\hat{Fo}(t_1 \rightarrow t_2)$ and $\hat{Ba}(t_1 \leftarrow t_2)$ just guaranteeing that
+\begin{equation}
+\begin{cases}
+\hat{Fo}( t - 1 \rightarrow t) = \frac{\bar{Fo}( t - 1 \rightarrow t)}{\norm{\bar{Fo}( t - 1 \rightarrow t)}_1} & \\
+\hat{Fo}( t_1 \rightarrow t_3) =   \frac{\hat{Fo}( t_2 \rightarrow t_3) \hat{Fo}( t_1 \rightarrow t_2)}{\norm{\hat{Fo}( t_2 \rightarrow t_3) \hat{Fo}( t_1 \rightarrow t_2)}_1}& \\
+\end{cases}
+\begin{cases}
+\hat{Ba}(t \leftarrow t+1) = \frac{\bar{Ba}(t \leftarrow t+1)}{\norm{\bar{Ba}(t \leftarrow t+1)}_1} & \\
+\hat{Ba}(t_1 \leftarrow t_3) = \frac{\hat{Ba}(t_1 \leftarrow t_2) \hat{Ba}(t_2 \leftarrow t_3)}{\norm{\hat{Ba}(t_1 \leftarrow t_2) \hat{Ba}(t_2 \leftarrow t_3)}_1} & \\
+\end{cases}
+\end{equation}
+
+Which we can generate with a parallel scan [PARALLEL SCANS CITATIONS HERE] starting from the set of matrices $\hat{Fo}( t - 1 \rightarrow t)$. Computing a posteriori the $c_t$ coefficients, and then doing another parallel scan starting from the set $\hat{Ba}(t \leftarrow t+1)$.
+
+The rest of the algorithm can be easily done in a parallel fashion.
+
+\paragraph{Precise parallel Forward-Backward algorithm complexity}
+The total work needed now to do an update step is with this algorithm $O(T(N^3 + NM))$ ($O(TN^3)$ to compute the matrices, $O(N)$ to update the initial probability distribution, $O(TN^2)$ to update the transition matrix, $O(TNM)$ to update the emission matrix). But the running time can be lowered to $O(ln(T)(N^3 + NM))$ by applying the parallel scan and performing matrix computation serially (it can be lowered again by making matrix multiplications in parallel).
+The memory complexity of the algorithm increases to $O(TN^2 + NM)$ compared to the $O(TN + NM)$ of the sequential forward backward algorithm.
+\paragraph{Precise parallel Forward-Backward algorithm performance}
+This algorithms let us to process sequences of the order of 5 billion observations on a cluster of a thousands nodes when $N=10$, $M=5000$, which was not possible on a single machine due to memory and time limitations.
+We tried an implementation on GPUs of this algorithm. We were able to have a 10x boost on an AMD HD7870 compared to an Intel Core I7 4510U CPU when doing double precision computations.
 \subsubsection{Viterbi Algorithm and Scoring functions}
 
 
