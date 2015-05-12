@@ -22,15 +22,16 @@ import javax.xml.stream.XMLStreamException;
 *and computes the background model for the EM algorithm
 **/
 public class InputParser implements Serializable {
-  protected static final int PAGE_NUMBER_TRESHOLD = 3;
+  private final int pageNumberTreshold;
   private final JavaRDD<SegmentedArticle> segmentedArticles;
   private final TimePeriod timeFrame;
   private final BackgroundModel backgroundModel;
   
   /**Initialize a parser on the dataset. EM and HMM can get their input form there. Sets
-   * the word discarding treshold to 5 occurence. Words having less than 5 occurences are
-   * discarded from the background model, lexicon and HMM input. Use the other constructor
-   * to set this value yourself.
+   * the word discarding treshold to 5 occurence.Words having less than 5 occurences are
+   * discarded from the background model, lexicon and HMM input. Sets the page number treshold to 4.
+   * all articles starting at page greater than this treshold are discarded. Use the other
+   * constructor to set these values yourself.
    * @param timeFrame The TimePeriod for which all articles will be loaded 
    * @param sparkContext the Spark Context
    * @param sourcePath the full path to the data (HDFS or local)
@@ -43,7 +44,7 @@ public class InputParser implements Serializable {
           JavaSparkContext sparkContext,
           List<String> sourcePath) 
                   throws NumberFormatException, XMLStreamException, ParseException, IOException {
-    this(timeFrame,sparkContext,sourcePath,30);
+    this(timeFrame,sparkContext,sourcePath,30,4);
   }
   
   /**Initialize a parser on the dataset. EM and HMM can get their input form there. You can
@@ -55,6 +56,8 @@ public class InputParser implements Serializable {
    * @param sourcePath the full path to the data (HDFS or local)
    * @param wordDiscardTreshold minimum number of occurences for a word to appear in the
    *        backgroundModel, Lexicon, and HMM input
+   * @param pageNumberTreshold the input parser will filter out articles that begin strictly after
+   *        this treshold.
    * @throws NumberFormatException parser expected a number and found something else.
    * @throws XMLStreamException the xml file has unexpected format.
    * @throws ParseException could not parse a date.
@@ -63,9 +66,11 @@ public class InputParser implements Serializable {
   public InputParser(TimePeriod timeFrame,
           JavaSparkContext sparkContext,
           List<String> sourcePath,
-          int wordDiscardTreshold) 
+          int wordDiscardTreshold,
+          int pageNumberTreshold) 
                   throws NumberFormatException, XMLStreamException, ParseException, IOException {
     
+    this.pageNumberTreshold = pageNumberTreshold;
     this.timeFrame = timeFrame;
     
     List<String> sourceList = new LinkedList<String>();
@@ -136,7 +141,7 @@ public class InputParser implements Serializable {
         RawArticle rawArticle;
         List<RawArticle> rawArticleList = new LinkedList<RawArticle>();
         while ((rawArticle = ras.read()) != null) {
-          if(rawArticle.pageNumber < PAGE_NUMBER_TRESHOLD) {
+          if (rawArticle.pageNumber <= InputParser.this.pageNumberTreshold) {
             rawArticleList.add(rawArticle);
           }
         }

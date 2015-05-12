@@ -23,19 +23,13 @@ public class RawArticleStreamTest{
           throws NumberFormatException, XMLStreamException, ParseException, IOException {
     
     DateFormat format = new SimpleDateFormat("dd/MM/yyyy-HH");
-    Calendar cal = Calendar.getInstance();
-    cal.set(1939, 0, 1,0,0,0);
-    Date begin = cal.getTime();
-    cal.set(1939, 0, 31,13,0,0);
-    Date end = cal.getTime();  
-    end.getDate();
+
+    Date begin = format.parse("1/1/1939-11");
+    Date end = format.parse("31/12/1939-13");
     
     System.out.println("Articles from : " + begin + " to : " + end);
     TimePeriod period = new TimePeriod(begin, end);
     
-    Date date = format.parse("4/1/1939-12");
-    System.out.println(date);
-    System.out.println(period.includeDates(date));
     
     System.out.println("Files :");
     for (String name:period.getFilesNames()) {
@@ -59,8 +53,14 @@ public class RawArticleStreamTest{
     
     List<RawArticle> artl = new LinkedList<RawArticle>();
     while ((art = ras.read()) != null && count++ < LIMIT) {
-      artl.add(art);
-      System.out.println(count + " - " + art.issueDate.toString());
+      if(true) {
+        artl.add(art);
+        //System.out.println(count + " - " + art.pageNumber);
+        System.out.println("Name: "+art.name);
+        //System.out.println("Full text: "+art.fullText);
+        System.out.println(art.fullText);
+        System.out.println("-------------------------------------------------------------------------------------------------------");
+      }
     }
     System.out.println("Done");
     System.out.println(artl.size());

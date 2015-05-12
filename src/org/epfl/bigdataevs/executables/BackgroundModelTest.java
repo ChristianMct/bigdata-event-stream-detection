@@ -45,7 +45,7 @@ public class BackgroundModelTest {
     Date to = format.parse("31/12/1970-13");
     TimePeriod timePeriod = new TimePeriod(from, to);
     
-    InputParser parser = new InputParser(timePeriod, ctx, inputPaths,1);
+    InputParser parser = new InputParser(timePeriod, ctx, inputPaths,1,3);
     
     BackgroundModel result = parser.getBackgroundModel(7);
     
