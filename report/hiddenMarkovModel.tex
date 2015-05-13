@@ -16,7 +16,7 @@ The Baum-Welch algorithm is a classic algorithm to train a Hidden Markov Model g
 In its original form described as presented in [CITATION HERE], the algorithm uses a forward-backward procedure: the algorithm computes some probabilities from the beginning of the observed sequence to the end, and some other probabilities from the end of the observed sequence to the beginning. It has the advantage to be fast compared to other algorithms like [ CITATION HERE ] but uses a lot of memory, and is sequential by nature.
 Some work has to be done to make it parallel on the observed sequence (as presented for example in [CITATION HERE]), or precise ( as presented for example in [CITATION HERE]). However it seems like no paper presented a variant being precise, and also accelerated in parallel over the observed sequence.
 Thus, we extended the known algorithms to design a precise and parallel algorithm for very long observation sequences.
-Our algorithm let us to train our Hidden Markov Model over a sequence of more than 5 billion observations on a cluster of thousands of processors using Spark. It uses more memory than the original forward-backward version and also makes more computations, but can be run on as many cores as available (as long as there are less processors than observations...).
+Our algorithm enabled us to train our Hidden Markov Model over a sequence of more than 5 billion observations on a cluster of thousands of processors using Spark. It uses more memory than the original forward-backward version and also makes more computations, but can be run on as many cores as available (as long as there are less processors than observations...).
 We will present in the rest of this section the original forward-backward algorithm, the precise variant, and our precise parallel algorithm.
 
 In all the rest of this section, we use the same notations and definitions as on the Wikipedia (English) article of the Baum-Welch algorithm. We first present the original algorithm as on the Wikipedia article, then present the precise version suggested in [RABINER CITATION HERE], then the parallel version suggested in [TURIN, WILLIAM CITATION HERE], and ultimately our precise parallel version which is built upon the two ideas.
@@ -129,8 +129,8 @@ The rest of the algorithm can be easily done in a parallel fashion.
 The total work needed now to do an update step is with this algorithm $O(T(N^3 + NM))$ ($O(TN^3)$ to compute the matrices, $O(N)$ to update the initial probability distribution, $O(TN^2)$ to update the transition matrix, $O(TNM)$ to update the emission matrix). But the running time can be lowered to $O(ln(T)(N^3 + NM))$ by applying the parallel scan and performing matrix computation serially (it can be lowered again by making matrix multiplications in parallel).
 The memory complexity of the algorithm increases to $O(TN^2 + NM)$ compared to the $O(TN + NM)$ of the sequential forward backward algorithm.
 \paragraph{Precise parallel Forward-Backward algorithm performance}
-This algorithms let us to process sequences of the order of 5 billion observations on a cluster of a thousands nodes when $N=10$, $M=5000$, which was not possible on a single machine due to memory and time limitations.
-We tried an implementation on GPUs of this algorithm. We were able to have a 10x boost on an AMD HD7870 compared to an Intel Core I7 4510U CPU when doing double precision computations.
+This algorithm enabled us to process sequences of the order of 5 billion observations on a cluster of a thousands nodes with $N=10$ and $M=5000$, which was not possible on a single machine due to memory and time limitations.
+We tried an implementation on GPUs of this algorithm. We were able to have a 10x boost on an AMD HD7870 GPU compared to an Intel Core I7 4510U CPU when doing double precision computations.
 \subsubsection{Viterbi Algorithm and Scoring functions}
 
 

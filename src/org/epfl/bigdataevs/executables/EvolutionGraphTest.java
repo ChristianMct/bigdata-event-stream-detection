@@ -91,8 +91,8 @@ public class EvolutionGraphTest {
     /*
      * Integration of the EM Algorithm
      */
-    int wordsThreshold = 5;
-    int pageThreshold = 3;
+    int wordsThreshold = Parameters.numberOfCountsBackgroundModelThreshold;
+    int pageThreshold = Parameters.firstNumberOfPagesInNewspaperThreshold;
     
     InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), 
             ctx, inputPaths, wordsThreshold, pageThreshold);
@@ -109,9 +109,9 @@ public class EvolutionGraphTest {
       System.out.println("Number of articles : " + integer);
     }
     
-    int numberOfThemes = 10;
-    double lambdaBackgroundModel = 0.95;
-    int numberOfRuns = 1;   
+    int numberOfThemes = Parameters.numberOfThemes;
+    double lambdaBackgroundModel = Parameters.lambdaBackgroundModel;
+    int numberOfRuns = Parameters.numberOfRunsEmAlgorithm;   
     EmAlgo emAlgo = new EmAlgo(ctx, emInputFromParser, numberOfThemes, lambdaBackgroundModel, numberOfRuns);
     
     JavaPairRDD<Theme, Double> themesRdd = emAlgo.run();   
