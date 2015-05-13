@@ -67,7 +67,7 @@ public class MainSparkHmm {
     
     System.out.println("training using Baum-Welch, maxIterations :"+maxIterations);
     
-    sparkTrainedHmm2.rawSparkTrain(sc, rawSequenceRdd, 0.0001, 0.0001, maxIterations, rawSequence);
+    sparkTrainedHmm2.rawSparkTrain(sc, rawSequenceRdd, 0.0001, 0.0001, maxIterations);
     
     //Printing results
     // Print Pi first

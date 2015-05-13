@@ -154,7 +154,7 @@ public class LifeCycleAnalyserSpark implements Serializable {
     System.out.println("observedSequenceRdd length : " + observedSequenceRdd.count());
     System.out.println("observedSequenceRdd : "
             + Arrays.toString(Arrays.copyOf(observedSequenceRdd.collect().toArray(), 50)));
-    hmm.rawSparkTrain(sc, observedSequenceRdd, piThreshold, aaThreshold, maxIterations, null);
+    hmm.rawSparkTrain(sc, observedSequenceRdd, piThreshold, aaThreshold, maxIterations);
 
     mostLikelySequenceThemeShifts = hmm.decode(sc, observedSequenceRdd, 1024 * 32);
     
