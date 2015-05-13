@@ -2,6 +2,7 @@ package org.epfl.bigdataevs.hmm;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -13,6 +14,7 @@ import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.storage.StorageLevel;
+
 import scala.Tuple2;
 import scala.Tuple3;
 
@@ -293,6 +295,28 @@ public class Hmm2 implements Serializable {
     
     // return the fully aggregated decoded state list
     return decodedStatesRdd;
+  }
+  
+  /**
+   * Perform training on a spark Rdd observation sequence using either
+   * the spark version or the sequential algorithm.
+   * @param sc Spark context to use
+   * @param observedSequenceRdd Rdd containing the sequence (seq index, word index)
+   * @param piThreshold Threshold on pi
+   * @param aaThreshold  Threshold on a
+   * @param maxIterations Max number of iterations
+   */
+  public void rawTrain(
+          JavaSparkContext sc,
+          JavaRDD<Tuple2<Integer, Integer>> observedSequenceRdd,
+          double piThreshold,
+          double aaThreshold,
+          int maxIterations) {
+    if ( observedSequenceRdd.count() > 10000000 ) {
+      rawSparkTrain(sc, observedSequenceRdd, piThreshold, aaThreshold, maxIterations);
+    } else {
+      
+    }
   }
   
   /**
