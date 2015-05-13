@@ -294,7 +294,7 @@ public class Hmm2 implements Serializable {
     // return the fully aggregated decoded state list
     return decodedStatesRdd;
   }
-
+  
   /**
    * Perform training on a spark Rdd observation sequence.
    * @param sc Spark context to use
@@ -308,8 +308,7 @@ public class Hmm2 implements Serializable {
           JavaRDD<Tuple2<Integer, Integer>> observedSequenceRdd,
           double piThreshold,
           double aaThreshold,
-          int maxIterations,
-          int[] observedSequence) {
+          int maxIterations) {
     
     final int T = (int) observedSequenceRdd.count();    
     final int blockSize = 1024 * 16;
