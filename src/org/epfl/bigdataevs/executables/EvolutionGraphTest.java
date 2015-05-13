@@ -44,6 +44,8 @@ public class EvolutionGraphTest {
     
     System.out.println("STARTED TEST");
     
+    Parameters.parseParameters("conf.txt");
+    
     SparkConf sparkConf = new SparkConf().setAppName("Test article processor");
     //sparkConf.setMaster("localhost:7077");
     JavaSparkContext ctx = new JavaSparkContext(sparkConf);
