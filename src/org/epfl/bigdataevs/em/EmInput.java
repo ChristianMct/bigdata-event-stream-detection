@@ -19,6 +19,7 @@ import org.apache.commons.math3.fraction.Fraction;
 import org.epfl.bigdataevs.eminput.ParsedArticle;
 import org.epfl.bigdataevs.eminput.TimePartition;
 import org.epfl.bigdataevs.eminput.TimePeriod;
+import org.epfl.bigdataevs.executables.Parameters;
 
 import scala.Tuple2;
 
@@ -153,7 +154,7 @@ public class EmInput implements Serializable {
       }
       for (String word : theme.wordsProbability.keySet()) {
         double numerator = subUpdateProbabilitiesOfWordsGivenTheme(word, theme);
-        theme.wordsProbability.put(word, numerator / (denominator + EmAlgo.epsilon));
+        theme.wordsProbability.put(word, numerator / (denominator));
       }
     }
     
@@ -256,7 +257,7 @@ public class EmInput implements Serializable {
   
   
   public List<Tuple2<Theme, Double>> filterTheme(List<Tuple2<Theme, Double>> themesWithScore) {
-    double threshold = (1.0 / this.themesOfPartition.size()) * 0.9;
+    double threshold = (1.0 / this.themesOfPartition.size()) * Parameters.themeFilteringThreshold;
     List<Tuple2<Theme, Double>> newThemesWithScores = new ArrayList<Tuple2<Theme,Double>>();
     for (Tuple2<Theme, Double> tuple : themesWithScore) {
       if (tuple._2 > threshold) {

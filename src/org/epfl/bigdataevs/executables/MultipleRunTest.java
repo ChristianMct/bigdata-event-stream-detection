@@ -11,7 +11,6 @@ import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
 import org.epfl.bigdataevs.em.EmAlgo;
 import org.epfl.bigdataevs.em.EmInput;
-import org.epfl.bigdataevs.em.LightTheme;
 import org.epfl.bigdataevs.em.Theme;
 import org.epfl.bigdataevs.em.ThemeFromLargeTimePeriod;
 import org.epfl.bigdataevs.eminput.EmInputFromParser;
@@ -20,7 +19,6 @@ import org.epfl.bigdataevs.eminput.ParsedArticle;
 import org.epfl.bigdataevs.eminput.TimePartition;
 import org.epfl.bigdataevs.eminput.TimePeriod;
 import org.epfl.bigdataevs.evolutiongraph.EvolutionaryTransition;
-import org.epfl.bigdataevs.evolutiongraph.GraphVisualization;
 import org.epfl.bigdataevs.evolutiongraph.KLDivergence;
 
 import scala.Tuple2;
@@ -38,13 +36,11 @@ import java.util.Map;
 
 import javax.xml.stream.XMLStreamException;
 
-public class EvolutionGraphTest {
+public class MultipleRunTest {
 
   public static void main(String[] args) throws NumberFormatException, XMLStreamException, ParseException, IOException {
     
     System.out.println("STARTED TEST");
-    
-    Parameters.parseParameters("conf.txt");
     
     SparkConf sparkConf = new SparkConf().setAppName("Test article processor");
     //sparkConf.setMaster("localhost:7077");
@@ -57,52 +53,42 @@ public class EvolutionGraphTest {
     
 
     Calendar c = Calendar.getInstance();
-    Date startDate = format.parse(Parameters.startDate);
-    c.setTime(startDate);
-    for (int i = 0; i < Parameters.dateStepsNumber; i++) {
+    c.setTime(format.parse("18/12/1915-0"));
+    for(int i=0; i<2; i++){
       Date c1 = c.getTime();
-      c.add(Calendar.DATE, Parameters.dateStepSize);
+      c.add(Calendar.DATE, 7);
       Date c2 = c.getTime();
       timePeriods.add(new TimePeriod(c1, c2));
-      System.out.println(c1 + "-" + c2);
+      System.out.println(c1+"-"+c2);
     }
-    Date endDate = c.getTime();
     
     //System.out.println(timePeriods.get(0).includeDates(format.parse("1/1/1939-12")));
     
     List<String> inputPaths = new LinkedList<String>();
     inputPaths.add("hdfs:///projects/dh-shared/GDL/");
-    inputPaths.add("hdfs:///projects/dh-shared/JDG/");
+    //inputPaths.add("hdfs://user/christian/GDL");
  
-    
-    /*
-    System.out.println("======Background model's content======");
-    for(int background_word_id : result.backgroundWordMap.keySet()) {
-      String background_word = result.backgroundWordMap.get(background_word_id);
-      System.out.println(background_word
-        + "(ID: " + background_word_id + "): " 
-        + result.backgroundModel.get(background_word) + " distribution proba.");
-    }
-    
-    
-    System.out.println("======Word chronological list======");
-    for (Integer word: result.collectionWords)
-      System.out.println(word);
-    */
     
     /*
      * Integration of the EM Algorithm
      */
-    InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), 
+    
+    int wordsThreshold = Parameters.numberOfCountsBackgroundModelThreshold;
+    int pageThreshold = Parameters.firstNumberOfPagesInNewspaperThreshold;
+    
+    InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods),
             ctx, inputPaths);
     EmInputFromParser emInputFromParser = parser.getEmInput(timePeriods);
     
-    List<Integer> numArticles = emInputFromParser.timePartitions.map(new Function<Tuple2<TimePeriod,TimePartition>, Integer>() {
+    List<Integer> numArticles = emInputFromParser.timePartitions.map(
+            new Function<Tuple2<TimePeriod,TimePartition>, Integer>() {
+
       @Override
       public Integer call(Tuple2<TimePeriod, TimePartition> v1) throws Exception {
         // TODO Auto-generated method stub
         return v1._2.parsedArticles.size();
       }
+      
     }).collect();
     for (Integer integer : numArticles) {
       System.out.println("Number of articles : " + integer);
@@ -116,15 +102,6 @@ public class EvolutionGraphTest {
     JavaPairRDD<Theme, Double> themesRdd = emAlgo.run();   
     themesRdd.cache();
     
-    /* The following code raises
-     * 
-     * java.lang.OutOfMemoryError: GC overhead limit exceeded
-     * or
-     * java.lang.OutOfMemoryError: Java heap space
-     * 
-     * set option '--driver-memory 32G' to avoid these 
-     */
-    /*
     Map<Theme, Double> emOutputs = themesRdd.collectAsMap();
     
     System.out.println(emOutputs.keySet().size() + " elements");
@@ -142,41 +119,7 @@ public class EvolutionGraphTest {
       System.out.println(themeLog);
       i += 1;
     }
-    */
-    int themeCount = (int) themesRdd.count();
-    System.out.println("themesRdd = " + themeCount);
-    
-    System.out.println("KLDivergence starts");
-    KLDivergence kldivergence = new KLDivergence(Parameters.threshold, Parameters.logMax,themeCount);
-    
-    JavaRDD<LightTheme> themes = themesRdd.map(
-            new Function<Tuple2<Theme,Double>,LightTheme>(){
-            @Override
-            public LightTheme call(Tuple2<Theme, Double> arg0) throws Exception {
-              return new LightTheme(arg0._1());
-            }
-          }
-    );
-    JavaRDD<EvolutionaryTransition> transitionGraph = kldivergence.compute(themes);
-    
-    transitionGraph.cache();
-    int transitionCount = (int) transitionGraph.count();
-    System.out.println("themesRdd = " + themeCount);
-    System.out.println("transitionGraph = " + transitionCount);
-
-    System.out.println("KLDivergence done");
-
-    int transitionCounter = 1;
-    for (EvolutionaryTransition transition : transitionGraph.collect()) {
-      System.out.println(transitionCounter++ + ". " + transition.toString());
-    }
-    System.out.println("themesRdd = " + themeCount);
-    System.out.println("transitionGraph = " + transitionCount);
-
-    // generate the graph
-    TimePeriod timePeriod = new TimePeriod(startDate, endDate);
-    GraphVisualization.generateGraphFromRdd(Parameters.outputFilename, timePeriod, themes, transitionGraph);
-
+      
   }
 
 }

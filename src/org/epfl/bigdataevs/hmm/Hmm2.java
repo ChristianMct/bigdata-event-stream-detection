@@ -2,6 +2,7 @@ package org.epfl.bigdataevs.hmm;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -13,6 +14,7 @@ import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.storage.StorageLevel;
+
 import scala.Tuple2;
 import scala.Tuple3;
 
@@ -294,7 +296,237 @@ public class Hmm2 implements Serializable {
     // return the fully aggregated decoded state list
     return decodedStatesRdd;
   }
+  
+  /**
+   * Perform training on a spark Rdd observation sequence using either
+   * the spark version or the sequential algorithm.
+   * @param sc Spark context to use
+   * @param observedSequenceRdd Rdd containing the sequence (seq index, word index)
+   * @param piThreshold Threshold on pi
+   * @param aaThreshold  Threshold on a
+   * @param maxIterations Max number of iterations
+   */
+  public void rawTrain(
+          JavaSparkContext sc,
+          JavaRDD<Tuple2<Integer, Integer>> observedSequenceRdd,
+          double piThreshold,
+          double aaThreshold,
+          int maxIterations) {
+    long sequenceLength = observedSequenceRdd.count();
+    if ( sequenceLength > 10000000 ) {
+      rawSparkTrain(sc, observedSequenceRdd, piThreshold, aaThreshold, maxIterations);
+    } else {
+      List<Tuple2<Integer, Integer>> observedSequenceList =
+              observedSequenceRdd.collect();
+      
+      // sort last partially scanned TA matrices
+      Collections.sort(observedSequenceList, new Comparator<Tuple2<Integer, Integer>>() {
+        @Override
+        public int compare(Tuple2<Integer, Integer> index1,
+                Tuple2<Integer, Integer> index2) {
+          return index1._1.compareTo(index2._1);
+        }
+      });
+      
+      int[] observedSequence = new int[(int)sequenceLength];
+      
+      // copy observation sequence
+      for ( Tuple2<Integer, Integer> tuple : observedSequenceList ) {
+        observedSequence[tuple._1] = tuple._2$mcI$sp();
+      }
+      rawSequentialTrain(observedSequence, piThreshold, aaThreshold, maxIterations);
+    }
+  }
+  
+  /**
+   * Trains the HMM using a sequential forward-backward Baum-Welch
+   * algorithm.
+   * 
+   * @param observedSequence
+   *          the list of observed output states indexes.
+   * @param piThreshold Threshold on pi
+   * @param aaThreshold  Threshold on a
+   * @param maxIterations Max number of iterations
+   */
+  public void rawSequentialTrain(
+          int[] observedSequence,
+          double piThreshold,
+          double aaThreshold,
+          int maxIterations) {
 
+    int sequenceLength = observedSequence.length;
+    // Variables in which we store the next iteration results
+    double[] piStar = new double[N];
+    double[][] aaStar = new double[N][N];
+    
+    // Temporary variables used in every iteration
+    double[] alphasScales = new double[ sequenceLength ];
+    double[] alphas = new double[N * sequenceLength];
+    double[] betas = new double[N * sequenceLength];
+    double[] gammas = new double[N];
+    double[] gammasSums = new double[N];
+    
+    // Iterate until convergence of the transition probabilities
+    int maxSteps = maxIterations;
+    for ( int iterationStep = 0; iterationStep < maxSteps; iterationStep++ ) {
+      System.out.println("Sequential iteration " + iterationStep);
+      
+      /*
+       * Generate all the alphas
+       */
+      // initialize the first alphas
+      {
+        double sum = 0.0;
+        for ( int i = 0; i < N; i++ ) {
+          double value = pi[i] * b[i][observedSequence[0]];
+          alphas[0 * N + i] = value;
+          sum += value;
+        }
+        
+        // rescale
+        double scale = 1.0 / sum;
+        alphasScales[0] = scale;
+        
+        for ( int i = 0; i < N; i++) {
+          alphas[0 * N + i] *= scale; 
+        }
+      }
+      
+      // compute the other alphas
+      for ( int t = 1; t < sequenceLength; t++ ) {
+        double sum = 0.0;
+        for (int i = 0; i < N; i++) {
+          double res = 0.0;
+          for (int j = 0; j < N; j++) {
+            res += (alphas[(t - 1) * N + j] * a[j][i]);
+          }
+          double value = (res * b[i][observedSequence[t]]);
+          alphas[t * N + i] = value;
+          sum += value;
+        }
+        
+        // rescale
+        double scale = 1.0 / sum;
+        alphasScales[t] = scale;
+
+        for ( int i = 0; i < N; i++) {
+          alphas[t * N + i] *= scale; 
+        }
+      }
+      
+      /*
+       * Generate all the betas coefficients
+       */
+      for (int stateIndex = 0; stateIndex < N; stateIndex++) {
+        betas[(sequenceLength - 1) * N + stateIndex] = 1.0d;
+      }
+
+      for (int t = sequenceLength - 1; t >= 1; t--) {
+        for (int i = 0; i < N; i++) {
+          double res = 0.0;
+          for (int j = 0; j < N; j++) {
+            res += (betas[t * N + j] * a[i][j]
+                   * b[j][observedSequence[t]] * alphasScales[t - 1]);
+          }
+
+          betas[(t - 1) * N + i] = res;
+        }
+      }
+      
+      // reset temporary variables
+      Arrays.fill(gammasSums, 0.0d);
+      for ( int stateIndex = 0; stateIndex < N; stateIndex++ ) {
+        Arrays.fill(aaStar[stateIndex], 0.0);
+      }
+      
+      // as we don't need to update b, we can stop at
+      // sequenceLength-1
+      for ( int t = 0; t < sequenceLength - 1; t++ ) {
+        
+        // compute the terms alpha(i,t)*beta(i,t) and incrementally the sum of them
+        for (int i = 0; i < N; i++) {
+          double tempVal = alphas[t * N + i] * betas[t * N + i];
+          gammas[i] = tempVal;
+        }
+
+        // compute gamma(i,t), and incrementally gamma_sums(i)
+        for (int i = 0; i < N; i++) {
+          double tempVal = gammas[i] / alphasScales[t];
+          gammas[i] = tempVal;
+          gammasSums[i] += tempVal;
+        }
+
+        // we have now gamma(i,t) in gammas[], and sum( k, alpha(k, t)*beta(k, t) ) in denGamma */
+        /* compute khi(i,j) incrementally, put it in aaStar */
+        if (t != sequenceLength - 1) {
+          for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+              double khi = (alphas[t * N + i] * a[i][j] * betas[(t + 1) * N + j])
+                      * b[j][observedSequence[t + 1]];
+              aaStar[i][j] += khi;
+            }
+          }
+        }
+        /* copy in Pi_star if that's the moment */
+        if (t == 0) {
+          System.arraycopy(gammas, 0, piStar, 0, N);
+        }
+      }
+      
+      // Renormalize aaStar
+      for (int i = 0; i < N; i++) {
+        double sum = 0.0;
+        for (int j = 0; j < N; j++) {
+          sum += aaStar[i][j];
+        }
+        if ( sum > 0.0 ) {
+          for (int j = 0; j < N; j++) {
+            aaStar[i][j] /= sum;
+          }
+        }
+      }
+      
+      // Renormalize piStar
+      double sum = 0.0;
+      for (int i = 0; i < N; i++ ) {
+        sum += piStar[i];
+      }
+      if ( sum > 0.0 ) {
+        for ( int i = 0; i < N; i++ ) {
+          piStar[i] /= sum;
+        }
+      }
+      
+      // Check convergence here
+      // check convergence
+      double piDiff = 0.0;
+      for ( int i = 0; i < N; i++ ) {
+        piDiff += Math.abs( pi[i] - piStar[i] );
+      }
+      
+      double aaDiff = 0.0;
+      for (int i = 0; i < N; i++ ) {
+        for (int j = 0; j < N; j++ ) {
+          aaDiff += Math.abs( aaStar[i][j] - a[i][j] );
+        }
+      }
+      
+      // Copy back piStar and aaStar
+      double[] temp1 = pi;
+      pi = piStar;
+      piStar = temp1;
+      
+      double[][] temp2 = a;
+      a = aaStar;
+      aaStar = temp2;
+      
+      // break when both criterion have been  met
+      if ( piDiff < piThreshold && aaDiff < aaThreshold ) {
+        break;
+      }
+    }
+  }
+  
   /**
    * Perform training on a spark Rdd observation sequence.
    * @param sc Spark context to use
@@ -308,11 +540,10 @@ public class Hmm2 implements Serializable {
           JavaRDD<Tuple2<Integer, Integer>> observedSequenceRdd,
           double piThreshold,
           double aaThreshold,
-          int maxIterations,
-          int[] observedSequence) {
+          int maxIterations) {
     
     final int T = (int) observedSequenceRdd.count();    
-    final int blockSize = 1024 * 16;
+    final int blockSize = 1024 * 32;
     
     final int numBlocks = (T + (blockSize - 1)) / blockSize;
     double piDiff = Double.POSITIVE_INFINITY;

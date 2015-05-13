@@ -11,9 +11,7 @@ import java.util.Date;
  */
 public class RawArticle implements Serializable {
 
-  public final int charCount;
   public final int pageNumber;
-  public final int wordCount;
   public final String fullText;
   public final String id;
   public final String name;
@@ -22,21 +20,16 @@ public class RawArticle implements Serializable {
 
 
   /** All at once initializer.
-   * @param charCount the number of characters in article
    * @param pageNumber the page number of the article
-   * @param wordCount the number of word in article
    * @param fullText the full text article
    * @param id the id of the article
    * @param issueDate the string representation of the date
    * @param name the title of the article
    * @param stream the enum type of the stream article comes from
    */
-  public RawArticle(int charCount, int pageNumber, int wordCount, 
-          String fullText, String id, Date issueDate, String name, 
-          ArticleStream stream) {
-    this.charCount = charCount;
+  public RawArticle(int pageNumber, String fullText, String id,
+          Date issueDate, String name, ArticleStream stream) {
     this.pageNumber = pageNumber;
-    this.wordCount = wordCount;
     this.fullText = fullText;
     this.id = id;
     this.issueDate = issueDate;
@@ -57,9 +50,7 @@ public class RawArticle implements Serializable {
  */
 class RawArticleBuilder implements Serializable{
 
-  public int charCount;
   public int pageNumber;
-  public int wordCount;
   public String fullText;
   public String id;
   public String name;
@@ -74,16 +65,13 @@ class RawArticleBuilder implements Serializable{
    * @return an instance of RawArticle if all fields were set, null otherwise.
    */
   public RawArticle build() {
-    if ( charCount != -1
-            && pageNumber != -1
-            && wordCount != -1
+    if (pageNumber != -1
             && fullText != null
             && id != null
             && issueDate != null
             && name != null
             && stream != null) {
-      RawArticle art = new RawArticle(charCount, pageNumber, 
-              wordCount, fullText, id, issueDate, name,stream);
+      RawArticle art = new RawArticle(pageNumber, fullText, id, issueDate, name,stream);
       this.reset();
       return art;
     } else {
@@ -94,9 +82,7 @@ class RawArticleBuilder implements Serializable{
   /**Resets the builder instance.
    */
   public void reset() {
-    charCount = -1;
     pageNumber = -1;
-    wordCount = -1;
     fullText = null;
     id = null;
     issueDate = null;

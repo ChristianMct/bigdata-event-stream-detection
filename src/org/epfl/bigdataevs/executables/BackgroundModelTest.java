@@ -41,11 +41,15 @@ public class BackgroundModelTest {
     inputPaths.add("hdfs:///projects/dh-shared/JDG/");
     
     DateFormat format = new SimpleDateFormat("dd/MM/yyyy-HH");
-    Date from = format.parse("1/1/1930-11");
-    Date to = format.parse("31/12/1970-13");
+    Date from = format.parse("1/1/1939-11");
+    Date to = format.parse("31/12/1945-13");
     TimePeriod timePeriod = new TimePeriod(from, to);
     
-    InputParser parser = new InputParser(timePeriod, ctx, inputPaths,1);
+    Date bfrom = format.parse("1/1/1910-11");
+    Date bto = format.parse("31/12/1960-13");
+    TimePeriod backgroundTimeFrame = new TimePeriod(bfrom, bto);
+    
+    InputParser parser = new InputParser(timePeriod,backgroundTimeFrame,  ctx, inputPaths,1,3);
     
     BackgroundModel result = parser.getBackgroundModel(7);
     
@@ -72,7 +76,7 @@ public class BackgroundModelTest {
     
     ctx.close();
     
-    for (long i=1; i<100; i++) {
+    for (long i=1; i<50; i++) {
       if (histMap.containsKey(new Long(i)))
         System.out.println(i+" => "+histMap.get(new Long(i)));
     }

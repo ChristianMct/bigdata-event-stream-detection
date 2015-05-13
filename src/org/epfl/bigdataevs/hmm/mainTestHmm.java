@@ -73,7 +73,7 @@ public class mainTestHmm {
       JavaRDD<Tuple2<Integer, Integer>> rawSequenceRdd = sc.parallelize(rawSequenceList);
       
       //sparkTrainedHmm.rawSparkTrain(sc, rawSequenceRdd, 0.0001, 0.0001, 200);
-      sparkTrainedHmm2.rawSparkTrain(sc, rawSequenceRdd, 0.0001, 0.0001, 100,rawSequence);
+      sparkTrainedHmm2.rawSparkTrain(sc, rawSequenceRdd, 0.0001, 0.0001, 100);
       //trainedHmm2.rawTrain(rawSequence, 10000000);
    // Print Pi first
       double[] trainedPi = sparkTrainedHmm2.getPi();

@@ -32,14 +32,14 @@ public class RawArticleInputStream implements Serializable{
   private boolean articleCompleted;
   private boolean shouldSkipArticle;
   private XMLStreamReader reader;
+  private boolean shouldSkipMeta;
 
 
   /**An input stream that reads all the file from a given period from the given
    * input folders.
    * @param timePeriod the TimePeriod object corresponding to the period
-   * @param articleFolders The absolute paths of all the folders containing article
+   * @param sourcePath The absolute paths of all the folders containing article.
    *        files. Can be hdfs:// or local path. Without trailing /.
-   * @param config A configuration object from Hadoop
    */
   public RawArticleInputStream(TimePeriod timePeriod, 
           String sourcePath) {
@@ -57,13 +57,13 @@ public class RawArticleInputStream implements Serializable{
    * @throws IOException sometime
    */
   public RawArticle read() throws XMLStreamException, NumberFormatException, 
-    ParseException, IOException {
-    
+  ParseException, IOException {
+
     if (!initCompleted) {
       reader = init();
       initCompleted = true;
     }
-    
+
     articleCompleted = false;
     shouldSkipArticle = false;
     while (reader != null && reader.hasNext()) {
@@ -88,7 +88,8 @@ public class RawArticleInputStream implements Serializable{
           break;
       }   
       if (articleCompleted && !shouldSkipArticle) {
-        return builder.build();
+        RawArticle article = builder.build();
+        return article;
       }
     }
     return null;
@@ -107,52 +108,54 @@ public class RawArticleInputStream implements Serializable{
   }
 
   private void startElement(String type) {
-    if ("entity".equals(type)) {
+    //System.out.println("<"+type+">");
+    if ("article".equals(type)) {
+      shouldSkipMeta = false;
       shouldSkipArticle = false;
       articleCompleted = false;
     }
-
-    return;
   }
 
   private void endElement(String type) throws ParseException, NumberFormatException {
-//    //if ("article".equals(type))
-//    System.out.println("</"+type+">");
-    switch (type) {
-      case "entity":
-        articleCompleted = true;
-        break;
-      case "name":
-        builder.name = current;
-        break;
-      case "id":
-        builder.id = current;
-        break;
-      case "page_no":
-        builder.pageNumber = Integer.parseInt(current);
-        break;
-      case "publication":
-        builder.stream = ArticleStream.valueOf(current);
-        break;
-      case "issue_date":
-        //Append 12 so that the article date corresponds to noon of the issue date
-        Date date = dateFormat.parse(current + "-12");
-        builder.issueDate = date;
-      //If the article falls outside TimePeriod, skip it
-        shouldSkipArticle = !timePeriod.includeDates(date);
-        break;
-      case "word_count":
-        builder.wordCount = Integer.parseInt(current);
-        break;
-      case "total_char_count":
-        builder.charCount = Integer.parseInt(current);
-        break;
-      case "full_text":
-        builder.fullText = current;
-        break;
-      default:
-        break;
+    //    //if ("article".equals(type))
+    //System.out.println("</"+type+">");
+
+    if (!shouldSkipMeta) {
+      switch (type) {
+        case "name":
+          builder.name = current;
+          break;
+        case "id":
+          builder.id = current;
+          break;
+        case "page_no":
+          builder.pageNumber = Integer.parseInt(current);
+          break;
+        case "publication":
+          builder.stream = ArticleStream.valueOf(current);
+          break;
+        case "issue_date":
+          //Append 12 so that the article date corresponds to noon of the issue date
+          Date date = dateFormat.parse(current + "-12");
+          builder.issueDate = date;
+          //If the article falls outside TimePeriod, skip it
+          shouldSkipArticle = !timePeriod.includeDates(date);
+          break;
+        case "full_text":
+          builder.fullText = current;
+          break;
+        case "entity":
+          shouldSkipMeta = true;
+          break;
+        default:
+          break;
+      }
+    } else if ("full_text".equals(type)) {
+      builder.fullText += current;
+    } else if ("article".equals(type)) {
+      articleCompleted = true;
     }
+
   }
 
 

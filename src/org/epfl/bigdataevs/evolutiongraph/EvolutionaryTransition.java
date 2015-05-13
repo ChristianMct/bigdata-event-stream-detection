@@ -1,12 +1,13 @@
 package org.epfl.bigdataevs.evolutiongraph;
 
+import org.epfl.bigdataevs.em.LightTheme;
 import org.epfl.bigdataevs.em.Theme;
 
 import java.io.Serializable;
 
 public class EvolutionaryTransition implements Serializable {
-  public Theme theme1;
-  public Theme theme2;
+  public LightTheme theme1;
+  public LightTheme theme2;
   public double divergence;
   
   /**
@@ -17,7 +18,7 @@ public class EvolutionaryTransition implements Serializable {
    * @param divergence The Kullback divergence D(t1||t2). It shows the strength of the link
    *     between theme1 and theme2
    */
-  public EvolutionaryTransition(Theme t1, Theme t2, double divergence) {
+  public EvolutionaryTransition(LightTheme t1, LightTheme t2, double divergence) {
     this.theme1 = t1;
     this.theme2 = t2;
     this.divergence = divergence;
@@ -25,13 +26,17 @@ public class EvolutionaryTransition implements Serializable {
   
   
   public String toString() {
-    return "Evolutionary Transition\n"
+    return "Evolutionary Transition : "
+            + "\n"
+
             + "Theme 1 :\n\t" 
-            + this.theme1.sortString(6) 
+            + this.theme1.sortString(5,5) 
             + "\nTheme2 :\n\t" 
-            + this.theme2.sortString(6) 
+            + this.theme2.sortString(5,5) 
+
             + "\nDivergence :" 
             + this.divergence
-            + "\n\n";
+            + "\n\n"
+            + "";
   }
 }

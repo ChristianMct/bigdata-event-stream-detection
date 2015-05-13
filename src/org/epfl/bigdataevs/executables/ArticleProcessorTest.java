@@ -42,11 +42,11 @@ public class ArticleProcessorTest {
     partitions.add(0, partition1);
     partitions.add(1, partition2);
     
-    RawArticle testInput1 = new RawArticle(testText1.length(), 1, 3, testText1, "0",
+    RawArticle testInput1 = new RawArticle(1, testText1, "0",
         issueDate1, "Test text 1", ArticleStream.GDL);
-    RawArticle testInput2 = new RawArticle(testText2.length(), 1, 3, testText2, "1",
+    RawArticle testInput2 = new RawArticle(1, testText2, "1",
         issueDate2, "Test text 2", ArticleStream.JDG);
-    RawArticle testInput3 = new RawArticle(testText3.length(), 1, 3, testText3, "2",
+    RawArticle testInput3 = new RawArticle(1, testText3, "2",
             issueDate3, "Test text 3", ArticleStream.JDG);
     
     System.out.println("Turning test data into RDD");

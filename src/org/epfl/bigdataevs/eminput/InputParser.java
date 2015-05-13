@@ -1,11 +1,10 @@
 package org.epfl.bigdataevs.eminput;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.spark.api.java.function.FlatMapFunction;
-import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.FlatMapFunction;
+import org.apache.spark.api.java.function.Function;
+import org.epfl.bigdataevs.executables.Parameters;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -22,14 +21,17 @@ import javax.xml.stream.XMLStreamException;
 *and computes the background model for the EM algorithm
 **/
 public class InputParser implements Serializable {
+  private final int pageNumberTreshold;
   private final JavaRDD<SegmentedArticle> segmentedArticles;
   private final TimePeriod timeFrame;
   private final BackgroundModel backgroundModel;
+  private JavaRDD<SegmentedArticle> segmentedArticlesForBackgroundModel;
   
   /**Initialize a parser on the dataset. EM and HMM can get their input form there. Sets
-   * the word discarding treshold to 5 occurence. Words having less than 5 occurences are
-   * discarded from the background model, lexicon and HMM input. Use the other constructor
-   * to set this value yourself.
+   * the word discarding treshold to 5 occurence.Words having less than 5 occurences are
+   * discarded from the background model, lexicon and HMM input. Sets the page number treshold to 4.
+   * all articles starting at page greater than this treshold are discarded. The BackgroundModel is 
+   * computed on the given timeFrame. Use the other constructor to set these values yourself.
    * @param timeFrame The TimePeriod for which all articles will be loaded 
    * @param sparkContext the Spark Context
    * @param sourcePath the full path to the data (HDFS or local)
@@ -42,38 +44,66 @@ public class InputParser implements Serializable {
           JavaSparkContext sparkContext,
           List<String> sourcePath) 
                   throws NumberFormatException, XMLStreamException, ParseException, IOException {
-    this(timeFrame,sparkContext,sourcePath,30);
+    this(timeFrame, timeFrame,sparkContext,sourcePath,
+            Parameters.numberOfCountsBackgroundModelThreshold,
+            Parameters.firstNumberOfPagesInNewspaperThreshold);
   }
   
   /**Initialize a parser on the dataset. EM and HMM can get their input form there. You can
    * set the word discarding treshold. Words having less than this treshold occurences are
    * discarded from the background model, lexicon and HMM input. Use the other constructor
    * to set this value yourself.
-   * @param timeFrame The TimePeriod for which all articles will be loaded 
+   * @param timeFrame The TimePeriod of interest. (On which EM and HMM will be effectively runned).
+   * @param backgroundModelTimeFrame The TimePeriod on which the backgroundModel should be
+   *        constructed.Should include timeFrame.
    * @param sparkContext the Spark Context
    * @param sourcePath the full path to the data (HDFS or local)
    * @param wordDiscardTreshold minimum number of occurences for a word to appear in the
    *        backgroundModel, Lexicon, and HMM input
+   * @param pageNumberTreshold the input parser will filter out articles that begin strictly after
+   *        this treshold.
    * @throws NumberFormatException parser expected a number and found something else.
    * @throws XMLStreamException the xml file has unexpected format.
    * @throws ParseException could not parse a date.
    * @throws IOException other problems.
    */
   public InputParser(TimePeriod timeFrame,
+          TimePeriod backgroundModelTimeFrame,
           JavaSparkContext sparkContext,
           List<String> sourcePath,
-          int wordDiscardTreshold) 
+          int wordDiscardTreshold,
+          int pageNumberTreshold) 
                   throws NumberFormatException, XMLStreamException, ParseException, IOException {
     
+    if (!backgroundModelTimeFrame.contains(timeFrame)) {
+      throw new IllegalArgumentException("Time frame for background model "
+                                          + "does not contain time frame");
+    }
+    
+    this.pageNumberTreshold = pageNumberTreshold;
     this.timeFrame = timeFrame;
     
     List<String> sourceList = new LinkedList<String>();
     sourceList.addAll(sourcePath);
     
-    JavaRDD<RawArticle> rawArticles = getRawArticleRdd(timeFrame, sourceList, sparkContext);
-    segmentedArticles = rawArticles.map(new SegmentArticle());
+    JavaRDD<RawArticle> rawArticles = getRawArticleRdd(backgroundModelTimeFrame, 
+                                                       sourceList, 
+                                                       sparkContext);
+    
+    segmentedArticlesForBackgroundModel = rawArticles.map(new SegmentArticle());
     
     backgroundModel = getBackgroundModel(wordDiscardTreshold);
+    
+    // Filter out the article that are not in the considered timeFrame and that have less than a
+    // given number of words.
+    segmentedArticles = segmentedArticlesForBackgroundModel
+            .filter(new Function<SegmentedArticle, Boolean>() {
+              @Override
+              public Boolean call(SegmentedArticle article) throws Exception {
+                return (InputParser.this.timeFrame.includeDates(article.publication)
+                        && article.words.size() >= Parameters.numberOfWordsInArticlesThreshold);
+              }
+            });
   }
   
   /** Get a background model from the data given the word discarding treshold. EM and HMM
@@ -83,7 +113,7 @@ public class InputParser implements Serializable {
    * @return a new BackgroundModel
    */
   public BackgroundModel getBackgroundModel(int wordDiscardTreshold) {
-    return new BackgroundModel(segmentedArticles, wordDiscardTreshold);
+    return new BackgroundModel(segmentedArticlesForBackgroundModel, wordDiscardTreshold);
   }
   
   /** Returns the input for the EMAlgorithm.
@@ -135,7 +165,9 @@ public class InputParser implements Serializable {
         RawArticle rawArticle;
         List<RawArticle> rawArticleList = new LinkedList<RawArticle>();
         while ((rawArticle = ras.read()) != null) {
-          rawArticleList.add(rawArticle);
+          if (rawArticle.pageNumber <= InputParser.this.pageNumberTreshold) {
+            rawArticleList.add(rawArticle);
+          }
         }
         return rawArticleList;
       }  
