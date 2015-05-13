@@ -55,11 +55,11 @@ public class EvolutionGraphTest {
     
 
     Calendar c = Calendar.getInstance();
-    Date startDate = format.parse("20/10/1992-0");
+    Date startDate = format.parse(Parameters.startDate);
     c.setTime(startDate);
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < Parameters.dateStepsNumber; i++) {
       Date c1 = c.getTime();
-      c.add(Calendar.DATE, 5);
+      c.add(Calendar.DATE, Parameters.dateStepSize);
       Date c2 = c.getTime();
       timePeriods.add(new TimePeriod(c1, c2));
       System.out.println(c1 + "-" + c2);
@@ -148,7 +148,7 @@ public class EvolutionGraphTest {
     System.out.println("themesRdd = " + themeCount);
     
     System.out.println("KLDivergence starts");
-    KLDivergence kldivergence = new KLDivergence(8., 1000.,themeCount);
+    KLDivergence kldivergence = new KLDivergence(Parameters.threshold, Parameters.logMax,themeCount);
     
     JavaRDD<LightTheme> themes = themesRdd.map(
             new Function<Tuple2<Theme,Double>,LightTheme>(){
@@ -173,11 +173,11 @@ public class EvolutionGraphTest {
     }
     System.out.println("themesRdd = " + themeCount);
     System.out.println("transitionGraph = " + transitionCount);
-/*
+
     // generate the graph
     TimePeriod timePeriod = new TimePeriod(startDate, endDate);
-    GraphVisualization.generateGraphFromRdd("graph.dot", timePeriod, themes, transitionGraph);
-*/
+    GraphVisualization.generateGraphFromRdd(Parameters.outputFilename, timePeriod, themes, transitionGraph);
+
   }
 
 }
