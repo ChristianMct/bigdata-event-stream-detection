@@ -312,7 +312,7 @@ public class Hmm2 implements Serializable {
           int[] observedSequence) {
     
     final int T = (int) observedSequenceRdd.count();    
-    final int blockSize = 1024 * 16;
+    final int blockSize = 1024 * 32;
     
     final int numBlocks = (T + (blockSize - 1)) / blockSize;
     double piDiff = Double.POSITIVE_INFINITY;

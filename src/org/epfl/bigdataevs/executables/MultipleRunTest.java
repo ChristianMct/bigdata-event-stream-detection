@@ -77,7 +77,7 @@ public class MultipleRunTest {
     int pageThreshold = Parameters.firstNumberOfPagesInNewspaperThreshold;
     
     InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods),
-            ctx, inputPaths, wordsThreshold, pageThreshold);
+            ctx, inputPaths);
     EmInputFromParser emInputFromParser = parser.getEmInput(timePeriods);
     
     List<Integer> numArticles = emInputFromParser.timePartitions.map(
