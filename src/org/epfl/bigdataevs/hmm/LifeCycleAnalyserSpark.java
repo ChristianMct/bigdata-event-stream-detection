@@ -19,6 +19,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
+import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
 
 public class LifeCycleAnalyserSpark implements Serializable {
@@ -155,8 +156,8 @@ public class LifeCycleAnalyserSpark implements Serializable {
     mostLikelySequenceThemeShifts = hmm.decode(sc, observedSequenceRdd, 1024 * 32);
   }
 
-  public void allAbsoluteStrength(String path, final long startTime, final long endTime, final long window,
-          final long numberOfValuePerTheme) {
+  public void allAbsoluteStrength(String path, final long startTime, final long endTime,
+          final long window, final long numberOfValuePerTheme) {
     themesWithStrength = themesWithIndex
             .map(new Function<Tuple2<Tuple2<Theme, Double>, Long>, Tuple2<Theme, ArrayList<Tuple2<Long, Long>>>>() {
 
@@ -206,28 +207,51 @@ public class LifeCycleAnalyserSpark implements Serializable {
               }
             });
 
-    final long minIndex = wordStreamInTheConsideredPeriod
-            .min(new Comparator<Tuple2<Tuple2<Long, Long>, Long>>() {
+    JavaRDD<Long> wordStreamIndexOnly = wordStreamInTheConsideredPeriod
+            .map(new Function<Tuple2<Tuple2<Long, Long>, Long>, Long>() {
+              private static final long serialVersionUID = 1L;
 
               @Override
-              public int compare(Tuple2<Tuple2<Long, Long>, Long> arg0,
-                      Tuple2<Tuple2<Long, Long>, Long> arg1) {
-                return (int) (arg0._2 - arg1._2);
+              public Long call(Tuple2<Tuple2<Long, Long>, Long> arg0) throws Exception {
+                // TODO Auto-generated method stub
+                return arg0._2;
               }
 
-            })._2;
-    final long maxIndex = wordStreamInTheConsideredPeriod
-            .max(new Comparator<Tuple2<Tuple2<Long, Long>, Long>>() {
+            });
 
-              @Override
-              public int compare(Tuple2<Tuple2<Long, Long>, Long> arg0,
-                      Tuple2<Tuple2<Long, Long>, Long> arg1) {
-                return (int) (arg0._2 - arg1._2);
+    final long minIndex = wordStreamIndexOnly.fold(Long.MAX_VALUE,
+            new Function2<Long, Long, Long>() {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Long call(Long arg0, Long arg1) throws Exception {
+              if (arg0 < arg1) {
+                return arg0;
+              } else {
+                return arg1;
               }
+            }
 
-            })._2;
+          });
+    final long maxIndex = wordStreamIndexOnly.fold(Long.MAX_VALUE,
+            new Function2<Long, Long, Long>() {
 
-    JavaPairRDD<Integer, Integer> indexedMostLikelySequenceThemeShifts = mostLikelySequenceThemeShifts;
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Long call(Long arg0, Long arg1) throws Exception {
+              if (arg0 > arg1) {
+                return arg0;
+              } else {
+                return arg1;
+              }
+            }
+
+          });
+
+    JavaPairRDD<Integer, Integer> indexedMostLikelySequenceThemeShifts
+          = mostLikelySequenceThemeShifts;
 
     JavaRDD<Integer> slicedMostLikelySequenceThemeShifts = indexedMostLikelySequenceThemeShifts
             .filter(new Function<Tuple2<Integer, Integer>, Boolean>() {
