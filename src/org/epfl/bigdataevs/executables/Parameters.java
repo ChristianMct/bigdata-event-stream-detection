@@ -52,6 +52,8 @@ public class Parameters {
   public static int dateStepsNumber = 8;
   public static String outputFilename = "graph.dot";
   
+  public static double maxPenWidth = 3.;
+  
   
   /**
    * useful function to set parameters

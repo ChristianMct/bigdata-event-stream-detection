@@ -7,8 +7,10 @@ import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 import org.epfl.bigdataevs.em.LightTheme;
 import org.epfl.bigdataevs.eminput.TimePeriod;
+import org.epfl.bigdataevs.executables.Parameters;
 
 import scala.Tuple2;
+import scala.Tuple3;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -32,7 +34,7 @@ public class GraphVisualization {
    * @param nodes The list of nodes
    * @param transitions The list of transitions between nodes 
    */
-  private static void generateGraphFromString(String filename, List<Tuple2<Date,Iterable<String>>> nodes, List<Tuple2<String,String>> transitions){
+  private static void generateGraphFromString(String filename, List<Tuple2<Date,Iterable<String>>> nodes, List<Tuple3<String,String,Double>> transitions){
     PrintWriter writer = null;
 
     try {
@@ -71,12 +73,32 @@ public class GraphVisualization {
       writer.println("}");
     }
     
+    /* get Min-Max penwidth */
+    
+    double minWidth = Double.MAX_VALUE;
+    double maxWidth = Double.MIN_VALUE;
+    
+    for(Tuple3<String,String,Double> transition : transitions){
+      double val = transition._3();
+      
+      if (val < minWidth) {
+        minWidth = val;
+      }
+      if (val > maxWidth) {
+        maxWidth = val;
+      }
+      
+    }
+    
     /* Write transitions */
-    for(Tuple2<String,String> transition : transitions){
+    for(Tuple3<String,String,Double> transition : transitions){
       String th1 = transition._1();
       String th2 = transition._2();
+      double divergence = transition._3();
       
-      writer.println("\t\t\""+th1+"\" -> \""+th2+"\"");
+      double width = 1.+(divergence-minWidth)/(maxWidth-minWidth)*Parameters.maxPenWidth;
+      
+      writer.println("\t\t\""+th1+"\" -> \""+th2+"\" [penwidth="+width+"]");
     }
     
     writer.println("\t}\n}");
@@ -111,16 +133,16 @@ public class GraphVisualization {
     
     System.out.println("Retrieving transitions");
     
-    List<Tuple2<String,String>> transitions = transitionGraph.flatMap(
-      new FlatMapFunction<EvolutionaryTransition,Tuple2<String,String>>(){
+    List<Tuple3<String,String,Double>> transitions = transitionGraph.flatMap(
+      new FlatMapFunction<EvolutionaryTransition,Tuple3<String,String,Double>>(){
 
         @Override
-        public Iterable<Tuple2<String, String>> call(EvolutionaryTransition transition) throws Exception {
+        public Iterable<Tuple3<String, String, Double>> call(EvolutionaryTransition transition) throws Exception {
           ArrayList list = new ArrayList();
           if(tp.contains(transition.theme1.timePeriod) && tp.contains(transition.theme2.timePeriod)){
             transition.theme1.toString();
             transition.theme2.toString();
-            list.add(new Tuple2(transition.theme1.toString(), transition.theme2.toString()));
+            list.add(new Tuple3(transition.theme1.toString(), transition.theme2.toString(), transition.divergence));
           }
           return(list);
         }
