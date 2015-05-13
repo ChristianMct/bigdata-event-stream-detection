@@ -25,6 +25,7 @@ public class InputParser implements Serializable {
   private final JavaRDD<SegmentedArticle> segmentedArticles;
   private final TimePeriod timeFrame;
   private final BackgroundModel backgroundModel;
+  private JavaRDD<SegmentedArticle> segmentedArticlesForBackgroundModel;
   
   /**Initialize a parser on the dataset. EM and HMM can get their input form there. Sets
    * the word discarding treshold to 5 occurence.Words having less than 5 occurences are
@@ -88,8 +89,8 @@ public class InputParser implements Serializable {
     JavaRDD<RawArticle> rawArticles = getRawArticleRdd(backgroundModelTimeFrame, 
                                                        sourceList, 
                                                        sparkContext);
-    JavaRDD<SegmentedArticle> segmentedArticlesForBackgroundModel = rawArticles
-                                                                      .map(new SegmentArticle());
+    
+    segmentedArticlesForBackgroundModel = rawArticles.map(new SegmentArticle());
     
     backgroundModel = getBackgroundModel(wordDiscardTreshold);
     
@@ -112,7 +113,7 @@ public class InputParser implements Serializable {
    * @return a new BackgroundModel
    */
   public BackgroundModel getBackgroundModel(int wordDiscardTreshold) {
-    return new BackgroundModel(segmentedArticles, wordDiscardTreshold);
+    return new BackgroundModel(segmentedArticlesForBackgroundModel, wordDiscardTreshold);
   }
   
   /** Returns the input for the EMAlgorithm.
