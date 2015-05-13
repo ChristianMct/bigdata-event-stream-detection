@@ -6,6 +6,7 @@ import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.epfl.bigdataevs.executables.Parameters;
 
 import com.esotericsoftware.kryo.io.Input;
 
@@ -47,7 +48,8 @@ public class InputParser implements Serializable {
           JavaSparkContext sparkContext,
           List<String> sourcePath) 
                   throws NumberFormatException, XMLStreamException, ParseException, IOException {
-    this(timeFrame, timeFrame,sparkContext,sourcePath,30,4);
+    this(timeFrame, timeFrame,sparkContext,sourcePath,
+            Parameters.numberOfCountsBackgroundModelThreshold,Parameters.firstNumberOfPagesInNewspaperThreshold);
   }
   
   /**Initialize a parser on the dataset. EM and HMM can get their input form there. You can

@@ -17,11 +17,13 @@ import org.epfl.bigdataevs.eminput.InputParser;
 import org.epfl.bigdataevs.eminput.ParsedArticle;
 import org.epfl.bigdataevs.eminput.TimePartition;
 import org.epfl.bigdataevs.eminput.TimePeriod;
+import org.epfl.bigdataevs.executables.Parameters;
 
 import scala.Array;
 import scala.Tuple2;
 
 import java.io.Serializable;
+import java.lang.reflect.Parameter;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -47,8 +49,6 @@ public class EmAlgo implements Serializable {
   public int numberOfThemes;
   public double lambdaBackgroundModel;
   public int numberOfRuns;
-  public final static double epsilon = 0.0;
-  public final static double precision = 1e-2;
   public int numPartitions;
 
   /**
@@ -59,7 +59,8 @@ public class EmAlgo implements Serializable {
    * @param lambda
    * @param numRuns
    */
-  public EmAlgo(JavaSparkContext sparkContext, EmInputFromParser collectionData, int numThemes, double lambda,  int numRuns) {
+  public EmAlgo(JavaSparkContext sparkContext, EmInputFromParser collectionData,
+          int numThemes, double lambda,  int numRuns) {
     this.numberOfThemes = numThemes;
     this.lambdaBackgroundModel = lambda;
     this.numberOfRuns = numRuns;
@@ -173,7 +174,7 @@ public class EmAlgo implements Serializable {
             new PairFunction<EmInput, EmInput, Double>() {
       
           public boolean checkStoppingCondition(int iter) {
-            return iter > 25;          
+            return iter > Parameters.numberOfIterationsEmAlgorithm;          
           }
       
           @Override
@@ -202,34 +203,6 @@ public class EmAlgo implements Serializable {
                     input.computeLogLikelihood(lambdaBackgroundModel));
           }
         });
-    /*
-    JavaRDD<EmInput> temp = this.partitions;
-    List<EmInput> between;
-    for (int i = 0; i < 10; i++) {
-      temp = iteration(temp);
-      temp.cache();
-      JavaRDD<Integer> intrdd= temp.map(new Function<EmInput, Integer>() {
-
-        @Override
-        public Integer call(EmInput v1) throws Exception {
-          // TODO Auto-generated method stub
-          return 1;
-        }
-      });
-      List<Integer> intList = intrdd.collect();
-      System.out.println(Arrays.toString(intList.toArray()));
-      System.out.println("Iteration " + i);  
-    }
-    return temp.mapToPair(new PairFunction<EmInput, EmInput, Double>() {
-
-      @Override
-      public Tuple2<EmInput, Double> call(EmInput input) throws Exception {
-        input.sortArticlesByScore();    
-        return new Tuple2<EmInput, Double>(input, 1.0);
-      }
-      
-    });
-    */
   }
   
   
