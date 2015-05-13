@@ -25,7 +25,7 @@ public class Parameters {
   public static final int firstNumberOfPagesInNewspaperThreshold = 3;
   // Threshold for the minimum number of count for a word to be considered in the background model
   public static final int numberOfCountsBackgroundModelThreshold = 50;
-  // THreshold for the minimum numebr of words in an article so that it is considered
+  // Threshold for the minimum number of words in an article so that it is considered
   public static final int numberOfWordsInArticlesThreshold = 50;
   
   /**
@@ -36,4 +36,14 @@ public class Parameters {
   public static final int numberOfThemes = 10;
   public static final double lambdaBackgroundModel = 0.95;
   public static final double themeFilteringThreshold = 0.9;
+  
+  /**
+   * Parameters regarding the Evolution Graph
+   */
+  public static final double threshold = 8.;
+  public static final double logMax = 1000.;  
+  public static final String startDate = "20/10/1992-0";
+  public static final int dateStepSize = 5;
+  public static final int dateStepsNumber = 8;
+  public static final String outputFilename = "graph.dot";
 }
