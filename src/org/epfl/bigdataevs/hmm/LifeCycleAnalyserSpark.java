@@ -11,6 +11,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -18,6 +19,7 @@ import java.util.Map.Entry;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
 
@@ -34,7 +36,7 @@ public class LifeCycleAnalyserSpark implements Serializable {
   public JavaPairRDD<Integer, Integer> mostLikelySequenceThemeShifts;
   private long numberOfThemes;
   private long numberOfWords;
-  private Hmm2 hmm;
+  public Hmm2 hmm;
 
   /**
    * Class used to analyze themes life cycle.
@@ -134,7 +136,9 @@ public class LifeCycleAnalyserSpark implements Serializable {
     hmm = new Hmm2(numberHiddenStates, numberObservableOutputSymbols, pi,
             stateTransitionProbabilityDistribution, outputProbabilityDistribution);
 
-    JavaRDD<Tuple2<Integer, Integer>> observedSequenceRdd = wordStream.zipWithIndex().map(
+    JavaPairRDD<Tuple2<Long, Long>, Long> wordStreamZippedWithIndex = wordStream.zipWithIndex();
+    
+    JavaRDD<Tuple2<Integer, Integer>> observedSequenceRdd = wordStreamZippedWithIndex.map(
             new Function<Tuple2<Tuple2<Long, Long>, Long>, Tuple2<Integer, Integer>>() {
 
               private static final long serialVersionUID = 1L;
@@ -153,6 +157,83 @@ public class LifeCycleAnalyserSpark implements Serializable {
     hmm.rawSparkTrain(sc, observedSequenceRdd, piThreshold, aaThreshold, maxIterations);
 
     mostLikelySequenceThemeShifts = hmm.decode(sc, observedSequenceRdd, 1024 * 32);
+    
+    JavaPairRDD<Integer ,Tuple2<Long, Long>> wordStreamZippedWithIndexReversed =
+            wordStreamZippedWithIndex.mapToPair(
+                    new PairFunction<Tuple2<Tuple2<Long, Long>, Long>, 
+                    Integer, Tuple2<Long, Long>>(){
+
+                      @Override
+                      public Tuple2<Integer, Tuple2<Long, Long>> call(
+                              Tuple2<Tuple2<Long, Long>, Long> arg0) throws Exception {
+                        // TODO Auto-generated method stub
+                        return new Tuple2<Integer, Tuple2<Long, Long>>(arg0._2.intValue(), arg0._1) ;
+                      }
+                      
+                      
+                      
+                    });
+    
+    JavaPairRDD<Integer, Tuple2<Integer, Tuple2<Long, Long>>> zippedDecodedSequence = 
+      mostLikelySequenceThemeShifts.join(wordStreamZippedWithIndexReversed);
+    
+    JavaRDD<Tuple2<Long,Integer>> nonZeroMostLikelyByTimestamp = zippedDecodedSequence.flatMap(
+            new FlatMapFunction<Tuple2<Integer, Tuple2<Integer, Tuple2<Long, Long>>>, Tuple2<Long, Integer>>(){
+
+              @Override
+              public Iterable<Tuple2<Long, Integer>> call(
+                      Tuple2<Integer, Tuple2<Integer, Tuple2<Long, Long>>> arg0) throws Exception {
+                ArrayList<Tuple2<Long, Integer>> list = new ArrayList<Tuple2<Long, Integer>>(1);
+                if (arg0._2._1 != 0) {
+                  list.add(new Tuple2<Long, Integer>(arg0._2._2._2,arg0._2._1));
+                }
+              return list;
+              }
+              
+            });
+    
+    
+    JavaPairRDD<Long, Iterable<Tuple2<Long, Integer>>> groupedRdd =
+            nonZeroMostLikelyByTimestamp.groupBy(new Function<Tuple2<Long, Integer>, Long>(){
+
+      @Override
+      public Long call(Tuple2<Long, Integer> arg0) throws Exception {
+        return arg0._1;
+      }
+      
+    });
+    
+    JavaPairRDD<Long, Map<Integer,Integer>>  resultByTimestamp = 
+            groupedRdd.mapValues( new Function<Iterable<Tuple2<Long, Integer>>, Map<Integer,Integer>>(){
+
+      @Override
+      public Map<Integer,Integer> call(Iterable<Tuple2<Long, Integer>> arg0) throws Exception {
+        Map<Integer,Integer> countMap = new HashMap<Integer,Integer>();
+        for(Tuple2<Long, Integer> tuple : arg0){
+          if(countMap.containsKey(tuple._2)){
+            countMap.put(tuple._2, countMap.get(tuple._2)+1);
+          }
+          else{
+            countMap.put(tuple._2,1);
+          }
+        }
+        return countMap;
+      }
+      
+    });
+    
+    
+    List<Tuple2<Long, Map<Integer, Integer>>> collectedResults = resultByTimestamp.collect();
+    System.out.println();
+    System.out.println("Results by timestamps");
+    for(Tuple2<Long, Map<Integer, Integer>> tuple : collectedResults){
+      System.out.println("timestamp : "+tuple._1);
+      for(Entry<Integer, Integer> entry : tuple._2.entrySet()){
+        System.out.println("    theme "+entry.getKey()+" : "+entry.getValue());
+      }
+      
+    }
+    System.out.println();
   }
 
   public void allAbsoluteStrength(String path, final long startTime, final long endTime, final long window,

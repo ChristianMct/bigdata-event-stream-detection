@@ -95,7 +95,7 @@ public class EvolutionGraphTest {
     int pageThreshold = Parameters.firstNumberOfPagesInNewspaperThreshold;
     
     InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), 
-            ctx, inputPaths, wordsThreshold, pageThreshold);
+            ctx, inputPaths);
     EmInputFromParser emInputFromParser = parser.getEmInput(timePeriods);
     
     List<Integer> numArticles = emInputFromParser.timePartitions.map(new Function<Tuple2<TimePeriod,TimePartition>, Integer>() {
