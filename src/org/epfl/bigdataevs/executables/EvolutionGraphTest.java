@@ -44,6 +44,8 @@ public class EvolutionGraphTest {
     
     System.out.println("STARTED TEST");
     
+    Parameters.parseParameters("conf.txt");
+    
     SparkConf sparkConf = new SparkConf().setAppName("Test article processor");
     //sparkConf.setMaster("localhost:7077");
     JavaSparkContext ctx = new JavaSparkContext(sparkConf);
@@ -55,14 +57,14 @@ public class EvolutionGraphTest {
     
 
     Calendar c = Calendar.getInstance();
-    Date startDate = format.parse("1/2/1995-0");
+    Date startDate = format.parse(Parameters.startDate);
     c.setTime(startDate);
-    for(int i=0; i<4; i++){
+    for (int i = 0; i < Parameters.dateStepsNumber; i++) {
       Date c1 = c.getTime();
-      c.add(Calendar.DATE, 3);
+      c.add(Calendar.DATE, Parameters.dateStepSize);
       Date c2 = c.getTime();
       timePeriods.add(new TimePeriod(c1, c2));
-      System.out.println(c1+"-"+c2);
+      System.out.println(c1 + "-" + c2);
     }
     Date endDate = c.getTime();
     
@@ -70,7 +72,7 @@ public class EvolutionGraphTest {
     
     List<String> inputPaths = new LinkedList<String>();
     inputPaths.add("hdfs:///projects/dh-shared/GDL/");
-    //inputPaths.add("hdfs://user/christian/GDL");
+    inputPaths.add("hdfs:///projects/dh-shared/JDG/");
  
     
     /*
@@ -91,29 +93,24 @@ public class EvolutionGraphTest {
     /*
      * Integration of the EM Algorithm
      */
-    int wordsThreshold = 5;
-    int pageThreshold = 3;
-    
     InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), 
-            ctx, inputPaths, wordsThreshold, pageThreshold);
+            ctx, inputPaths);
     EmInputFromParser emInputFromParser = parser.getEmInput(timePeriods);
     
     List<Integer> numArticles = emInputFromParser.timePartitions.map(new Function<Tuple2<TimePeriod,TimePartition>, Integer>() {
-
       @Override
       public Integer call(Tuple2<TimePeriod, TimePartition> v1) throws Exception {
         // TODO Auto-generated method stub
         return v1._2.parsedArticles.size();
       }
-      
     }).collect();
     for (Integer integer : numArticles) {
       System.out.println("Number of articles : " + integer);
     }
     
-    int numberOfThemes = 10;
-    double lambdaBackgroundModel = 0.95;
-    int numberOfRuns = 1;   
+    int numberOfThemes = Parameters.numberOfThemes;
+    double lambdaBackgroundModel = Parameters.lambdaBackgroundModel;
+    int numberOfRuns = Parameters.numberOfRunsEmAlgorithm;   
     EmAlgo emAlgo = new EmAlgo(ctx, emInputFromParser, numberOfThemes, lambdaBackgroundModel, numberOfRuns);
     
     JavaPairRDD<Theme, Double> themesRdd = emAlgo.run();   
@@ -127,7 +124,7 @@ public class EvolutionGraphTest {
      * 
      * set option '--driver-memory 32G' to avoid these 
      */
-    
+    /*
     Map<Theme, Double> emOutputs = themesRdd.collectAsMap();
     
     System.out.println(emOutputs.keySet().size() + " elements");
@@ -145,12 +142,12 @@ public class EvolutionGraphTest {
       System.out.println(themeLog);
       i += 1;
     }
-    
+    */
     int themeCount = (int) themesRdd.count();
     System.out.println("themesRdd = " + themeCount);
     
     System.out.println("KLDivergence starts");
-    KLDivergence kldivergence = new KLDivergence(16., 100.,themeCount);
+    KLDivergence kldivergence = new KLDivergence(Parameters.threshold, Parameters.logMax,themeCount);
     
     JavaRDD<LightTheme> themes = themesRdd.map(
             new Function<Tuple2<Theme,Double>,LightTheme>(){
@@ -164,6 +161,7 @@ public class EvolutionGraphTest {
     
     transitionGraph.cache();
     int transitionCount = (int) transitionGraph.count();
+    System.out.println("themesRdd = " + themeCount);
     System.out.println("transitionGraph = " + transitionCount);
 
     System.out.println("KLDivergence done");
@@ -172,10 +170,13 @@ public class EvolutionGraphTest {
     for (EvolutionaryTransition transition : transitionGraph.collect()) {
       System.out.println(transitionCounter++ + ". " + transition.toString());
     }
-      
+    System.out.println("themesRdd = " + themeCount);
+    System.out.println("transitionGraph = " + transitionCount);
+
     // generate the graph
     TimePeriod timePeriod = new TimePeriod(startDate, endDate);
-    GraphVisualization.generateGraphFromRdd("graph.dot", timePeriod, themes, transitionGraph);
+    GraphVisualization.generateGraphFromRdd(Parameters.outputFilename, timePeriod, themes, transitionGraph);
+
   }
 
 }

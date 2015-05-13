@@ -4,6 +4,7 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.epfl.bigdataevs.em.EmAlgo;
 import org.epfl.bigdataevs.em.Theme;
@@ -43,14 +44,26 @@ public class ThemesStrengthOverTime {
     
     
     List<TimePeriod> timePeriods = new ArrayList<TimePeriod>(); 
-    timePeriods.add(new TimePeriod(format.parse("1/2/1995-0"), format.parse("3/2/1995-0")));
-    timePeriods.add(new TimePeriod(format.parse("4/2/1995-0"), format.parse("6/2/1995-0")));
-    timePeriods.add(new TimePeriod(format.parse("7/2/1995-0"), format.parse("9/2/1995-0")));
+    timePeriods.add(new TimePeriod(format.parse("1/10/1962-0"), format.parse("14/10/1962-0")));
+    timePeriods.add(new TimePeriod(format.parse("15/10/1962-0"), format.parse("30/10/1962-0")));
+    timePeriods.add(new TimePeriod(format.parse("31/10/1962-0"), format.parse("14/11/1962-0")));
+    timePeriods.add(new TimePeriod(format.parse("15/11/1962-0"), format.parse("30/11/1962-0")));
+    timePeriods.add(new TimePeriod(format.parse("01/12/1962-0"), format.parse("14/12/1962-0")));
+    timePeriods.add(new TimePeriod(format.parse("15/12/1962-0"), format.parse("31/12/1962-0")));
+    timePeriods.add(new TimePeriod(format.parse("01/01/1963-0"), format.parse("15/01/1963-0")));
+    timePeriods.add(new TimePeriod(format.parse("16/01/1963-0"), format.parse("31/01/1963-0")));
+    timePeriods.add(new TimePeriod(format.parse("01/02/1963-0"), format.parse("15/02/1963-0")));
+    timePeriods.add(new TimePeriod(format.parse("16/02/1963-0"), format.parse("28/02/1963-0")));
+    timePeriods.add(new TimePeriod(format.parse("01/03/1963-0"), format.parse("15/03/1963-0")));
+    timePeriods.add(new TimePeriod(format.parse("06/03/1963-0"), format.parse("31/03/1963-0")));
+    
+    
     
     //System.out.println(timePeriods.get(0).includeDates(format.parse("1/1/1939-12")));
     
     List<String> inputPaths = new LinkedList<String>();
     inputPaths.add("hdfs:///projects/dh-shared/GDL/");
+    inputPaths.add("hdfs:///projects/dh-shared/JDG/");
     //inputPaths.add("hdfs://user/christian/GDL");
  
     
@@ -73,7 +86,11 @@ public class ThemesStrengthOverTime {
      * Integration of the EM Algorithm
      */
     
-    InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), ctx, inputPaths);
+    int wordsThreshold = 12;
+    int pageThreshold = 3;
+    
+    InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), 
+            ctx, inputPaths);
     EmInputFromParser emInputFromParser = parser.getEmInput(timePeriods);
     HmmInputFromParser hmmInputFromParser = parser.getHmmInput();
     
@@ -90,7 +107,7 @@ public class ThemesStrengthOverTime {
       System.out.println("Number of articles : " + integer);
     }
     
-    int numberOfThemes = 5;
+    int numberOfThemes = 4;
     double lambdaBackgroundModel = 0.95;
     int numberOfRuns = 1;   
     EmAlgo emAlgo = new EmAlgo(ctx, emInputFromParser, numberOfThemes, lambdaBackgroundModel, numberOfRuns);
@@ -141,19 +158,51 @@ public class ThemesStrengthOverTime {
     
     
     //hmm  begins
-    double piThreshold = 0.01;
-    double aaThreshold = 0.01;
-    int maxIterations = 50;
+    final double piThreshold = 0.01;
+    final double aaThreshold = 0.01;
+    final int maxIterations = 50;
     
     System.out.println("Beginning life cycle analysis");
     System.out.println("Printing inputs");
-    System.out.println("sequence length : "+hmmInputFromParser.wordStream.count());
-    System.out.println("wordStream : "+Arrays.toString(Arrays.copyOf(hmmInputFromParser.wordStream.collect().toArray(),50)));
+    long sequenceLength = hmmInputFromParser.wordStream.count();
+    System.out.println("sequence length : " + sequenceLength);
+    System.out.println("wordStream : " 
+            + Arrays.toString(Arrays.copyOf(hmmInputFromParser.wordStream.collect().toArray(),50)));
     LifeCycleAnalyserSpark lifeCycleAnalyser = new LifeCycleAnalyserSpark(hmmInputFromParser);
     lifeCycleAnalyser.addAllThemesFromRdd(themesRdd);
     lifeCycleAnalyser.analyse(ctx, piThreshold, aaThreshold, maxIterations);
-    System.out.println("DecodedStream : "+Arrays.toString(Arrays.copyOf(lifeCycleAnalyser.mostLikelySequenceThemeShifts.collect().toArray(),50)));
+    System.out.println("DecodedStream : "
+            + Arrays.toString(Arrays.copyOf(lifeCycleAnalyser.mostLikelySequenceThemeShifts.collect().toArray(),50)));
     
+    JavaRDD<Tuple2<Integer,Integer>> nonZeroMostLikely = 
+            lifeCycleAnalyser.mostLikelySequenceThemeShifts
+            .flatMap(new FlatMapFunction<Tuple2<Integer, Integer>, 
+                    Tuple2<Integer, Integer>>(){
+
+                      @Override
+                      public Iterable<Tuple2<Integer, Integer>> call(Tuple2<Integer, Integer> arg0)
+                              throws Exception {
+                       ArrayList<Tuple2<Integer, Integer>> list = new ArrayList<Tuple2<Integer, Integer>>(1);
+                         if(arg0._2 != 0){
+                           list.add(arg0);
+                         }
+                       return list;
+                      }
+              
+            });
+    System.out.println("DecodedStream non zero: "+Arrays.toString(Arrays.copyOf(nonZeroMostLikely.collect().toArray(),50)));
+    System.out.println(nonZeroMostLikely.count()+" detected non-zero states over "+sequenceLength+" states");
+    //  Print A then
+    double[][] trainedA = lifeCycleAnalyser.hmm.getA();
+    int N = lifeCycleAnalyser.hmm.getN();
+    System.out.println("N "+N);
+    System.out.println("A: ");
+    for ( int k = 0; k < N; k++ ) {
+      for (int j = 0; j < N; j++ ) {
+        System.out.print(" " + trainedA[k][j]);
+      }
+      System.out.println("");
+    }
     
     System.out.println("Strength of theme 1 at time 30 (window 20) :"+lifeCycleAnalyser.absoluteStrength(1, 30, 20));
     

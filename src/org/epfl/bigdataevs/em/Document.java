@@ -105,7 +105,7 @@ public class Document implements Serializable {
                 * (theme.wordsProbability.get(word));
         double denominator = denominators.get(word);
         this.probabilitiesHiddenVariablesThemes.put(
-                pair, numerator / (denominator + EmAlgo.epsilon));
+                pair, numerator / (denominator));
       }
     }
   }
@@ -124,7 +124,7 @@ public class Document implements Serializable {
       double denominator = numerator + ((1.0 - lambdaB) * temp);
       
       
-      this.probabilitiesHiddenVariablesBackgroundModel.put(word, numerator / (denominator + EmAlgo.epsilon));
+      this.probabilitiesHiddenVariablesBackgroundModel.put(word, numerator / (denominator));
     }
    
   }
@@ -153,7 +153,7 @@ public class Document implements Serializable {
     
     for (Theme theme : this.probabilitiesDocumentBelongsToThemes.keySet()) {
       double numerator = subUpdateProbabilitiesDocumentBelongsToThemes(theme);
-      this.probabilitiesDocumentBelongsToThemes.put(theme, numerator / (denominator + EmAlgo.epsilon));
+      this.probabilitiesDocumentBelongsToThemes.put(theme, numerator / (denominator));
     }
   }
 }

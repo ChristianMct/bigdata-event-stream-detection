@@ -58,6 +58,8 @@ public class InputParserTest {
       c.add(Calendar.WEEK_OF_MONTH, 1);
       end = c.getTime();
     }
+    
+    
 
     List<String> inputPaths = new LinkedList<String>();
     inputPaths.add("hdfs:///projects/dh-shared/GDL/");
