@@ -72,7 +72,7 @@ public class EvolutionGraphTest {
     
     List<String> inputPaths = new LinkedList<String>();
     inputPaths.add("hdfs:///projects/dh-shared/GDL/");
-    //inputPaths.add("hdfs://user/christian/GDL");
+    inputPaths.add("hdfs:///projects/dh-shared/JDG/");
  
     
     /*
@@ -93,9 +93,6 @@ public class EvolutionGraphTest {
     /*
      * Integration of the EM Algorithm
      */
-    int wordsThreshold = Parameters.numberOfCountsBackgroundModelThreshold;
-    int pageThreshold = Parameters.firstNumberOfPagesInNewspaperThreshold;
-    
     InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), 
             ctx, inputPaths);
     EmInputFromParser emInputFromParser = parser.getEmInput(timePeriods);

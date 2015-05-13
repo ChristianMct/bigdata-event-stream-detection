@@ -96,7 +96,7 @@ public class GraphVisualization {
       String th2 = transition._2();
       double divergence = transition._3();
       
-      double width = 1.+(divergence-minWidth)/(maxWidth-minWidth)*Parameters.maxPenWidth;
+      double width = 1.+(maxWidth-divergence)/(maxWidth-minWidth)*Parameters.maxPenWidth;
       
       writer.println("\t\t\""+th1+"\" -> \""+th2+"\" [penwidth="+width+"]");
     }

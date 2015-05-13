@@ -29,7 +29,7 @@ public class Parameters {
   // Threshold for the first number of pages of the newspaper edition to be considered
   public static final int firstNumberOfPagesInNewspaperThreshold = 3;
   // Threshold for the minimum number of count for a word to be considered in the background model
-  public static final int numberOfCountsBackgroundModelThreshold = 50;
+  public static int numberOfCountsBackgroundModelThreshold = 30;
   // Threshold for the minimum number of words in an article so that it is considered
   public static final int numberOfWordsInArticlesThreshold = 50;
   
@@ -38,7 +38,7 @@ public class Parameters {
    */
   public static final int numberOfRunsEmAlgorithm = 1;
   public static final int numberOfIterationsEmAlgorithm = 25;
-  public static final int numberOfThemes = 10;
+  public static int numberOfThemes = 10;
   public static final double lambdaBackgroundModel = 0.95;
   public static final double themeFilteringThreshold = 0.9;
   
@@ -99,6 +99,9 @@ public class Parameters {
       dateStepSize = getInt(prop, "dateStepSize", dateStepSize);
       dateStepsNumber = getInt(prop, "dateStepsNumber", dateStepsNumber);
       outputFilename = getString(prop, "outputFilename", outputFilename);
+      
+      numberOfCountsBackgroundModelThreshold = getInt(prop, "numberOfCountsBackgroundModelThreshold", numberOfCountsBackgroundModelThreshold);
+      numberOfThemes = getInt(prop, "numberOfThemes", numberOfThemes);
       
     } catch (IOException ex) {
       System.out.println("Parameter file not found -> using default values");
