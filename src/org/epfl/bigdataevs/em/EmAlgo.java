@@ -50,6 +50,16 @@ public class EmAlgo implements Serializable {
   public int numberOfRuns;
   public int numPartitions;
 
+  
+  
+  /**
+   * Creates one instance of EmAgorithm
+   * Duplicates all partitions to the number of trials the algorithm should do.
+   */
+  public EmAlgo(JavaSparkContext sparkContext, EmInputFromParser collectionData){
+    this(sparkContext, collectionData, Parameters.numberOfThemes,
+            Parameters.lambdaBackgroundModel, Parameters.numberOfRunsEmAlgorithm);
+  }
   /**
    * Creates one instance of EmAgorithm
    * Duplicates all partitions to the number of trials the algorithm should do.

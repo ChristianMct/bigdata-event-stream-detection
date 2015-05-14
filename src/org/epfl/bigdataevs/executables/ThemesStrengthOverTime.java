@@ -63,7 +63,17 @@ public class ThemesStrengthOverTime {
     }
     Date endDate = c.getTime();
     
-    
+    Calendar cHmm = Calendar.getInstance();
+    Date startDateHmm = format.parse(Parameters.startDateHMM);
+    cHmm.setTime(startDateHmm);
+    Date beginning = cHmm.getTime();
+    cHmm.add(Calendar.DATE, Parameters.dateStepSizeHMM);
+    Date end = cHmm.getTime();
+    TimePeriod timePeriodHmm = new TimePeriod(beginning, end);
+    System.out.println(beginning + "-" + end);
+            
+            
+            
     /*
     List<TimePeriod> timePeriods = new ArrayList<TimePeriod>(); 
     timePeriods.add(new TimePeriod(format.parse("1/10/1962-0"), format.parse("14/10/1962-0")));
@@ -109,10 +119,13 @@ public class ThemesStrengthOverTime {
      */
 
     
-    InputParser parser = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), 
+    InputParser parserEM = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), timePeriodHmm, 
+            ctx, inputPaths, Parameters.numberOfCountsBackgroundModelThreshold,
+            Parameters.firstNumberOfPagesInNewspaperThreshold);
+    InputParser parserHMM = new InputParser(timePeriodHmm, 
             ctx, inputPaths);
-    EmInputFromParser emInputFromParser = parser.getEmInput(timePeriods);
-    HmmInputFromParser hmmInputFromParser = parser.getHmmInput();
+    EmInputFromParser emInputFromParser = parserEM.getEmInput(timePeriods);
+    HmmInputFromParser hmmInputFromParser = parserHMM.getHmmInput();
     
     List<Integer> numArticles = emInputFromParser.timePartitions.
             map(new Function<Tuple2<TimePeriod,TimePartition>, Integer>() {

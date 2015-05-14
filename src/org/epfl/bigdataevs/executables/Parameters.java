@@ -54,6 +54,8 @@ public class Parameters {
   public static boolean totalVariationDistance = false;
   
   public static double maxPenWidth = 3.;
+  public static String startDateHMM;
+  public static int dateStepSizeHMM =20;
   
   //HMM parameters
   public static final int BWBlockSize = 1024 * 64;
@@ -115,11 +117,11 @@ public class Parameters {
       numberOfCountsBackgroundModelThreshold = getValue(prop, "numberOfCountsBackgroundModelThreshold", numberOfCountsBackgroundModelThreshold);
       numberOfThemes = getValue(prop, "numberOfThemes", numberOfThemes);
       
-      lambdaBackgroundModel = getDouble(prop, "lambdaBackgroundModel", lambdaBackgroundModel); 
-      themeFilteringThreshold = getDouble(prop, "themeFilteringThreshold", themeFilteringThreshold); 
+      lambdaBackgroundModel = getValue(prop, "lambdaBackgroundModel", lambdaBackgroundModel); 
+      themeFilteringThreshold = getValue(prop, "themeFilteringThreshold", themeFilteringThreshold); 
       
-      
-      
+      startDateHMM = getValue(prop,"startDateHMM", startDateHMM);
+      dateStepSizeHMM = getValue(prop, "dateStepSizeHMM",dateStepSizeHMM);
     } catch (IOException ex) {
       System.out.println("Parameter file not found -> using default values");
     } finally {
