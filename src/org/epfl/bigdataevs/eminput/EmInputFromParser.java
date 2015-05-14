@@ -11,6 +11,7 @@ import scala.Tuple2;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 
@@ -26,9 +27,9 @@ public class EmInputFromParser {
           List<TimePeriod> partitioning) {
     backgroundModel = bg;
     /* For memory economy, we collect the background model's key set as a list. In the 
-     * parsed article map, we use it to filter out cleaned words.
-     * TODO: evaluate the performance cost of using a list instead of a map!*/
-    List<String> distinctWords = bg.backgroundModelRdd.keys().collect();
+     * parsed article map, we use it to filter out cleaned words.*/
+    HashSet<String> distinctWords = new HashSet<String>(
+                bg.backgroundModelRdd.keys().collect());
 
     // Produces (TimePeriod, ParsedArticle) pairs, => affects an article to potentially multiple timePeriods
     JavaPairRDD<TimePeriod, ParsedArticle> timePartitionned = parserInput
@@ -50,11 +51,11 @@ class ProcessArticle implements
       PairFlatMapFunction<SegmentedArticle, TimePeriod, ParsedArticle> {
 
   private final List<TimePeriod> partitioning;
-  /* List of all words that haven't been cleaned from the background model. */
-  private final List<String> existingWords;
+  /* Set of all words that haven't been cleaned from the background model. */
+  private final HashSet<String> existingWords;
   
   public ProcessArticle(final List<TimePeriod> partitioning, 
-          final List<String> existingWords) 
+          final HashSet<String> existingWords) 
   {
     this.partitioning = partitioning;
     this.existingWords = existingWords;

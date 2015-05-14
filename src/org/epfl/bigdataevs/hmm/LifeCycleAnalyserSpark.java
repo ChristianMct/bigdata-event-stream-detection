@@ -10,6 +10,7 @@ import scala.Tuple2;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -134,8 +135,6 @@ public class LifeCycleAnalyserSpark implements Serializable {
       System.out
               .println("error : you need to specify the themes via addAllThemesFromRDD before analyzing the sequence!");
     }
-    hmm = new Hmm2(numberHiddenStates, numberObservableOutputSymbols, pi,
-            stateTransitionProbabilityDistribution, outputProbabilityDistribution);
 
     JavaPairRDD<Tuple2<Long, Long>, Long> wordStreamZippedWithIndex = wordStream.zipWithIndex();
     
@@ -155,9 +154,9 @@ public class LifeCycleAnalyserSpark implements Serializable {
     System.out.println("observedSequenceRdd length : " + observedSequenceRdd.count());
     System.out.println("observedSequenceRdd : "
             + Arrays.toString(Arrays.copyOf(observedSequenceRdd.collect().toArray(), 50)));
-    hmm.rawSparkTrain(sc, observedSequenceRdd, piThreshold, aaThreshold, maxIterations);
+    hmm.rawTrain(sc, observedSequenceRdd, piThreshold, aaThreshold, maxIterations);
 
-    mostLikelySequenceThemeShifts = hmm.decode(sc, observedSequenceRdd, 1024 * 32);
+    mostLikelySequenceThemeShifts = hmm.decode(sc, observedSequenceRdd);
     
     JavaPairRDD<Integer ,Tuple2<Long, Long>> wordStreamZippedWithIndexReversed =
             wordStreamZippedWithIndex.mapToPair(
@@ -225,6 +224,35 @@ public class LifeCycleAnalyserSpark implements Serializable {
     
     
     List<Tuple2<Long, Map<Integer, Integer>>> collectedResults = resultByTimestamp.collect();
+    
+    Collections.sort(collectedResults, new Comparator<Tuple2<Long, Map<Integer, Integer>>>() {
+      @Override
+      public int compare(Tuple2<Long, Map<Integer, Integer>> index1,
+              Tuple2<Long, Map<Integer, Integer>> index2) {
+        return index1._1.compareTo(index2._1);
+      }
+    });
+    
+    int timeDuration = collectedResults.size();
+    int[][] themesStrengths = new int[(int) numberOfThemes][timeDuration];
+    
+    for (int timeIndex = 0 ; timeIndex < timeDuration ; timeIndex++){
+      Tuple2<Long, Map<Integer, Integer>> tuple = collectedResults.get(timeIndex);
+      for(Entry<Integer,Integer> entry : tuple._2.entrySet()){
+        themesStrengths[entry.getKey()-1][timeIndex] = entry.getValue();        
+      }
+    }
+    
+    System.out.println("");
+    for ( int i = 0; i < numberOfThemes; i++ ) {
+      System.out.print("themeStrength_" + i + " = [");
+      for ( int j = 0; j < timeDuration; j++ ) {
+        System.out.print(" " + themesStrengths[i][j]);
+      }
+      System.out.println("];");
+    }
+    
+    /*
     System.out.println();
     System.out.println("Results by timestamps");
     for(Tuple2<Long, Map<Integer, Integer>> tuple : collectedResults){
@@ -235,6 +263,7 @@ public class LifeCycleAnalyserSpark implements Serializable {
       
     }
     System.out.println();
+    */
   }
 
   public void allAbsoluteStrength(String path, final long startTime, final long endTime,
@@ -413,6 +442,30 @@ public class LifeCycleAnalyserSpark implements Serializable {
    */
   public void addAllThemesFromRdd(JavaPairRDD<Theme, Double> themesRdd) {
     themesWithIndex = themesRdd.zipWithIndex();
+    
+    //here is the print of the themes
+ Map<Tuple2<Theme, Double>, Long> emOutputs = themesWithIndex.collectAsMap();
+ 
+ List<Tuple2<Tuple2<Theme, Double>, Long>> orderedThemesWithIndex = themesWithIndex.collect();
+ 
+ Collections.sort(orderedThemesWithIndex, new Comparator<Tuple2<Tuple2<Theme, Double>, Long>>() {
+   @Override
+   public int compare(Tuple2<Tuple2<Theme, Double>, Long> index1,
+           Tuple2<Tuple2<Theme, Double>, Long> index2) {
+     return index1._2.compareTo(index2._2);
+   }
+ });
+    System.out.println("Printing themes as ordered in the hmm");
+    for (Tuple2<Tuple2<Theme, Double>, Long> tuple : orderedThemesWithIndex) {
+      Tuple2<Theme, Double> theme = tuple._1;
+      Tuple2<Integer, Integer> t = theme._1.statistics();
+      System.out.println("Theme :" + tuple._2);
+      System.out.println(theme._1.sortTitleString(3));
+      System.out.println(theme._1.sortString(12));
+      System.out.println("Score: " + theme._2);
+      System.out.println("");
+    }
+    
     JavaPairRDD<Long, double[]> themesToArray = themesWithIndex
             .mapToPair(new PairFunction<Tuple2<Tuple2<Theme, Double>, Long>, Long, double[]>() {
 

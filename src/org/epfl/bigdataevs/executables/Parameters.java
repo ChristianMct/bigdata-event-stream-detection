@@ -39,8 +39,8 @@ public class Parameters {
   public static final int numberOfRunsEmAlgorithm = 1;
   public static final int numberOfIterationsEmAlgorithm = 25;
   public static int numberOfThemes = 10;
-  public static final double lambdaBackgroundModel = 0.95;
-  public static final double themeFilteringThreshold = 0.9;
+  public static double lambdaBackgroundModel = 0.95;
+  public static double themeFilteringThreshold = 0.9;
   
   /**
    * Parameters regarding the Evolution Graph
@@ -51,28 +51,41 @@ public class Parameters {
   public static int dateStepSize = 5;
   public static int dateStepsNumber = 8;
   public static String outputFilename = "graph.dot";
+  public static boolean totalVariationDistance = false;
   
   public static double maxPenWidth = 3.;
+  public static String startDateHMM;
+  public static int dateStepSizeHMM =20;
+  
+  //HMM parameters
+  public static final int BWBlockSize = 1024 * 64;
+  public static final int ViterbiBlockSize = 1024 * 128;
   
   
   /**
    * useful function to set parameters
    */
-  private static double getDouble(Properties prop, String key, double defaultVal){
+  private static double getValue(Properties prop, String key, double defaultVal) {
     String val = prop.getProperty(key);
     return (val == null) ? defaultVal : Double.parseDouble(val);
   }
   
   
-  private static int getInt(Properties prop, String key, int defaultVal){
+  private static int getValue(Properties prop, String key, int defaultVal) {
     String val = prop.getProperty(key);
     return (val == null) ? defaultVal : Integer.parseInt(val);
   }
   
   
-  private static String getString(Properties prop, String key, String defaultVal){
+  private static String getValue(Properties prop, String key, String defaultVal) {
     String val = prop.getProperty(key);
     return (val == null) ? defaultVal : val;
+    
+  }
+  
+  private static boolean getValue(Properties prop, String key, boolean defaultVal) {
+    String val = prop.getProperty(key);
+    return (val == null) ? defaultVal : Boolean.parseBoolean(val);
     
   }
   
@@ -93,21 +106,28 @@ public class Parameters {
       prop.load(input);
    
       // get the property value
-      threshold = getDouble(prop, "threshold", threshold);
-      logMax = getDouble(prop, "logMax", logMax);  
-      startDate = getString(prop, "startDate", startDate);
-      dateStepSize = getInt(prop, "dateStepSize", dateStepSize);
-      dateStepsNumber = getInt(prop, "dateStepsNumber", dateStepsNumber);
-      outputFilename = getString(prop, "outputFilename", outputFilename);
+      threshold = getValue(prop, "threshold", threshold);
+      logMax = getValue(prop, "logMax", logMax);  
+      startDate = getValue(prop, "startDate", startDate);
+      dateStepSize = getValue(prop, "dateStepSize", dateStepSize);
+      dateStepsNumber = getValue(prop, "dateStepsNumber", dateStepsNumber);
+      outputFilename = getValue(prop, "outputFilename", outputFilename);
+      totalVariationDistance = getValue(prop, "totalVariationDistance", totalVariationDistance);
       
-      numberOfCountsBackgroundModelThreshold = getInt(prop, "numberOfCountsBackgroundModelThreshold", numberOfCountsBackgroundModelThreshold);
-      numberOfThemes = getInt(prop, "numberOfThemes", numberOfThemes);
+      numberOfCountsBackgroundModelThreshold = getValue(prop, "numberOfCountsBackgroundModelThreshold", numberOfCountsBackgroundModelThreshold);
+      numberOfThemes = getValue(prop, "numberOfThemes", numberOfThemes);
       
+      lambdaBackgroundModel = getValue(prop, "lambdaBackgroundModel", lambdaBackgroundModel); 
+      themeFilteringThreshold = getValue(prop, "themeFilteringThreshold", themeFilteringThreshold); 
+      
+      startDateHMM = getValue(prop,"startDateHMM", startDateHMM);
+      dateStepSizeHMM = getValue(prop, "dateStepSizeHMM",dateStepSizeHMM);
     } catch (IOException ex) {
       System.out.println("Parameter file not found -> using default values");
     } finally {
       if (input != null) {
           input.close();
+          System.out.println("themeFilteringThreshold : "+themeFilteringThreshold);
       }
     }
   }
