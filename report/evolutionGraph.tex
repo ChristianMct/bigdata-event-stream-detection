@@ -17,7 +17,17 @@ With this distance, we now consider that there is an Evolutionary Transition bet
 The main problem raised by the computation of KL divergence with our dataset is that themes quite often do not have exactly the same sets of word. This leads to degenerated cases where the Kullback Divergence will be infinite. However we don't want to penalize these transitions to much because they might still carry interesting links. This issue is discussed in \cite{de2010grammatical} where they suggest to use smoothed probability distributions to avoid null probabilities. An other solution is to use the Total Variation instead of the Kullback divergence because it is more stable in presence of degeneracies.
 
 \paragraph{}
-[add graphs and cool things]
+As we can see in Figure \ref{fig:divergence} 
+\begin{center}
+\begin{figure}[H]
+	\label{fig:divergence}
+	\includegraphics[width=0.45\textwidth]{images/divergence}
+	\includegraphics[width=0.45\textwidth]{images/divergence}
+	\caption{Histogram of the value of the distance for Kullback-Leibler Divergence (left) and Total Variation (right)}
+\end{figure}
+\end{center}
+
+[Write conclusions]
 
 \subsubsection{Implementation}
 \label{sec:EvoGraphImplementation}
@@ -33,15 +43,16 @@ Even so we parallelize the work efficiently, the evolution graph algorithm does 
 We could avoid this quadratic complexity by looking only at similarity between theme that are close to each other in time. However we thought this simplification would make us lose interesting links like for example [pertinent example needed]
 
 \paragraph{}
-Our parallel implementation performs well :
-\newline
-\begin{tabular}{llll}
-Number of Theme & Number of pairs & Number of executors & Execution time \\
+Our parallel implementation performs well :\\
+~\newline
+\begin{tabular}{l|l|l|l}
+Number of Theme & Number of pairs & Number of executors & Execution time \\ \hline
 \~ 200 & \~ 20000 & 500 & \~ 10s \\
 \~ 2000 & \~ 2000000 & 500 & \~ 7min34s \\
 \end{tabular}
 \newline
 [performance measure to be completed soon]
+
 
 \subsubsection{Results}
 \label{sec:EvoGraphResults}
