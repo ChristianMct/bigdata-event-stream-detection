@@ -11,8 +11,8 @@ The \emph{background model} is an unique object on the whole dataset (i.e time f
 For the next part, we will differentiate two different phases in the processing pipeline: the theme extraction, where we perform the Expectation-Maximization (EM) algorithm, and the theme "strength" analysis, which uses the Hidden Markov Models (HMM). Both phases are described later. For the EM phase, the parser has to provide a structure containing the word count inside each individual article text. For that, we use an object representing a \emph{parsed article}, which contains the count of each distinct word in this article, as well as some other properties (issue date, stream identifier...). These parsed articles must be grouped by small sub-partitions of the time frame that we called \emph{time partition}s. Effectively, the EM part receives an RDD of \emph{time partition}s containing a small part of the parsed articles. The HMM part requires the chronological concatenation of all the words in the \emph{time frame} , where a timestamp is attributed to each word. In order to reduce the memory and CPU usage of such a structure, we don't store the words as Java String objects; rather, we first associate each distinct word to a unique integer identifier, and then produce the word concatenation as an ordered RDD of integers. Both the EM and HMM parts need to access the background model. Figure \ref{fig:time_entities} summarizes the different time entities we defined.
 
 \begin{figure}
-   \includegraphics[width=\textwidth]{time_entities.pdf}
-   \caption{\label{fig:time_entities} The different time entities.}
+  \includegraphics[width=\textwidth]{time_entities.pdf}
+  \caption{\label{fig:time_entities} The different time entities.}
 \end{figure}
 
 \subsubsection{Data processing pipeline}

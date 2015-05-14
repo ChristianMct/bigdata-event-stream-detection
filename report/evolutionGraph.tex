@@ -18,14 +18,14 @@ The main problem raised by the computation of KL divergence with our dataset is 
 
 \paragraph{}
 As we can see in Figure \ref{fig:divergence} 
-\begin{center}
 \begin{figure}[H]
+\begin{center}
 	\label{fig:divergence}
 	\includegraphics[width=0.45\textwidth]{images/divergence}
 	\includegraphics[width=0.45\textwidth]{images/divergence}
 	\caption{Histogram of the value of the distance for Kullback-Leibler Divergence (left) and Total Variation (right)}
-\end{figure}
 \end{center}
+\end{figure}
 
 [Write conclusions]
 
@@ -60,3 +60,11 @@ Number of Theme & Number of pairs & Number of executors & Execution time \\ \hli
 \paragraph{}
 In order to get a graphical representation of the results, we have decided to use GraphViz to generate a graph. Using Spark and the previously generated evolution graph RDD, we have implemented a .dot file generator to build the graph on a particular time-span.
 [Graph example required]
+
+\begin{figure}[H]
+\begin{center}
+	\label{fig:graph}
+	\includegraphics[width=15cm]{images/graph}
+	\caption{Graph generated with GraphViz}
+\end{center}
+\end{figure}
