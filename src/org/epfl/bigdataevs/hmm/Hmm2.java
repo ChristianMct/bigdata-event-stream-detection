@@ -14,6 +14,7 @@ import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.storage.StorageLevel;
+import org.epfl.bigdataevs.executables.Parameters;
 
 import scala.Tuple2;
 import scala.Tuple3;
@@ -66,14 +67,13 @@ public class Hmm2 implements Serializable {
    * @param sc JavaSparkContext to use
    * @param wordStreamRdd
    *          the full text of the concatenated articles as (index, word index)
-   * @param blockSize Size of the blocks to process (e.g 1024*1024)
    * @return the sequence of HMM states associated with the stream : each state is represented by an
    *         integer between 0 and k (0 for the background model)
    */
   public JavaPairRDD<Integer, Integer> decode(
           JavaSparkContext sc,
-          JavaRDD<Tuple2<Integer, Integer>> wordStreamRdd,
-          final int blockSize ) {
+          JavaRDD<Tuple2<Integer, Integer>> wordStreamRdd ) {
+    final int blockSize = Parameters.ViterbiBlockSize;
     final int T = (int) wordStreamRdd.count();
     final int numBlocks = (T + (blockSize - 1)) / blockSize;
     
@@ -313,13 +313,14 @@ public class Hmm2 implements Serializable {
           double aaThreshold,
           int maxIterations) {
     long sequenceLength = observedSequenceRdd.count();
-    if ( sequenceLength > 10000000 ) {
+    long cost = sequenceLength * N * N;
+    if ( cost > 1000L * 1000L * 1000L ) {
       rawSparkTrain(sc, observedSequenceRdd, piThreshold, aaThreshold, maxIterations);
     } else {
       List<Tuple2<Integer, Integer>> observedSequenceList =
               observedSequenceRdd.collect();
       
-      // sort last partially scanned TA matrices
+      // sort observed sequence
       Collections.sort(observedSequenceList, new Comparator<Tuple2<Integer, Integer>>() {
         @Override
         public int compare(Tuple2<Integer, Integer> index1,
@@ -332,7 +333,7 @@ public class Hmm2 implements Serializable {
       
       // copy observation sequence
       for ( Tuple2<Integer, Integer> tuple : observedSequenceList ) {
-        observedSequence[tuple._1] = tuple._2$mcI$sp();
+        observedSequence[tuple._1] = tuple._2;
       }
       rawSequentialTrain(observedSequence, piThreshold, aaThreshold, maxIterations);
     }
@@ -497,7 +498,6 @@ public class Hmm2 implements Serializable {
         }
       }
       
-      // Check convergence here
       // check convergence
       double piDiff = 0.0;
       for ( int i = 0; i < N; i++ ) {
@@ -543,7 +543,7 @@ public class Hmm2 implements Serializable {
           int maxIterations) {
     
     final int T = (int) observedSequenceRdd.count();    
-    final int blockSize = 1024 * 32;
+    final int blockSize = Parameters.BWBlockSize;
     
     final int numBlocks = (T + (blockSize - 1)) / blockSize;
     double piDiff = Double.POSITIVE_INFINITY;
@@ -630,7 +630,7 @@ public class Hmm2 implements Serializable {
                 return observedBlock;
               }
             });
-    observedBlocksRdd.persist(StorageLevel.MEMORY_ONLY());
+    observedBlocksRdd.persist(StorageLevel.MEMORY_AND_DISK());
     // iterate until convergence
     for ( int step = 0; step < maxIterations; step++ ) {
       System.out.println("Spark iter " + step);
