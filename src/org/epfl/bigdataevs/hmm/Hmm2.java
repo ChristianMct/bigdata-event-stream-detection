@@ -586,7 +586,7 @@ public class Hmm2 implements Serializable {
                 return arg0._1();
               }
               
-            });
+            }).repartition(numBlocks);
         
     JavaPairRDD<Integer, int[]> observedBlocksRdd =
             groupedObservedBlocksRdd.mapValues(new Function<Iterable<Tuple3<Integer, Integer, Integer>>, int[]>() {
@@ -630,7 +630,10 @@ public class Hmm2 implements Serializable {
                 return observedBlock;
               }
             });
-    observedBlocksRdd.persist(StorageLevel.MEMORY_AND_DISK());
+    
+    // make it persist in memory
+    observedBlocksRdd = observedBlocksRdd.persist(StorageLevel.MEMORY_AND_DISK());
+    
     // iterate until convergence
     for ( int step = 0; step < maxIterations; step++ ) {
       System.out.println("Spark iter " + step);
@@ -679,6 +682,46 @@ public class Hmm2 implements Serializable {
                               + " norm " + norm + " mat " + ta[bi]);
                     }
                     ta[bi].scalarDivide(norm);
+                    
+                    // also perform partial scan
+                    if ( bi > 0 ) {
+                      SquareMatrix partialResult = new SquareMatrix(N);
+                      double partialResultNorm = 0.0;
+                      
+                      for ( int i = 0; i < N; i++ ) {
+                        if ( i == 0 ) {
+                          for ( int j = 0; j < N; j++ ) {
+                            double el = 0.0;
+                            for (int k = 0; k < N; k++ ) {
+                              el += ta[bi].elements[i * N + k]
+                                      * ta[bi - 1].elements[ k * N + j];
+                            }
+                            partialResultNorm += el;
+                            partialResult.elements[ i * N + j] = el;
+                          }
+                        } else {
+                          // here, only k=0 and k=i only
+                          for ( int j = 0; j < N; j++ ) {
+                            double el = 0.0;
+                            el += ta[bi].elements[i * N + 0]
+                                    * ta[bi - 1].elements[ 0 * N + j];
+                            el += ta[bi].elements[i * N + i]
+                                    * ta[bi - 1].elements[ i * N + j];
+                            partialResultNorm += el;
+                            partialResult.elements[ i * N + j] = el;
+                          }
+                        }
+                      }
+                      
+                      // renormalize
+                      for ( int i = 0; i < N; i++ ) {
+                        for ( int j = 0; j < N; j++ ) {
+                          partialResult.elements[ i * N + j ] /= partialResultNorm;
+                        }
+                      }
+                      
+                      ta[bi] = partialResult;
+                    }
                   }
                   
                   return new Tuple2<Integer, SquareMatrix[]>(blockId, ta);
@@ -686,25 +729,8 @@ public class Hmm2 implements Serializable {
                 
               });
       
-      JavaPairRDD<Integer, SquareMatrix[]> partiallyScannedTaRdd =
-              initializedTaRdd.mapValues(new Function<SquareMatrix[], SquareMatrix[]>() {
-                private static final long serialVersionUID = 6L;
-
-                @Override
-                public SquareMatrix[] call(SquareMatrix[] arg0) throws Exception {
-                  int trueBlockSize = arg0.length;
-                  
-                  SquareMatrix[] outResults = new SquareMatrix[trueBlockSize];
-                  outResults[0] = arg0[0].publicClone();
-                  
-                  for ( int bi = 1; bi < trueBlockSize; bi++ ) {
-                    outResults[bi] = arg0[bi].multiplyOut(outResults[bi - 1], new SquareMatrix(N));
-                    outResults[bi].scalarDivide(outResults[bi].rawNorm1());
-                  }
-                  return outResults;
-                }
-                
-              });
+      // make it persist in memory
+      JavaPairRDD<Integer, SquareMatrix[]> partiallyScannedTaRdd = initializedTaRdd;
       
       JavaPairRDD<Integer, SquareMatrix> lastPartiallyScannedTaRdd =
               partiallyScannedTaRdd.mapValues(new Function<SquareMatrix[], SquareMatrix>() {
@@ -966,29 +992,41 @@ public class Hmm2 implements Serializable {
                       System.out.println("(TBInit) Block " + blockId + " mat "
                               + bi + " norm " + norm);
                     }
+                    
+                    // also perform partial scan
+                    if ( bi < trueBlockSize - 1 ) {
+                      SquareMatrix partialResult = new SquareMatrix(N);
+                      for ( int i = 0; i < N; i++ ) {
+                        if ( i == 0 ) {
+                          for ( int j = 0; j < N; j++ ) {
+                            double el = 0.0;
+                            for (int k = 0; k < N; k++ ) {
+                              el += tb[bi].elements[i * N + k]
+                                      * tb[bi + 1].elements[ k * N + j];
+                            }
+                            partialResult.elements[ i * N + j] = el;
+                          }
+                        } else {
+                          // here, only k=0 and k=i only
+                          for ( int j = 0; j < N; j++ ) {
+                            double el = 0.0;
+                            el += tb[bi].elements[i * N + 0]
+                                    * tb[bi + 1].elements[ 0 * N + j];
+                            el += tb[bi].elements[i * N + i]
+                                    * tb[bi + 1].elements[ i * N + j];
+                            partialResult.elements[ i * N + j] = el;
+                          }
+                        }
+                      }
+                      
+                      tb[bi] = partialResult;
+                    }
                   }
                   return new Tuple2<Integer, SquareMatrix[]>(blockId, tb);
                 }
               });
       
-      JavaPairRDD<Integer, SquareMatrix[]> partiallyScannedTbRdd =
-              initializedTbRdd.mapValues(new Function<SquareMatrix[], SquareMatrix[]>() {
-                private static final long serialVersionUID = 11L;
-
-                @Override
-                public SquareMatrix[] call(SquareMatrix[] arg0) throws Exception {
-                  int trueBlockSize = arg0.length;
-                  
-                  SquareMatrix[] outResults = new SquareMatrix[trueBlockSize];
-                  outResults[trueBlockSize - 1] = arg0[trueBlockSize - 1].publicClone();
-                  
-                  for ( int bi = trueBlockSize - 2; bi >= 0; bi-- ) {
-                    outResults[bi] = arg0[bi].multiplyOut(outResults[bi + 1], new SquareMatrix(N));
-                  }
-                  return outResults;
-                }
-                
-              });
+      JavaPairRDD<Integer, SquareMatrix[]> partiallyScannedTbRdd = initializedTbRdd;
       
       JavaPairRDD<Integer, SquareMatrix> firstPartiallyScannedTbRdd =
               partiallyScannedTbRdd.mapValues(new Function<SquareMatrix[], SquareMatrix>() {
