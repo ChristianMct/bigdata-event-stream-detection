@@ -1,4 +1,4 @@
-\subsection{Evolution Graph}
+\subsection{Graph of Evolutionary Transitions}
 \paragraph{}
 In section \ref{sec:ThemeExtraction} we showed a method to extract themes from the dataset of articles over a given period of time. However we are interested in detecting events that can last for a long time. This is why we studied evolutionary transitions. In section \ref{sec:EvoGraphInterest} we introduce the Kullback divergence which allow to measure the distance between extracted themes and we show how it can be interpreted to detect long lasting events. Then, in section \ref{sec:EvoGraphImplementation} and \ref{sec:EvoGraphPerformance}, we present our implementation in parallel using spark and its performance. Finally in section \ref{sec:EvoGraphResults} we show the results obtained by this method.
 
@@ -6,18 +6,23 @@ In section \ref{sec:ThemeExtraction} we showed a method to extract themes from t
 \label{sec:EvoGraphInterest}
 
 \paragraph{}
-Since themes are basically probability distributions of words over a given time period, in [citation needed], they recommend to use the Kullback divergence which is commonly used in information theory to compare communication channels [citation needed] :\[ D(Theme1 || Theme2) = \sum_{word} P(word|Theme1) log(\frac{P(word|Theme1)}{P(word|Theme2)})\]where $P(word|theme)$ is the probability of reading the word $word$ in an article if it deals with the theme $theme$. Here we use it to have a measure of the difference between the probability distributions of two themes. An other solution to compare probability distributions is to use the Total Variation distance [citation needed] :\[ \norm{Theme1 - Theme2}_{TV} = \frac{1}{2} \sum_{word} |P(word|Theme1) - P(word|Theme2)|\]We implemented both solution and as expected the...
+Since themes are basically probability distributions of words over a given time period, in [citation needed], they recommend to use the Kullback divergence which is commonly used in information theory to compare communication channels [citation needed] :\[ D(Theme1 || Theme2) = \sum_{word} P(word|Theme1) log(\frac{P(word|Theme1)}{P(word|Theme2)})\]where $P(word|theme)$ is the probability of reading the word $word$ in an article if it deals with the theme $theme$. Here we use it to have a measure of the difference between the probability distributions of two themes. An other solution to compare probability distributions, which is not suggested in [citation needed], is to use the Total Variation distance [citation needed] :\[ \norm{Theme1 - Theme2}_{TV} = \frac{1}{2} \sum_{word} |P(word|Theme1) - P(word|Theme2)|\]
 
 \paragraph{}
-With this distance, we now consider that there is an evolutionary transition between two themes, $T_1$ and $T_2$, if $T_2$ comes after $T_1$ in the time-line and if the divergence is bellow a threshold that we choose. This way we build the evolution graph with themes as vertices and evolutionary transition as edges. Paths in this graph will reflect how a given theme is slightly transformed from one period of time to an other. We will then be able to see both the real length of an event in time and also if new elements appeared at some point. [example needed]
+With this distance, we now consider that there is an Evolutionary Transition between two themes, $T_1$ and $T_2$, if $T_2$ comes after $T_1$ in the time-line and if the divergence is bellow a threshold that we choose. An Evolutionary Transition between two themes shows that they are very likely to come from he same event that last longer than one period of time. The graph of Evolutionary Transitions is then built with themes as vertices and evolutionary transition as edges. Paths in this graph will reflect how a given theme is slightly transformed from one period of time to an other. That grants detection of both the real span of an event and also if new elements appear during it.
+
+\subsubsection{Comparison of Kullback divergence and Total Variation}
+
+\paragraph{}
+The main problem raised by the computation of KL divergence with our dataset is that themes quite often do not have exactly the same sets of word. This leads to degenerated cases where the Kullback Divergence will be infinite. However we don't want to penalize these transitions to much because they might still carry interesting links. This issue is discussed in \cite{de2010grammatical} where they suggest to use smoothed probability distributions to avoid null probabilities. An other solution is to use the Total Variation instead of the Kullback divergence because it is more stable in presence of degeneracies.
+
+\paragraph{}
+[add graphs and cool things]
 
 \subsubsection{Implementation}
 \label{sec:EvoGraphImplementation}
 \paragraph{}
-The implementation works like ...
-
-\paragraph{}
-We used smoothed probabilities as it is discussed in \cite{de2010grammatical} because ... 
+The implementation of the evolution graph algorithm is quite straightforward. The algorithm receives an RDD of \emph{Theme} extracted by the EM algorithm that is repartitioned over a number of node usually equal to the number of \emph{time partitions}. The first step is to convert the objects \emph{Theme} into \emph{LightTheme} that contain only the information required by the computation of the distance in order to reduce memory usage and transfer times. The second step is to repartition the RDD of \emph{LightTheme} over a number of executor 
 
 \subsubsection{Performance}
 \label{sec:EvoGraphPerformance}
@@ -38,10 +43,9 @@ Number of Theme & Number of pairs & Number of executors & Execution time \\
 \newline
 [performance measure to be completed soon]
 
-
 \subsubsection{Results}
 \label{sec:EvoGraphResults}
 
 \paragraph{}
 In order to get a graphical representation of the results, we have decided to use GraphViz to generate a graph. Using Spark and the previously generated evolution graph RDD, we have implemented a .dot file generator to build the graph on a particular time-span.
-[Graph Exemple Required]
+[Graph example required]
