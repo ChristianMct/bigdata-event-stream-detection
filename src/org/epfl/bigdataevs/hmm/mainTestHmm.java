@@ -23,12 +23,12 @@ public class mainTestHmm {
       output.add("gamma");
       output.add("delta");
       output.add("epsil");
-      double[] pi = {1.0,0.0,0.0,0.0};
-      double[][] a = { { 0.5, 0.3, 0.1, 0.1 }, { 0.8, 0.2, 0, 0 }, { 0.7, 0, 0.3, 0 },
-              { 0.2, 0, 0, 0.8 } };
+      double[] pi = {1.0,0.0,0.0,0.0, 0.0};
+      double[][] a = { { 0.2, 0.2, 0.2, 0.2, 0.2 }, { 0.8, 0.2, 0, 0, 0 }, { 0.7, 0, 0.3, 0, 0 },
+              { 0.2, 0, 0, 0.8, 0 }, { 0.1, 0, 0, 0, 0.9 } };
   
       double[][] b = { { 0.0, 0.0, 0.0, 0.0, 1.0 }, { 0.8, 0.1, 0.1, 0, 0 },
-              { 0.1, 0.8, 0.1, 0.0, 0.0 }, { 0, 0, 0.8, 0.2, 0.0 } };
+              { 0.1, 0.8, 0.1, 0.0, 0.0 }, { 0, 0, 0.8, 0.2, 0.0 }, { 0, 0, 0.1, 0.8, 0.1 } };
   
       Hmm hmm = new Hmm(output, pi,a, b);
   
@@ -39,27 +39,27 @@ public class mainTestHmm {
       // Test HMM training
       int n = pi.length;
       int m = 5;
-      double[] initialPi = {0.25,0.25,0.25,0.25};
-      double[] initialPi2 = {0.25,0.25,0.25,0.25};
-      double[][] initialA = { { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 },
-              { 0.25, 0.25, 0.25, 0.25 } };
-      double[][] initialA2 = { { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 }, { 0.25, 0.25, 0.25, 0.25 },
-              { 0.25, 0.25, 0.25, 0.25 } };
+      double[] initialPi = {0.2,0.2,0.2,0.2, 0.2};
+      double[] initialPi2 = {0.2,0.2,0.2,0.2, 0.2};
+      double[][] initialA = { { 0.2, 0.2, 0.2, 0.2, 0.2 }, { 0.5, 0.5, 0, 0, 0 }, { 0.5, 0, 0.5, 0, 0 },
+              { 0.5, 0, 0, 0.5, 0 }, { 0.5, 0, 0, 0, 0.5 } };
+      double[][] initialA2 = { { 0.2, 0.2, 0.2, 0.2, 0.2 }, { 0.5, 0.5, 0, 0, 0 }, { 0.5, 0, 0.5, 0, 0 },
+              { 0.5, 0, 0, 0.5, 0 }, { 0.5, 0, 0, 0, 0.5 } };
       Hmm sparkTrainedHmm = new Hmm(n, m, initialPi, initialA, b);
       Hmm2 sparkTrainedHmm2 = new Hmm2(n, m, initialPi, initialA, b);
-      Hmm trainedHmm2 = new Hmm(n, m, initialPi2,
+      Hmm2 trainedHmm2 = new Hmm2(n, m, initialPi2,
              initialA2, Arrays.copyOf(b,b.length));
       
       //JavaSparkContext sc = new JavaSparkContext("local", "EM Algorithm Test");
-      
+      /*
       SparkConf sparkConf = new SparkConf().setAppName("Test HMM bug");
       //sparkConf.setMaster("localhost:7077");
       JavaSparkContext sc = new JavaSparkContext(sparkConf);
-      
-      int seqSize = 20000000;
+      */
+      int seqSize = 1000000;
       int[] rawSequence = hmm.generateRawObservationSequence(seqSize);
       //System.out.println("rawSequence : "+Arrays.toString(rawSequence));
-      
+      /*
       ArrayList<Tuple2<Integer, Integer>> rawSequenceList =
               new ArrayList<Tuple2<Integer, Integer>>();
       
@@ -69,13 +69,14 @@ public class mainTestHmm {
                         new Integer(i),
                         new Integer(rawSequence[i])));
       }
-      
-      JavaRDD<Tuple2<Integer, Integer>> rawSequenceRdd = sc.parallelize(rawSequenceList);
+      */
+      //JavaRDD<Tuple2<Integer, Integer>> rawSequenceRdd = sc.parallelize(rawSequenceList);
       
       //sparkTrainedHmm.rawSparkTrain(sc, rawSequenceRdd, 0.0001, 0.0001, 200);
-      sparkTrainedHmm2.rawSparkTrain(sc, rawSequenceRdd, 0.0001, 0.0001, 100);
-      //trainedHmm2.rawTrain(rawSequence, 10000000);
+      //sparkTrainedHmm2.rawSparkTrain(sc, rawSequenceRdd, 0.0001, 0.0001, 100);
+      trainedHmm2.rawSequentialTrain(rawSequence, 0.0001, 0.0001, 100);
    // Print Pi first
+      /*
       double[] trainedPi = sparkTrainedHmm2.getPi();
       System.out.println("Pi: ");
       for ( int i = 0; i < n; i++ ) {
@@ -102,7 +103,7 @@ public class mainTestHmm {
         }
         System.out.println("");
       }
-      
+      */
       
       
       

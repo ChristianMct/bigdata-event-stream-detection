@@ -364,8 +364,6 @@ public class Hmm2 implements Serializable {
     double[] alphasScales = new double[ sequenceLength ];
     double[] alphas = new double[N * sequenceLength];
     double[] betas = new double[N * sequenceLength];
-    double[] gammas = new double[N];
-    double[] gammasSums = new double[N];
     
     // Iterate until convergence of the transition probabilities
     int maxSteps = maxIterations;
@@ -398,8 +396,14 @@ public class Hmm2 implements Serializable {
         double sum = 0.0;
         for (int i = 0; i < N; i++) {
           double res = 0.0;
-          for (int j = 0; j < N; j++) {
-            res += (alphas[(t - 1) * N + j] * a[j][i]);
+          // only compute necessary terms
+          if ( i == 0 ) {
+            for (int j = 0; j < N; j++) {
+              res += (alphas[(t - 1) * N + j] * a[j][i]);
+            }
+          } else {
+            res += (alphas[(t - 1) * N + 0] * a[0][i]);
+            res += (alphas[(t - 1) * N + i] * a[i][i]);
           }
           double value = (res * b[i][observedSequence[t]]);
           alphas[t * N + i] = value;
@@ -425,52 +429,62 @@ public class Hmm2 implements Serializable {
       for (int t = sequenceLength - 1; t >= 1; t--) {
         for (int i = 0; i < N; i++) {
           double res = 0.0;
-          for (int j = 0; j < N; j++) {
-            res += (betas[t * N + j] * a[i][j]
-                   * b[j][observedSequence[t]] * alphasScales[t - 1]);
+          // only compute the necessary terms
+          if ( i == 0 ) {
+            for (int j = 0; j < N; j++) {
+              res += (betas[t * N + j] * a[i][j]
+                     * b[j][observedSequence[t]] * alphasScales[t - 1]);
+            }
+          } else {
+            res += (betas[t * N + 0] * a[i][0]
+                    * b[0][observedSequence[t]] * alphasScales[t - 1]);
+            res += (betas[t * N + i] * a[i][i]
+                    * b[i][observedSequence[t]] * alphasScales[t - 1]);
           }
-
           betas[(t - 1) * N + i] = res;
         }
       }
       
       // reset temporary variables
-      Arrays.fill(gammasSums, 0.0d);
       for ( int stateIndex = 0; stateIndex < N; stateIndex++ ) {
         Arrays.fill(aaStar[stateIndex], 0.0);
       }
       
+      { /* compute and normalize Pi_star */
+        double sum = 0.0;
+        for (int i = 0; i < N; i++) {
+          double gamma = alphas[0 * N + i] * betas[0 * N + i];
+          double tempVal = gamma / alphasScales[0];
+          piStar[i] = tempVal;
+          sum += tempVal;
+        }
+        // renormalize
+        for ( int i = 0; i < N; i++ ) {
+          piStar[i] /= sum;
+        }
+      }
+      
       // as we don't need to update b, we can stop at
       // sequenceLength-1
-      for ( int t = 0; t < sequenceLength - 1; t++ ) {
-        
-        // compute the terms alpha(i,t)*beta(i,t) and incrementally the sum of them
-        for (int i = 0; i < N; i++) {
-          double tempVal = alphas[t * N + i] * betas[t * N + i];
-          gammas[i] = tempVal;
-        }
-
-        // compute gamma(i,t), and incrementally gamma_sums(i)
-        for (int i = 0; i < N; i++) {
-          double tempVal = gammas[i] / alphasScales[t];
-          gammas[i] = tempVal;
-          gammasSums[i] += tempVal;
-        }
-
-        // we have now gamma(i,t) in gammas[], and sum( k, alpha(k, t)*beta(k, t) ) in denGamma */
+      for ( int t = 0; t < sequenceLength - 2; t++ ) {
         /* compute khi(i,j) incrementally, put it in aaStar */
-        if (t != sequenceLength - 1) {
-          for (int i = 0; i < N; i++) {
+        for (int i = 0; i < N; i++) {
+          // only compute necessary terms
+          if ( i == 0 ) {
             for (int j = 0; j < N; j++) {
               double khi = (alphas[t * N + i] * a[i][j] * betas[(t + 1) * N + j])
                       * b[j][observedSequence[t + 1]];
               aaStar[i][j] += khi;
             }
+          } else {
+            double khi0 = (alphas[t * N + i] * a[i][0] * betas[(t + 1) * N + 0])
+                    * b[0][observedSequence[t + 1]];
+            aaStar[i][0] += khi0;
+            
+            double khii = (alphas[t * N + i] * a[i][i] * betas[(t + 1) * N + i])
+                    * b[i][observedSequence[t + 1]];
+            aaStar[i][i] += khii;
           }
-        }
-        /* copy in Pi_star if that's the moment */
-        if (t == 0) {
-          System.arraycopy(gammas, 0, piStar, 0, N);
         }
       }
       
@@ -484,17 +498,6 @@ public class Hmm2 implements Serializable {
           for (int j = 0; j < N; j++) {
             aaStar[i][j] /= sum;
           }
-        }
-      }
-      
-      // Renormalize piStar
-      double sum = 0.0;
-      for (int i = 0; i < N; i++ ) {
-        sum += piStar[i];
-      }
-      if ( sum > 0.0 ) {
-        for ( int i = 0; i < N; i++ ) {
-          piStar[i] /= sum;
         }
       }
       
