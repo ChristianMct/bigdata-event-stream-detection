@@ -4,6 +4,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.epfl.bigdataevs.em.LightTheme;
+import org.epfl.bigdataevs.executables.Parameters;
 
 import scala.Tuple2;
 
@@ -45,7 +46,13 @@ public class KLDivergence implements Serializable{
               throws Exception {        
         LightTheme theme1 = theme._1();
         LightTheme theme2 = theme._2();
-        double divergence = divergence(theme2,theme1);
+        double divergence;
+        
+        if (Parameters.totalVariationDistance) {
+          divergence = totalVariation(theme2,theme1);
+        } else {
+          divergence = divergence(theme2,theme1);
+        }
         
         LinkedList<EvolutionaryTransition> evolutionaryTransition = 
                 new LinkedList<EvolutionaryTransition>();
