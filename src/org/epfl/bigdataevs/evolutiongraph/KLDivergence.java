@@ -20,10 +20,13 @@ public class KLDivergence implements Serializable{
   private Double logMax;
   private Double epsilon;
   
+  private boolean totalVariationDistance = false;
+  
   public KLDivergence(double threshold, double logMax, int numPartitions) {
     this.threshold = threshold;
     this.logMax = logMax;
     this.numPartitions = numPartitions;
+    totalVariationDistance = Parameters.totalVariationDistance;
     epsilon = 1e-7;
   }
   
@@ -48,7 +51,7 @@ public class KLDivergence implements Serializable{
         LightTheme theme2 = theme._2();
         double divergence;
         
-        if (Parameters.totalVariationDistance) {
+        if (totalVariationDistance) {
           divergence = totalVariation(theme2,theme1);
         } else {
           divergence = divergence(theme2,theme1);
