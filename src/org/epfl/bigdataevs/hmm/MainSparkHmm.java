@@ -99,7 +99,7 @@ public class MainSparkHmm {
     }
     
     
-    JavaPairRDD<Integer,Integer> decodedStreamRdd = sparkTrainedHmm2.decode(sc, rawSequenceRdd, 32) ;
+    JavaPairRDD<Integer,Integer> decodedStreamRdd = sparkTrainedHmm2.decode(sc, rawSequenceRdd) ;
     
     List<Tuple2<Integer, Integer>> l = decodedStreamRdd.collect();
     System.out.println("seq " + Arrays.toString(rawSequence));

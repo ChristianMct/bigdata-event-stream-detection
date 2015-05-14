@@ -39,8 +39,8 @@ public class Parameters {
   public static final int numberOfRunsEmAlgorithm = 1;
   public static final int numberOfIterationsEmAlgorithm = 25;
   public static int numberOfThemes = 10;
-  public static final double lambdaBackgroundModel = 0.95;
-  public static final double themeFilteringThreshold = 0.9;
+  public static double lambdaBackgroundModel = 0.95;
+  public static double themeFilteringThreshold = 0.9;
   
   /**
    * Parameters regarding the Evolution Graph
@@ -53,6 +53,10 @@ public class Parameters {
   public static String outputFilename = "graph.dot";
   
   public static double maxPenWidth = 3.;
+  
+  //HMM parameters
+  public static final int BWBlockSize = 1024 * 64;
+  public static final int ViterbiBlockSize = 1024 * 128;
   
   
   /**
@@ -103,11 +107,17 @@ public class Parameters {
       numberOfCountsBackgroundModelThreshold = getInt(prop, "numberOfCountsBackgroundModelThreshold", numberOfCountsBackgroundModelThreshold);
       numberOfThemes = getInt(prop, "numberOfThemes", numberOfThemes);
       
+      lambdaBackgroundModel = getDouble(prop, "lambdaBackgroundModel", lambdaBackgroundModel); 
+      themeFilteringThreshold = getDouble(prop, "themeFilteringThreshold", themeFilteringThreshold); 
+      
+      
+      
     } catch (IOException ex) {
       System.out.println("Parameter file not found -> using default values");
     } finally {
       if (input != null) {
           input.close();
+          System.out.println("themeFilteringThreshold : "+themeFilteringThreshold);
       }
     }
   }
