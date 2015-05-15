@@ -206,7 +206,8 @@ public class ThemesStrengthOverTime {
                       }
               
             });
-    System.out.println("DecodedStream non zero: "+Arrays.toString(Arrays.copyOf(nonZeroMostLikely.collect().toArray(),50)));
+    
+    //System.out.println("DecodedStream non zero: "+Arrays.toString(Arrays.copyOf(nonZeroMostLikely.collect().toArray(),50)));
     System.out.println(nonZeroMostLikely.count()+" detected non-zero states over "+sequenceLength+" states");
     //  Print A then
     double[][] trainedA = lifeCycleAnalyser.hmm.getA();
@@ -220,7 +221,6 @@ public class ThemesStrengthOverTime {
       System.out.println("");
     }
     
-    System.out.println("Strength of theme 1 at time 30 (window 20) :"+lifeCycleAnalyser.absoluteStrength(1, 30, 20));
     
     
     

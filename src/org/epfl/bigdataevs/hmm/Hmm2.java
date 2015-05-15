@@ -314,7 +314,7 @@ public class Hmm2 implements Serializable {
           int maxIterations) {
     long sequenceLength = observedSequenceRdd.count();
     long cost = sequenceLength * N * N;
-    if ( cost > 1000L * 1000L * 1000L ) {
+    if ( cost > 1000L * 1000L * 1000L && !Parameters.forceSequentialBW) {
       rawSparkTrain(sc, observedSequenceRdd, piThreshold, aaThreshold, maxIterations);
     } else {
       List<Tuple2<Integer, Integer>> observedSequenceList =

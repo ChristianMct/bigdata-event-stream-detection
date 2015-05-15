@@ -55,11 +55,12 @@ public class Parameters {
   
   public static double maxPenWidth = 3.;
   public static String startDateHMM;
-  public static int dateStepSizeHMM =20;
+  public static int dateStepSizeHMM = 20;
   
   //HMM parameters
   public static final int BWBlockSize = 1024 * 64;
   public static final int ViterbiBlockSize = 1024 * 128;
+  public static boolean forceSequentialBW = true;
   
   
   /**
