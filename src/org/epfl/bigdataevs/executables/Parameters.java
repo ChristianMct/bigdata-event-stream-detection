@@ -113,6 +113,7 @@ public class Parameters {
       dateStepSize = getValue(prop, "dateStepSize", dateStepSize);
       dateStepsNumber = getValue(prop, "dateStepsNumber", dateStepsNumber);
       outputFilename = getValue(prop, "outputFilename", outputFilename);
+      maxPenWidth = getValue(prop, "maxPenWidth", maxPenWidth);
       totalVariationDistance = getValue(prop, "totalVariationDistance", totalVariationDistance);
       
       numberOfCountsBackgroundModelThreshold = getValue(prop, "numberOfCountsBackgroundModelThreshold", numberOfCountsBackgroundModelThreshold);
