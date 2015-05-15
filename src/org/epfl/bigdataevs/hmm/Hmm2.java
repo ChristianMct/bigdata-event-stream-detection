@@ -630,7 +630,7 @@ public class Hmm2 implements Serializable {
                 return observedBlock;
               }
             });
-    observedBlocksRdd.persist(StorageLevel.MEMORY_AND_DISK());
+   //observedBlocksRdd = observedBlocksRdd.persist(StorageLevel.MEMORY_AND_DISK());
     // iterate until convergence
     for ( int step = 0; step < maxIterations; step++ ) {
       System.out.println("Spark iter " + step);
@@ -821,7 +821,7 @@ public class Hmm2 implements Serializable {
         }
         
       });
-      alphaHatsRdd.persist(StorageLevel.MEMORY_ONLY());
+      //alphaHatsRdd = alphaHatsRdd.persist(StorageLevel.MEMORY_ONLY());
       JavaPairRDD<Integer, double[]> lastAlphaHatsRdd = alphaHatsRdd.mapValues( new Function<double[], double[]>(){
         private static final long serialVersionUID = 4L;
 
@@ -850,8 +850,8 @@ public class Hmm2 implements Serializable {
       
       JavaPairRDD<Integer, Tuple2<int[], double[]>> observationsWithAlphaHats
               = observedBlocksRdd.join(alphaHatsRdd);
-      observationsWithAlphaHats.persist(StorageLevel.MEMORY_ONLY());
-      alphaHatsRdd.unpersist();
+      //observationsWithAlphaHats.persist(StorageLevel.MEMORY_ONLY());
+      //alphaHatsRdd.unpersist();
       class CtMapper implements PairFunction<Tuple2<Integer, Tuple2<int[], double[]>>, Integer, double[]>{
         private static final long serialVersionUID = 9L;
         
@@ -1170,7 +1170,7 @@ public class Hmm2 implements Serializable {
       
       JavaPairRDD<Integer, double[]> blockKhisRdd =
               observationsWithAlphaHatsWithBetaHats.mapToPair(new BlockSumKhiMapper(firstBetaHats) );
-      observationsWithAlphaHats.unpersist();
+      //observationsWithAlphaHats.unpersist();
       List<Tuple2<Integer, double[]>> blockKhis = blockKhisRdd.collect();
      
       

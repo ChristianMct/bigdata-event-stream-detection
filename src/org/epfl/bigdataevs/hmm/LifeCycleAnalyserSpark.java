@@ -16,6 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeMap;
 
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -23,6 +25,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
+import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 
 public class LifeCycleAnalyserSpark implements Serializable {
@@ -442,19 +445,33 @@ public class LifeCycleAnalyserSpark implements Serializable {
    */
   public void addAllThemesFromRdd(JavaPairRDD<Theme, Double> themesRdd) {
     themesWithIndex = themesRdd.zipWithIndex();
-    
-    //here is the print of the themes
- Map<Tuple2<Theme, Double>, Long> emOutputs = themesWithIndex.collectAsMap();
- 
- List<Tuple2<Tuple2<Theme, Double>, Long>> orderedThemesWithIndex = themesWithIndex.collect();
- 
- Collections.sort(orderedThemesWithIndex, new Comparator<Tuple2<Tuple2<Theme, Double>, Long>>() {
-   @Override
-   public int compare(Tuple2<Tuple2<Theme, Double>, Long> index1,
-           Tuple2<Tuple2<Theme, Double>, Long> index2) {
-     return index1._2.compareTo(index2._2);
-   }
- });
+
+    // here is the print of the themes
+    Map<Tuple2<Theme, Double>, Long> emOutputs = themesWithIndex.collectAsMap();
+
+    List<Tuple2<Tuple2<Theme, Double>, Long>> orderedThemesWithIndex = themesWithIndex.collect();
+
+    Collections.sort(orderedThemesWithIndex, new Comparator<Tuple2<Tuple2<Theme, Double>, Long>>() {
+      @Override
+      public int compare(Tuple2<Tuple2<Theme, Double>, Long> index1,
+              Tuple2<Tuple2<Theme, Double>, Long> index2) {
+        return index1._2.compareTo(index2._2);
+      }
+    });
+
+    final List<Integer> olympicsList = new ArrayList<Integer>();
+    List<String> olympicsWords = new ArrayList<String>();
+    olympicsWords.add("votations");
+    olympicsWords.add("vote");
+    olympicsWords.add("scrutins");
+    olympicsWords.add("fédérales");
+    olympicsWords.add("élections");
+    olympicsWords.add("élection");
+    olympicsWords.add("résultats");
+    olympicsWords.add("cantons");
+    olympicsWords.add("points");
+    olympicsWords.add("peuple");
+    olympicsWords.add("résultats");
     System.out.println("Printing themes as ordered in the hmm");
     for (Tuple2<Tuple2<Theme, Double>, Long> tuple : orderedThemesWithIndex) {
       Tuple2<Theme, Double> theme = tuple._1;
@@ -464,9 +481,24 @@ public class LifeCycleAnalyserSpark implements Serializable {
       System.out.println(theme._1.sortString(12));
       System.out.println("Score: " + theme._2);
       System.out.println("");
+      
+      TreeMap<String, Double> importantWordsMap = theme._1.sortString(12);
+      Set<String> importantWordsSet = importantWordsMap.keySet();
+      importantWordsSet.retainAll(olympicsWords);
+      if (importantWordsSet.size() >= 2) {
+        olympicsList.add(tuple._2.intValue());
+        System.out.println("**********************************************************************");
+        System.out.println("");
+        System.out.println("THEMES DETECTED");
+        System.out.println("");
+        System.out.println("***********************************************************************");
+      }
+      
     }
     
-    JavaPairRDD<Long, double[]> themesToArray = themesWithIndex
+    final List<Integer> olympicsListFinal = new ArrayList<Integer>(olympicsList);
+
+    JavaPairRDD<Long, double[]> themesToArrayAux = themesWithIndex
             .mapToPair(new PairFunction<Tuple2<Tuple2<Theme, Double>, Long>, Long, double[]>() {
 
               @Override
@@ -484,12 +516,29 @@ public class LifeCycleAnalyserSpark implements Serializable {
                 return new Tuple2<Long, double[]>(themeId, b);
               }
             });
+    
+    JavaPairRDD<Long, double[]> themesToArray =  themesToArrayAux.flatMapToPair(new PairFlatMapFunction<Tuple2<Long, double[]>, 
+            Long, double[]>(){
+
+              @Override
+              public Iterable<Tuple2<Long, double[]>> call(Tuple2<Long, double[]> arg0)
+                      throws Exception {
+                List<Tuple2<Long, double[]>> list = new ArrayList<Tuple2<Long, double[]>>(1);
+                if(olympicsListFinal.contains(arg0._1.intValue())){
+                  list.add(arg0);
+                }         
+                return list;
+              }
+            });
     List<Tuple2<Long, double[]>> themesList = themesToArray.collect();
     numberOfThemes = themesList.size();
     outputProbabilityDistribution = new double[(int) numberOfThemes + 1][(int) numberOfWords];
 
+    System.out.println("numberOfThemes : "+numberOfThemes);
+    int i =0;
     for (Tuple2<Long, double[]> tuple : themesList) {
-      outputProbabilityDistribution[1 + tuple._1.intValue()] = tuple._2;
+      outputProbabilityDistribution[1 + i] = tuple._2;
+      i++;
     }
   }
 

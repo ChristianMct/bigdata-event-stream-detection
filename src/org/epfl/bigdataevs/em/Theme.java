@@ -87,7 +87,7 @@ public class Theme implements Serializable {
       if (count > maxWords) {
         break;
       }
-      if (word.length() > 5) {
+      if (word.length() >= 4) {
         smallSortedMap2.put(word, this.wordsProbability.get(word));
         count += 1;
       }
