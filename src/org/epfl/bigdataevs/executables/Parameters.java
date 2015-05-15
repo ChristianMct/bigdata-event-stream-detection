@@ -61,7 +61,9 @@ public class Parameters {
   public static final int BWBlockSize = 1024 * 64;
   public static final int ViterbiBlockSize = 1024 * 128;
   public static boolean forceSequentialBW = true;
-  
+  public static final double piThreshold = 0.01;
+  public static final double aaThreshold = 0.01;
+  public static final int maxIterations = 50;
   
   /**
    * useful function to set parameters

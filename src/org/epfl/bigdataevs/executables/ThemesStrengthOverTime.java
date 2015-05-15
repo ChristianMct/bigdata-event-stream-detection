@@ -35,22 +35,30 @@ import javax.xml.stream.XMLStreamException;
 
 public class ThemesStrengthOverTime {
 
+  /**
+   * 
+   * spark-submit --master yarn-client --driver-memory 64000M --executor-memory 64000M 
+   * --num-executors 200 --conf spark.akka.frameSize=2000 ThemesStrengthTest2.jar 2>err2
+   */
   public static void main(String[] args) throws NumberFormatException, XMLStreamException, ParseException, IOException {
+    
     System.out.println("STARTED TEST");
     
+    //creating spark context
     SparkConf sparkConf = new SparkConf().setAppName("Themes strengths over time");
-    //sparkConf.setMaster("localhost:7077");
     JavaSparkContext ctx = new JavaSparkContext(sparkConf);
     
+    //creating date parser
     DateFormat format = new SimpleDateFormat("dd/MM/yyyy-HH");
     
-    
+    //parsing conf file containing customizable parameters
     Parameters.parseParameters("conf.txt");
-       
     
+    
+    //creating time periods
     List<TimePeriod> timePeriods = new ArrayList<TimePeriod>();
     
-
+    //for EM
     Calendar c = Calendar.getInstance();
     Date startDate = format.parse(Parameters.startDate);
     c.setTime(startDate);
@@ -63,6 +71,7 @@ public class ThemesStrengthOverTime {
     }
     Date endDate = c.getTime();
     
+    //for HMM
     Calendar cHmm = Calendar.getInstance();
     Date startDateHmm = format.parse(Parameters.startDateHMM);
     cHmm.setTime(startDateHmm);
@@ -72,51 +81,12 @@ public class ThemesStrengthOverTime {
     TimePeriod timePeriodHmm = new TimePeriod(beginning, end);
     System.out.println(beginning + "-" + end);
             
-            
-            
-    /*
-    List<TimePeriod> timePeriods = new ArrayList<TimePeriod>(); 
-    timePeriods.add(new TimePeriod(format.parse("1/10/1962-0"), format.parse("14/10/1962-0")));
-    timePeriods.add(new TimePeriod(format.parse("15/10/1962-0"), format.parse("30/10/1962-0")));
-    timePeriods.add(new TimePeriod(format.parse("31/10/1962-0"), format.parse("14/11/1962-0")));
-    timePeriods.add(new TimePeriod(format.parse("15/11/1962-0"), format.parse("30/11/1962-0")));
-    timePeriods.add(new TimePeriod(format.parse("01/12/1962-0"), format.parse("14/12/1962-0")));
-    timePeriods.add(new TimePeriod(format.parse("15/12/1962-0"), format.parse("31/12/1962-0")));
-    timePeriods.add(new TimePeriod(format.parse("01/01/1963-0"), format.parse("15/01/1963-0")));
-    timePeriods.add(new TimePeriod(format.parse("16/01/1963-0"), format.parse("31/01/1963-0")));
-    timePeriods.add(new TimePeriod(format.parse("01/02/1963-0"), format.parse("15/02/1963-0")));
-    timePeriods.add(new TimePeriod(format.parse("16/02/1963-0"), format.parse("28/02/1963-0")));
-    timePeriods.add(new TimePeriod(format.parse("01/03/1963-0"), format.parse("15/03/1963-0")));
-    timePeriods.add(new TimePeriod(format.parse("06/03/1963-0"), format.parse("31/03/1963-0")));
-    */
-    
-    
-    //System.out.println(timePeriods.get(0).includeDates(format.parse("1/1/1939-12")));
-    
+   //using both papers
     List<String> inputPaths = new LinkedList<String>();
     inputPaths.add("hdfs:///projects/dh-shared/GDL/");
     inputPaths.add("hdfs:///projects/dh-shared/JDG/");
-    //inputPaths.add("hdfs://user/christian/GDL");
- 
     
-    /*
-    System.out.println("======Background model's content======");
-    for(int background_word_id : result.backgroundWordMap.keySet()) {
-      String background_word = result.backgroundWordMap.get(background_word_id);
-      System.out.println(background_word
-        + "(ID: " + background_word_id + "): " 
-        + result.backgroundModel.get(background_word) + " distribution proba.");
-    }
-    
-    
-    System.out.println("======Word chronological list======");
-    for (Integer word: result.collectionWords)
-      System.out.println(word);
-    */
-    
-    /*
-     * Integration of the EM Algorithm
-     */
+  
 
     
     InputParser parserEM = new InputParser(TimePeriod.getEnglobingTimePeriod(timePeriods), timePeriodHmm, 
@@ -147,37 +117,9 @@ public class ThemesStrengthOverTime {
     themesRdd.cache();
     
 
-   /*
-    KLDivergence kldivergence = new KLDivergence(42., 100.);
-  
-    System.out.println("KLDivergence starts");
-    
-    JavaRDD<EvolutionaryTransition> transitionGraph = 
-        kldivergence.compute(themesRdd.map(
-                new Function<Tuple2<Theme,Double>,Theme>(){
-                @Override
-                public Theme call(Tuple2<Theme, Double> arg0) throws Exception {
-                  return (arg0._1());
-                }
-              }
-        ));
-
-    System.out.println("KLDivergence done");
-    
-    System.out.println("themesRdd = " + themesRdd.count());
-    System.out.println("transitionGraph = " + transitionGraph.count());
-    int transitionCount = 1;
-    for (EvolutionaryTransition transition : transitionGraph.collect()) {
-      System.out.println(transitionCount++ + ". " + transition.toString());
-    }
-    */
     
     
-    //hmm  begins
-    final double piThreshold = 0.01;
-    final double aaThreshold = 0.01;
-    final int maxIterations = 50;
-    
+    //HMM begins
     System.out.println("Beginning life cycle analysis");
     System.out.println("Printing inputs");
     long sequenceLength = hmmInputFromParser.wordStream.count();
@@ -186,7 +128,7 @@ public class ThemesStrengthOverTime {
             + Arrays.toString(Arrays.copyOf(hmmInputFromParser.wordStream.collect().toArray(),50)));
     LifeCycleAnalyserSpark lifeCycleAnalyser = new LifeCycleAnalyserSpark(hmmInputFromParser);
     lifeCycleAnalyser.addAllThemesFromRdd(themesRdd);
-    lifeCycleAnalyser.analyse(ctx, piThreshold, aaThreshold, maxIterations);
+    lifeCycleAnalyser.analyse(ctx, Parameters.piThreshold, Parameters.aaThreshold, Parameters.maxIterations);
     System.out.println("DecodedStream : "
             + Arrays.toString(Arrays.copyOf(lifeCycleAnalyser.mostLikelySequenceThemeShifts.collect().toArray(),50)));
     

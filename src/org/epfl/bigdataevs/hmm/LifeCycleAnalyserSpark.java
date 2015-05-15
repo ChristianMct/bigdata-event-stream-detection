@@ -241,7 +241,7 @@ public class LifeCycleAnalyserSpark implements Serializable {
     
     //Printing in the appropriate format for the csv file
     for (int themeIndex = 1; themeIndex < numberOfThemes; themeIndex++) {
-      System.out.println("Theme " + themeIndex);
+      System.out.println("Theme " + (themeIndex-1));
       Iterator<Tuple2<Long, Map<Integer, Integer>>> resultsIterator = collectedResults.iterator();
       Iterator<Long> timestampsIterator = timestampsList.iterator();
 
