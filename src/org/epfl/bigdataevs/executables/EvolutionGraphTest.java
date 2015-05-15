@@ -45,6 +45,7 @@ public class EvolutionGraphTest {
     System.out.println("STARTED TEST");
     
     Parameters.parseParameters("conf.txt");
+    System.out.println("totalVariationDistance = "+Parameters.totalVariationDistance);
     
     SparkConf sparkConf = new SparkConf().setAppName("Test article processor");
     //sparkConf.setMaster("localhost:7077");

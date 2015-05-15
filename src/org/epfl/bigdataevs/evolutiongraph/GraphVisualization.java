@@ -77,9 +77,12 @@ public class GraphVisualization {
     
     double minWidth = Double.MAX_VALUE;
     double maxWidth = Double.MIN_VALUE;
+    double average = 0.;
     
     for(Tuple3<String,String,Double> transition : transitions){
       double val = transition._3();
+      
+      //System.out.println(val);
       
       if (val < minWidth) {
         minWidth = val;
@@ -88,6 +91,7 @@ public class GraphVisualization {
         maxWidth = val;
       }
       
+      average += val/transitions.size();
     }
     
     /* Write transitions */
@@ -96,7 +100,7 @@ public class GraphVisualization {
       String th2 = transition._2();
       double divergence = transition._3();
       
-      double width = 1.+(maxWidth-divergence)/(maxWidth-minWidth)*Parameters.maxPenWidth;
+      double width = 0.2+(maxWidth-divergence)/(maxWidth-minWidth)*Parameters.maxPenWidth;
       
       writer.println("\t\t\""+th1+"\" -> \""+th2+"\" [penwidth="+width+"]");
     }
