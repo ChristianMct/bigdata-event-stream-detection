@@ -39,8 +39,8 @@ public class KLDivergence implements Serializable{
   
   public JavaRDD<EvolutionaryTransition> compute(final JavaRDD<LightTheme> themes) {
     JavaPairRDD<LightTheme, LightTheme> pairs;
-    pairs = themes.repartition(numPartitions).cartesian(themes);
-    //pairs.repartition(numPartitions);
+    JavaRDD<LightTheme> themesPartitionned = themes.repartition(numPartitions);
+    pairs = themesPartitionned.cartesian(themesPartitionned);
 
     return pairs.flatMap(new FlatMapFunction<Tuple2<LightTheme,LightTheme>, EvolutionaryTransition>(){
 
