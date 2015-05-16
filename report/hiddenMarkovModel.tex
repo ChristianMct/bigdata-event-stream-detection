@@ -13,32 +13,32 @@ We need a picture here!
 
 \subsubsection{Parallel Baum-Welch Algorithm}
 The Baum-Welch algorithm is a classic algorithm to train a Hidden Markov Model given an observed sequence. The algorithm is capable of estimating the initial probability distribution, the transition probability distribution, and the emission probability distribution.
-In its most-basic (but efficient) forward-backward version as presented in \cite{rabiner1989tutorial} for example, the algorithm computes some probabilities from the beginning of the observed sequence to the end, and some other probabilities from the end of the observed sequence to the beginning. It has the advantage to be fast compared to other algorithms like the forward only or backward only presented in [ CITATION HERE ] but uses a lot of memory, and is sequential by nature.
-Some work has to be done to make it parallel on the observed sequence (as presented for example in [CITATION HERE]), or precise ( as presented for example in [CITATION HERE]). However it seems like no paper presented a variant being precise, and also accelerated in parallel over the observed sequence.
+In its most-basic (but efficient) forward-backward version as presented in \cite{rabiner1989tutorial} for example, the algorithm computes some probabilities from the beginning of the observed sequence to the end, and some other probabilities from the end of the observed sequence to the beginning. It has the advantage to be fast compared to other algorithms like the forward only or backward only presented in \cite{turin1998unidirectional} but uses a lot of memory, and is sequential by nature.
+Some work has to be done to make it parallel on the observed sequence (as presented for example in \cite{turin1998unidirectional}), or precise ( as presented for example in \cite{rabiner1989tutorial}). However it seems like no paper presented a variant being precise, and also accelerated in parallel over the observed sequence.
 Thus, we extended the known algorithms to design a precise and parallel algorithm for very long observation sequences.
-Our algorithm enabled us to train our Hidden Markov Model over a sequence of more than 5 billion observations on a cluster of thousands of processors using Spark. It uses more memory than the original forward-backward version and also makes more computations, but can be run on as many cores as available (as long as there are less processors than observations...).
+Our algorithm enabled us to train our Hidden Markov Model over a sequence of more than 500 millions observations on a cluster of thousands of processors using Spark. It uses more memory than the original forward-backward version and also makes more computations, but can be run on as many cores as available.
 We will present in the rest of this section the original forward-backward algorithm, the precise variant, and our precise parallel algorithm.
 
-In all the rest of this section, we use the same notations and definitions as on the Wikipedia (English) article of the Baum-Welch algorithm. We first present the original algorithm as on the Wikipedia article, then present the precise version suggested in [RABINER CITATION HERE], then the parallel version suggested in [TURIN, WILLIAM CITATION HERE], and ultimately our precise parallel version which is built upon the two ideas.
+In all the rest of this section, we use the same notations and definitions as on the Wikipedia (English) article of the Baum-Welch algorithm. We first present the original algorithm as on the Wikipedia article, then present the precise version suggested in \cite{rabiner1989tutorial}, then briefly the parallel version suggested in \cite{turin1998unidirectional}, and ultimately our precise parallel version which is built upon the two ideas.
 
 \paragraph{Hidden Markov Model}
-(This section is a mere copy of the wikipedia article).
+(This section is a mere copy of definitions used in \cite{wiki:BaumWelch_algorithm}).
 Let $X_t$ be the hidden variables (each taking $N$ possible values) and $Y_t$ the observation variables (each taking $M$ possible values). We assume that the Markov chain is homogeneous, that is $P(X_t|X_{t-1})$ is independent from the time $t$.
 It is therefore possible to define the transition probability matrix $A = \{a_{i,j}\} = P(X_t = j | X_{t-1} = i)$.
 We can define the initial probability distribution as $\pi_i = P(X_1=i)$ and the emission probabilities as $b_j(y_t) = P(Y_t = y_t | X_t = j)$. Usually is defined the emission probability matrix $B = \{b_j(y_i)\} = P(Y_i=y_i | X_j)$.
 
 With such definitions, we can define the parameters of a Hidden Markov Model as the triplet $\Theta = (A, B, \pi)$, where $A$ is the transition probability matrix, $B$ is the emission probability matrix, and $\pi$ is the initial probability distribution.
 \paragraph{Baum-Welch Algorithm}
-(This section is a mere copy of the wikipedia article).
+(This section is a mere copy of the notations and definitions used in \cite{wiki:BaumWelch_algorithm}).
 The Baum-Welch algorithm is an algorithm using the Expectation-Maximization principle to find the parameters $\Theta^*$ such that $P(Y_1,...,Y_T| \Theta^* )$ is a local maximum.
 In its forward-backward version,it is necessary to compute first during the forward procedure the coefficients $\alpha_i(t) = P(Y_1=y_1,...,Y_t = y_t, X_t = i | \Theta )$ and then it is necessary to compute the coefficients $\beta_i(t) = P(Y_{t+1}=y_{t+1},...,Y_T = y_T| X_t = i, \Theta )$.
 
-Once those forward and backward coefficients are computed, it is possible to update the initial distribution, transition probability matrix and the emission matries, as shown in [RABINER CITATION HERE] or [WIKIPEDIA ARTICLE HERE].
+Once those forward and backward coefficients are computed, it is possible to update the initial distribution, transition probability matrix and the emission matries, as shown in \cite{rabiner1989tutorial} or \cite{wiki:BaumWelch_algorithm}.
 
 We have used this forward-backward algorithm as the starting point of our algorithm.
 \paragraph{Precise Froward-Backward algorithm}
 The original Baum-Welch algorithm depicted in the previous section suffers from precision problems (underflows) when the size of the sequence size grows up.
-As presented in [RABINER CITATION HERE], one way to fix that is by defining a family of scaled coefficients $\hat{\alpha}_i(t)$ and $\hat{\beta}_i(t)$ defined by the relations:
+As presented in \cite{rabiner1989tutorial}, one way to fix that is by defining a family of scaled coefficients $\hat{\alpha}_i(t)$ and $\hat{\beta}_i(t)$ defined by the relations:
 \begin{equation}
 \begin{cases}
 \bar{\alpha}_i(1) = \pi_i b_i(y_1) & \\
@@ -57,10 +57,10 @@ And
 \end{cases}
 \end{equation}
 
-The new update rules are described in [RABINER CITATION HERE].
+The update rules are described in \cite{rabiner1989tutorial}.
 
 \paragraph{Precise parallel Forward-Backward algorithm}
-As described in [TURIN, WILLIAM CITATION HERE], it is possible to design a parallel forward-backward algorithm from the traditional forward-backward algorithm as the relations defining the forward and backward coefficients are linear. However, the way scaling is done in the precise version of algorithm seems to block this. This is not the case, and we show how in this section.
+As described in \cite{turin1998unidirectional}, it is possible to design a parallel forward-backward algorithm from the traditional forward-backward algorithm as the relations defining the forward and backward coefficients are linear. To do so, it is necessary to use matrix computations. However, the way scaling is done in the precise version of algorithm seems to the use of this idea to make a precise and parallel algorithm. This is not the case, and we show how in this section.
 
 In the previous section, the relations defining the scaled forward coefficients can be in fact reinterpreted as the following relations:
 \begin{equation}
@@ -121,16 +121,21 @@ It is possible to go parallel as in fact we can choose any families of matrices 
 \end{cases}
 \end{equation}
 
-Which we can generate with a parallel scan [PARALLEL SCANS CITATIONS HERE] starting from the set of matrices $\hat{Fo}( t - 1 \rightarrow t)$. Computing a posteriori the $c_t$ coefficients, and then doing another parallel scan starting from the set $\hat{Ba}(t \leftarrow t+1)$.
+Which we can generate with any implementation of a parallel scan (primitive introduced by \cite{blelloch1990prefix}, with an implementation for GPUs in \cite{sengupta2008efficient} for example) starting from the set of matrices $\hat{Fo}( t - 1 \rightarrow t)$. Computing \emph{a posteriori} the $c_t$ coefficients, and then doing another parallel scan starting from the set $\hat{Ba}(t \leftarrow t+1)$.
 
 The rest of the algorithm can be easily done in a parallel fashion.
 
 \paragraph{Precise parallel Forward-Backward algorithm complexity}
 The total work needed now to do an update step is with this algorithm $O(T(N^3 + NM))$ ($O(TN^3)$ to compute the matrices, $O(N)$ to update the initial probability distribution, $O(TN^2)$ to update the transition matrix, $O(TNM)$ to update the emission matrix). But the running time can be lowered to $O(ln(T)(N^3 + NM))$ by applying the parallel scan and performing matrix computation serially (it can be lowered again by making matrix multiplications in parallel).
 The memory complexity of the algorithm increases to $O(TN^2 + NM)$ compared to the $O(TN + NM)$ of the sequential forward backward algorithm.
+
 \paragraph{Precise parallel Forward-Backward algorithm performance}
-This algorithm enabled us to process sequences of the order of 5 billion observations on a cluster of a thousands nodes with $N=10$ and $M=5000$, which was not possible on a single machine due to memory and time limitations.
+This algorithm enabled us to process sequences of the order of 500 millions observations on a cluster of a thousands nodes with $N=10$ and $M=5000$, which was not possible on a single machine due to memory and time limitations.
 We tried an implementation on GPUs of this algorithm. We were able to have a 10x boost on an AMD HD7870 GPU compared to an Intel Core I7 4510U CPU when doing double precision computations.
+
+\paragraph{Adaptations to our problem}
+As in our problem, we modeled the HMM with very few transitions between states (we only have transitions to or from the background model to a theme), the transition matrix is very sparse. We also used this fact to lower the complexity of the algorithm by a factor of $N$, letting us to keep more themes while doing the training of HMM phase.
+
 \subsubsection{Viterbi Algorithm and Scoring functions}
 
 
