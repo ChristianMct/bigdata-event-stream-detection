@@ -24,6 +24,10 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
+ * Team : Antoine & Nina
+ * 
+ * @author Antoine
+ * 
  * Cut TimePartition in several inputs and apply the EM algorithm on all EmInputs
  * The goal is to get all meaningful theme that are in this TimePartition
  * @author abastien
@@ -78,7 +82,6 @@ public class ThemeFromLargeTimePeriod implements Serializable {
     this.themes = result.flatMapToPair(new PairFlatMapFunction<EmInput, Theme, Double>() {
       @Override
       public Iterable<Tuple2<Theme, Double>> call(EmInput input) throws Exception {
-        // TODO Auto-generated method stub
         return input.relatedThemes();
       }      
     }).collectAsMap();

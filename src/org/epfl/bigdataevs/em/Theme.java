@@ -76,17 +76,12 @@ public class Theme implements Serializable {
       this.wordsProbability.put(wordsOfPartitions.get(i), value);
     }
   }
-    
-   /*
-  public String toString() {
-    String s = "Theme #" + this.partitionIndex;
-    for (String word : this.wordsProbability.keySet()) {
-      s += word + " : " + this.wordsProbability.get(word);
-    }
-    return s;
-  }
-  */
   
+  /**
+   * Sort the map of words describing a theme by its probabilities (value)
+   * @param maxWords
+   * @return the first maxWords words describing a theme with their probabilitites
+   */
   public TreeMap<String, Double> sortString(int maxWords) {
     TreeMap<String, Double> smallSortedMap = new TreeMap<String, Double>(new ValueComparator(wordsProbability));
     TreeMap<String, Double> smallSortedMap2 = new TreeMap<String, Double>(new ValueComparator(wordsProbability));
@@ -131,6 +126,7 @@ public class Theme implements Serializable {
   
   /**
    * Get the titles of the articles that have the highest probability to belong to this theme
+   * @return a list of articles
    */
   public String sortTitleString(int maxTitles) {
     String output = "";

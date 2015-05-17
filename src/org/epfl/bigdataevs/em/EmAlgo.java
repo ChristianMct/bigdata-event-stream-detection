@@ -69,10 +69,10 @@ public class EmAlgo implements Serializable {
   /**
    * Creates one instance of EmAgorithm
    * Duplicates all partitions to the number of trials the algorithm should do.
-   * @param partitions
-   * @param numThemes
-   * @param lambda
-   * @param numRuns
+   * @param partitions EmInputs
+   * @param numThemes number of themes
+   * @param lambda mixing weight of background model
+   * @param numRuns number of trials for each EmInput
    */
   public EmAlgo(JavaSparkContext sparkContext, EmInputFromParser collectionData,
           int numThemes, double lambda,  int numRuns) {
@@ -120,10 +120,10 @@ public class EmAlgo implements Serializable {
    * Creates one instance of EmAgorithm based on EmInputs
    * Duplicates all partitions to the number of trials the algorithm should do.
    * Use it only for testing
-   * @param partitions
-   * @param numThemes
-   * @param lambda
-   * @param numRuns
+   * @param partitions EmInputs
+   * @param numThemes number of themes
+   * @param lambda mixing weight for background model
+   * @param numRuns number of trials for one EmInput
    */
   public EmAlgo(JavaSparkContext sparkContext, JavaRDD<EmInput> inputs, int numThemes, double lambda,  int numRuns) {
     this.numberOfThemes = numThemes;
@@ -208,7 +208,6 @@ public class EmAlgo implements Serializable {
                 article.updateProbabilitiesDocumentBelongsToThemes();
               }
               input.updateProbabilitiesOfWordsGivenTheme(input.themesOfPartition);
-              //logLikelihoods.add(input.computeLogLikelihood(lambdaBackgroundModel)); 
               iteration += 1;
               input.numberOfIterations += 1;
             }
@@ -223,6 +222,7 @@ public class EmAlgo implements Serializable {
   /**
    * Performs a run of EM algorithm to every EmInputs
    * Select the best EmInput for EmInputs having the same indexOfPartition.
+   * Provide filtered themes for all EmInputs
    * @return all themes with average score
    */
   public JavaPairRDD<Theme, Double> run() {
