@@ -11,8 +11,12 @@
 \usepackage{float}
 \usepackage{tabularx}
 \usepackage{url}
+\usepackage{titlesec}
 
-
+ \titleformat{\paragraph}
+{\normalfont\normalsize\bfseries}{\theparagraph}{1em}{}
+\titlespacing*{\paragraph}
+{0pt}{3.25ex plus 1ex minus .2ex}{1.5ex plus .2ex}
 \newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
 
 \title{Authentication at scale}
@@ -44,6 +48,9 @@
 \makeatletter
 \renewcommand{\thesection}{\@arabic\c@section}
 \makeatother
+
+ 
+    
 \textsc{\textbf{\Large BigData2015 - CS422\\ Digital Humanities Laboratory}}\\[2cm]
 
 

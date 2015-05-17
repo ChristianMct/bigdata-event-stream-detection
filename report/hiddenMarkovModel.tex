@@ -30,6 +30,12 @@ The main idea of this life-cycle analysis is to consider that the full text of t
 \item compute the scores of the studied themes over time by counting the number of occurences of each theme in the decoded sequence.
 \end{itemize}
 
+\begin{figure}[H]
+\begin{center}
+	\includegraphics[width=0.60\textwidth]{images/hmm.png}
+	\caption{Example of a HMM with 4 states (analyzing 3 themes)}
+\end{center}
+\end{figure}
 
 \subsubsection{Parallel Baum-Welch Algorithm}
 The Baum-Welch algorithm is a classic algorithm to train a Hidden Markov Model given an observed sequence. The algorithm is capable of estimating the initial probability distribution, the transition probability distribution, and the emission probability distribution.
@@ -42,14 +48,14 @@ We will present in the rest of this section the original forward-backward algori
 In all the rest of this section, we use the same notations and definitions as on the Wikipedia (English) article of the Baum-Welch algorithm. We first present the original algorithm as on the Wikipedia article, then present the precise version suggested in \cite{rabiner1989tutorial}, then briefly the parallel version suggested in \cite{turin1998unidirectional}, and ultimately our precise parallel version which is built upon the two ideas.
 
 \paragraph{Hidden Markov Model}
-(This section is a mere copy of definitions used in \cite{wiki:BaumWelch_algorithm}).
+(This section is a mere copy of definitions used in \cite{wiki:BaumWelch_algorithm}). \\
 Let $X_t$ be the hidden variables (each taking $N$ possible values) and $Y_t$ the observation variables (each taking $M$ possible values). We assume that the Markov chain is homogeneous, that is $P(X_t|X_{t-1})$ is independent from the time $t$.
 It is therefore possible to define the transition probability matrix $A = \{a_{i,j}\} = P(X_t = j | X_{t-1} = i)$.
 We can define the initial probability distribution as $\pi_i = P(X_1=i)$ and the emission probabilities as $b_j(y_t) = P(Y_t = y_t | X_t = j)$. Usually is defined the emission probability matrix $B = \{b_j(y_i)\} = P(Y_i=y_i | X_j)$.
 
 With such definitions, we can define the parameters of a Hidden Markov Model as the triplet $\Theta = (A, B, \pi)$, where $A$ is the transition probability matrix, $B$ is the emission probability matrix, and $\pi$ is the initial probability distribution.
 \paragraph{Baum-Welch Algorithm}
-(This section is a mere copy of the notations and definitions used in \cite{wiki:BaumWelch_algorithm}).
+(This section is a mere copy of the notations and definitions used in \cite{wiki:BaumWelch_algorithm}).\\
 The Baum-Welch algorithm is an algorithm using the Expectation-Maximization principle to find the parameters $\Theta^*$ such that $P(Y_1,...,Y_T| \Theta^* )$ is a local maximum.
 In its forward-backward version,it is necessary to compute first during the forward procedure the coefficients $\alpha_i(t) = P(Y_1=y_1,...,Y_t = y_t, X_t = i | \Theta )$ and then it is necessary to compute the coefficients $\beta_i(t) = P(Y_{t+1}=y_{t+1},...,Y_T = y_T| X_t = i, \Theta )$.
 
