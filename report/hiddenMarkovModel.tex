@@ -39,7 +39,7 @@ The main idea of this life-cycle analysis is to consider that the full text of t
   \node[state]         (t2) [above right of=bg] {$Theme 2$};
   \node[state]         (t3) [below of=bg] {$theme 3$};
 
-  \path[->]          (bg)  edge [loop left below] node {0.9} (bg);
+  \path[->]          (bg)  edge [loop right] node {0.9} (bg);
   \path[->]          (bg)  edge [bend left] node {0.05} (t1);
   \path[->]          (bg)  edge [bend right] node {0.03} (t2);
   \path[->]          (bg)  edge [bend left] node {0.02} (t3);
