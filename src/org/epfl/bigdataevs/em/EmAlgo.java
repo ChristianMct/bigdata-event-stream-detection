@@ -39,8 +39,14 @@ import java.util.TreeMap;
 
 /**
  * Team Antoine and Nina
+ * 
  * @author abastien
  *
+ * Perform several runs of the EM algorithm.
+ * Select the best run according to the log-likelihoods.
+ * Output Theme with average score in the time period.
+ * 
+ * The data which is processed by the EM Algorithm is a RDD of EmInput.
  */
 public class EmAlgo implements Serializable {
   public final Map<String, BigFraction> backgroundModel;
@@ -212,29 +218,6 @@ public class EmAlgo implements Serializable {
                     input.computeLogLikelihood(lambdaBackgroundModel));
           }
         });
-  }
-  
-  
-  public JavaRDD<EmInput> iteration(JavaRDD<EmInput> inputs) {
-    return inputs.map(
-            new Function<EmInput, EmInput>() {    
-          @Override
-          public EmInput call(EmInput input) throws Exception {
-              for (Document article : input.documents) {
-                article.updateHiddenVariablesThemes();
-              }
-              for (Document article : input.documents) {
-                article.updateHiddenVariableBackgroundModel(
-                        input.backgroundModel, lambdaBackgroundModel);
-              }
-              for (Document article : input.documents) {
-                article.updateProbabilitiesDocumentBelongsToThemes();
-              }
-              input.updateProbabilitiesOfWordsGivenTheme(input.themesOfPartition);
-              return input;
-            }           
-          });
-    
   }
   
   /**
