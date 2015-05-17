@@ -1,4 +1,4 @@
-\subsection{Theme Extraction}
+\section{Theme Extraction}
 \label{sec:themeExtraction}
 
 \paragraph{}
@@ -7,7 +7,7 @@ The first part of this big data project is to extract themes from the data colle
 \paragraph{}
 Because the time span of the collection is too large, we cannot assign a precise time period to a theme and therefore not detect a theme. To overcome this issue, the method in \cite{kdd05-ttm} splits the collection into several sub-collections $C_{i}$ (that we name time partition) where the themes are extracted independently from each other.
 
-\subsubsection{Probabilistic Model}
+\subsection{Probabilistic Model}
 
 \paragraph{}
 Themes are extracted from every time partition $C_{i}$ using a probabilistic mixture model and the expectation-maximization algorithm where the themes are the parameters to estimate. The latent variables of this model are k themes  $\theta_{1}$,...,$\theta_{k}$ and a background model $\theta_{B}$ for the whole collection. The presence of the background model variable is justified by the need to remove non-discriminating and non-informative words to describe a theme. The proportion of the background model is regulated by the mixing weight $\lambda_{B}$.
@@ -63,7 +63,7 @@ The same model is applied to every sub-collection independently from each other.
 \paragraph{}
 Finally, to each theme, we compute the average probability that documents belong to this theme, this enables us to filter some of them for the future steps.
 
-\subsubsection{Implementation with Spark}
+\subsection{Implementation with Spark}
 
 \paragraph{}
 The fact of having multiple time partitions dividing the whole collection of articles is well suited for parallelization. Indeed, for each time partition (class EmInput), we process one expectation-maximization algorithm to its articles. There is no dependencies between different time partitions during the execution of the algorithm.
@@ -74,7 +74,7 @@ The class EmAlgo clones every EmInputs depending on the number of trials we choo
 \paragraph{}
 By testing our implementation with different parameters, we could see that it gives nice results with a mixing weight of the background model around 0.92. A higher value removes very important words (such as "war" in war time) and a lower value adds a lot of verbs to the results.
 
-\subsubsection{Complexity}
+\subsection{Complexity}
 
 \paragraph{}
 Once all the articles are parsed and the time partitions generated, the complexity and computation time of the expectation-maximization algorithm depend mainly on the number of articles, the number of themes and the number of iterations of the EM algorithm.
@@ -83,7 +83,7 @@ The size of the background model has also a non-negligible influence as the algo
 \paragraph{}
 In order to maintain efficient scalability, we choose a period defining the time partition of one week. The choice of this time period is a good trade-off as it is enough precise to locate events and enables to have enough articles to process. It gives us between 100 and 200 articles in each time partition to process which take about one minute to extract 10 themes.
 
-\subsection{Conclusion}
+\subsection{Results}
 
 \paragraph{}
 After running the expectation-maximization algorithm on specified time periods, we could extract relevant themes. We could observe that if there was no clear event at this time, it was hard to always guess the meaning of the theme and can be considered as noise. Moreover, most of these theme can be filtered on their score. Fortunately, some themes provided real clear descriptions and we could easily know to which event the theme was referring.
