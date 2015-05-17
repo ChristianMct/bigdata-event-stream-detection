@@ -30,8 +30,7 @@ import java.util.TreeMap;
  * 
  * Cut TimePartition in several inputs and apply the EM algorithm on all EmInputs
  * The goal is to get all meaningful theme that are in this TimePartition
- * @author abastien
- *
+ * 
  */
 public class ThemeFromLargeTimePeriod implements Serializable {
   public EmAlgo emAlgorithm;
@@ -39,6 +38,15 @@ public class ThemeFromLargeTimePeriod implements Serializable {
   public final Map<String, BigFraction> backgroundModel;
   public Map<Theme, Double> themes;
   
+  /**
+   * Create instance of ThemeFromLargeTimePeriod
+   * @param sparkContext sparl context
+   * @param collectionData data collection instance (articles, background model)
+   * @param numThemes number of themes
+   * @param lambda mixing weight background model
+   * @param numRuns number of trials for each EmInput
+   * @param numSplits number of splits to this timeperiod
+   */
   public ThemeFromLargeTimePeriod(JavaSparkContext sparkContext, 
           EmInputFromParser collectionData, 
           int numThemes, double lambda, int numRuns, final int numSplits) {
@@ -92,7 +100,7 @@ public class ThemeFromLargeTimePeriod implements Serializable {
   /**
    * Selects numberOfThemes that have the highest score
    * @param numberOfThemes
-   * @return
+   * @return a list of themes
    */
   public List<Theme> selectThemes(int numberOfSelectedThemes) {
     TreeMap<Theme, Double> sortedMap = new TreeMap<>(new ValueComparator(this.themes));
@@ -123,13 +131,12 @@ public class ThemeFromLargeTimePeriod implements Serializable {
       this.base = base;
     }
 
-    // Note: this comparator imposes orderings that are inconsistent with equals.    
     public int compare(Theme a, Theme b) {
       if (base.get(a).compareTo(base.get(b)) == 1) {
         return -1;
       } else {
         return 1;
-      } // returning 0 would merge keys
+      }
     }
   }
 }
