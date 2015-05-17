@@ -500,7 +500,6 @@ public class LifeCycleAnalyserSpark implements Serializable {
     System.out.println("Printing themes as ordered in the hmm");
     for (Tuple2<Tuple2<Theme, Double>, Long> tuple : orderedThemesWithIndex) {
       Tuple2<Theme, Double> theme = tuple._1;
-      Tuple2<Integer, Integer> t = theme._1.statistics();
       System.out.println("Theme :" + tuple._2);
       System.out.println(theme._1.sortTitleString(3));
       System.out.println(theme._1.sortString(12));

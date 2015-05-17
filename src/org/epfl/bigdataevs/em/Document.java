@@ -10,6 +10,7 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -19,10 +20,17 @@ import org.apache.commons.math3.fraction.BigFraction;
 import org.apache.commons.lang3.tuple.*;
 import org.apache.hadoop.util.hash.Hash;
 
-/**Team: Antoine and Louis.
+/**
+ * Team: Antoine & Nina
+ * 
+ * @author antoine
+ * 
  * Container for the data of processed articles. An instance 
  * of this class contains the cleaned words and their count
- * in this article, as well as the stream identifier.**/
+ * in this article, as well as the stream identifier, 
+ * its title and the publication date.
+ **/
+
 public class Document implements Serializable {
   /**Maps a word to the number of times it appears in this article.**/
   public final Map<String, Integer> words;
@@ -30,13 +38,13 @@ public class Document implements Serializable {
   public final ArticleStream stream;
   /**Article's title**/
   public final String title;
+
   
   /**
    * Probability that this document belongs to the themes, Pi(d,j)
    * */
   public HashMap<Theme, Double> probabilitiesDocumentBelongsToThemes = new HashMap<>();
-  public HashMap<Theme, Double> previousProbabilitiesDocumentBelongsToThemes = new HashMap<>();
-  
+
   /** Hidden variable regarding themes**/
   public HashMap<Pair<String, Theme>, Double> probabilitiesHiddenVariablesThemes = new HashMap<>();
   
@@ -130,9 +138,8 @@ public class Document implements Serializable {
   }
   
   /**
-   * Update probabilities document belongs to themes
+   * Sub function to update probabilities document belongs to themes
    */
-  
   public Double subUpdateProbabilitiesDocumentBelongsToThemes(Theme theme) {
     double value = 0.0;
     for (String word : this.words.keySet()) {
@@ -145,6 +152,9 @@ public class Document implements Serializable {
     return value;
   }
   
+  /**
+   * Update probabilities document belongs to themes
+   */
   public void updateProbabilitiesDocumentBelongsToThemes() {
     double denominator = 0.0;
     for (Theme theme : this.probabilitiesDocumentBelongsToThemes.keySet()) {
