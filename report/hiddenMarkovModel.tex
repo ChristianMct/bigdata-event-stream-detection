@@ -1,7 +1,7 @@
-\subsection{Life-cycle analysis}
+\section{Life-cycle analysis}
 The previous approach was detecting topics in short time periods and expliciting relations between them. Here, we consider the recurrent topics that would happen several times in the whole study period or would last numerous time periods. For this themes, the goal is to be able to determine how the importance of a theme is varying over time.
 
-\subsubsection{Overall Method}
+\subsection{Overall Method}
 
 \paragraph{Input}
 First, let's go through all the input required to perform this life-cycle analysis :
@@ -31,7 +31,7 @@ The main idea of this life-cycle analysis is to consider that the full text of t
 \end{itemize}
 
 
-\subsubsection{Parallel Baum-Welch Algorithm}
+\subsection{Parallel Baum-Welch Algorithm}
 The Baum-Welch algorithm is a classic algorithm to train a Hidden Markov Model given an observed sequence. The algorithm is capable of estimating the initial probability distribution, the transition probability distribution, and the emission probability distribution.
 In its most-basic (but efficient) forward-backward version as presented in \cite{rabiner1989tutorial} for example, the algorithm computes some probabilities from the beginning of the observed sequence to the end, and some other probabilities from the end of the observed sequence to the beginning. It has the advantage to be fast compared to other algorithms like the forward only or backward only presented in \cite{turin1998unidirectional} but uses a lot of memory, and is sequential by nature.
 Some work has to be done to make it parallel on the observed sequence (as presented for example in \cite{turin1998unidirectional}), or precise ( as presented for example in \cite{rabiner1989tutorial}). However it seems like no paper presented a variant being precise, and also accelerated in parallel over the observed sequence.
@@ -156,13 +156,13 @@ We tried an implementation on GPUs of this algorithm. We were able to have a 10x
 \paragraph{Adaptations to our problem}
 As in our problem, we modeled the HMM with very few transitions between states (we only have transitions to or from the background model to a theme), the transition matrix is very sparse. We also used this fact to lower the complexity of the algorithm by a factor of $N$, letting us to keep more themes while doing the training of HMM phase.
 
-\subsubsection{Viterbi Algorithm and Scoring functions}
+\subsection{Viterbi Algorithm and Scoring functions}
 Training is from far the hardest task. Finding the most probable states sequences that generated a given observation sequence is quite straightforward using Viterbi algorithm. A precise description of this algorithm can be found in \cite{rabiner1989tutorial}.
 We followed the algorithm quite closely, nevertheless two things are worth noting. To avoid trouble with double precision when probabilities come to close to zero, all the calculation are done in log-space. And, although sequential by nature our implementation is done on Spark cuting the sequence into blocks in order to prevent from using too much memory at once.
 
 Computing the scores only consists of counting for each day the number of occurences of each themes. We made the choice to keep the results in this form and to perform smoothing only when displaying them.
 
-\subsubsection{Results}
+\subsection{Results}
 
 
 
