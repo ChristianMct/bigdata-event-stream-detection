@@ -30,6 +30,32 @@ The main idea of this life-cycle analysis is to consider that the full text of t
 \item compute the scores of the studied themes over time by counting the number of occurences of each theme in the decoded sequence.
 \end{itemize}
 
+
+\begin{figure}[H]
+\begin{center}
+\begin{tikzpicture}[>=stealth',shorten >=1pt,auto,node distance=4cm]
+  \node[state] (bg)      {$Background$};
+  \node[state]         (t1) [above left of=bg]  {$Theme 1$};
+  \node[state]         (t2) [above right of=bg] {$Theme 2$};
+  \node[state]         (t3) [below of=bg] {$theme 3$};
+
+  \path[->]          (bg)  edge [loop left below] node {0.9} (bg);
+  \path[->]          (bg)  edge [bend left] node {0.05} (t1);
+  \path[->]          (bg)  edge [bend right] node {0.03} (t2);
+  \path[->]          (bg)  edge [bend left] node {0.02} (t3);
+  \path[->]          (t1)  edge [loop above] node {0.6} (t1);
+  \path[->]          (t2)  edge [loop above] node {0.5} (t2);
+  \path[->]          (t3)  edge [loop below] node {0.4} (t3);
+  \path[->]          (t1)  edge [bend left] node {0.4} (bg);
+  \path[->]          (t2)  edge [bend right] node {0.5} (bg);
+  \path[->]          (t3)  edge [bend left] node {0.6} (bg);
+ 
+ 
+\end{tikzpicture}
+\label{fig:hmm}
+ \caption{Example of a HMM with 4 states (analyzing 3 themes)}
+\end{center}
+\end{figure}
 \begin{figure}[H]
 \begin{center}
 	\includegraphics[width=0.60\textwidth]{images/hmm.png}
