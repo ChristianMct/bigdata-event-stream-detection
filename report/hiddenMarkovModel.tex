@@ -15,7 +15,7 @@ First, let's go through all the input required to perform this life-cycle analys
 Thus to be able to perform the themes strength analysis, the themes first need to be detected. These themes are \emph{trans-collection themes}. The most straightforward way to find them would be to perform themes detection over very long durations (several years or decades), but the performance of the EM algorithm does not allow that. Indeed, the EM algorithm is well parallelized and efficient when processing many short time periods but a single long window of time would be analyzed sequentially which would require a huge amount of time. Two work-around strategies have been found for this issue :
 \begin{itemize}
 \item perform the analysis over several shorter time periods and retain only the themes that have the highest probability. Then try to analyse if some of them last longer than other or are recurrent in time.
-\item perform the two steps  : EM algorithm and evolutionnary transitions computation. This will leave us with a graph of temporal dependencies between themes. Then the trans-collection themes can be identified as the longest connected components in our graph. This allows us to detect the themes that last long or that are recurrent. Finally to obtain the trans-collection themes, the probabilities of the short themes are averaged.
+\item perform the two steps  : EM algorithm and evolutionary transitions computation. This will leave us with a graph of temporal dependencies between themes. Then the trans-collection themes can be identified as the longest connected components in our graph. This allows us to detect the themes that last long or that are recurrent. Finally to obtain the trans-collection themes, the probabilities of the short themes are averaged.
 \end{itemize}
 
 We had time only to implement the first of these two options. Although the second one seems worth trying, the first one was allowing us to have satisfactory results, so our focus was more on the algorithms related to the Hidden Markov Models.
@@ -26,8 +26,8 @@ The main idea of this life-cycle analysis is to consider that the full text of t
 
 \begin{itemize}
 \item train the HMM, i.e. learn its parameters using Baum-Welch algorithm.
-\item decode the observation sequence by finding the most probable sequence of hidden states that genarated the observation sequence. This is done by Viterbi algorithm.
-\item compute the scores of the studied themes over time by counting the number of occurences of each theme in the decoded sequence.
+\item decode the observation sequence by finding the most probable sequence of hidden states that generated the observation sequence. This is done by Viterbi algorithm.
+\item compute the scores of the studied themes over time by counting the number of occurrences of each theme in the decoded sequence.
 \end{itemize}
 
 
@@ -66,9 +66,9 @@ The main idea of this life-cycle analysis is to consider that the full text of t
 \subsection{Parallel Baum-Welch Algorithm}
 The Baum-Welch algorithm is a classic algorithm to train a Hidden Markov Model given an observed sequence. The algorithm is capable of estimating the initial probability distribution, the transition probability distribution, and the emission probability distribution.
 In its most-basic (but efficient) forward-backward version as presented in \cite{rabiner1989tutorial} for example, the algorithm computes some probabilities from the beginning of the observed sequence to the end, and some other probabilities from the end of the observed sequence to the beginning. It has the advantage to be fast compared to other algorithms like the forward only or backward only presented in \cite{turin1998unidirectional} but uses a lot of memory, and is sequential by nature.
-Some work has to be done to make it parallel on the observed sequence (as presented for example in \cite{turin1998unidirectional}), or precise ( as presented for example in \cite{rabiner1989tutorial}). However it seems like no paper presented a variant being precise, and also accelerated in parallel over the observed sequence.
+Some work has to be done to make it parallel on the observed sequence (as presented for example in \cite{turin1998unidirectional}), or precise (as presented for example in \cite{rabiner1989tutorial}). However it seems like no paper presented a variant being precise, and also accelerated in parallel over the observed sequence.
 Thus, we extended the known algorithms to design a precise and parallel algorithm for very long observation sequences.
-Our algorithm enabled us to train our Hidden Markov Model over a sequence of more than 500 millions observations on a cluster of thousands of processors using Spark. It uses more memory than the original forward-backward version and also makes more computations, but can be run on as many cores as available.
+Our algorithm enabled us to train our Hidden Markov Model over a sequence of more than 500 million observations on a cluster of thousands of processors using Spark. It uses more memory than the original forward-backward version and also makes more computations, but can be run on as many cores as available.
 We will present in the rest of this section the original forward-backward algorithm, the precise variant, and our precise parallel algorithm.
 
 In all the rest of this section, we use the same notations and definitions as on the Wikipedia (English) article of the Baum-Welch algorithm. We first present the original algorithm as on the Wikipedia article, then present the precise version suggested in \cite{rabiner1989tutorial}, then briefly the parallel version suggested in \cite{turin1998unidirectional}, and ultimately our precise parallel version which is built upon the two ideas.
@@ -83,9 +83,9 @@ With such definitions, we can define the parameters of a Hidden Markov Model as 
 \subsubsection*{Baum-Welch Algorithm}
 (This section is a mere copy of the notations and definitions used in \cite{wiki:BaumWelch_algorithm}).\\
 The Baum-Welch algorithm is an algorithm using the Expectation-Maximization principle to find the parameters $\Theta^*$ such that $P(Y_1,...,Y_T| \Theta^* )$ is a local maximum.
-In its forward-backward version,it is necessary to compute first during the forward procedure the coefficients $\alpha_i(t) = P(Y_1=y_1,...,Y_t = y_t, X_t = i | \Theta )$ and then it is necessary to compute the coefficients $\beta_i(t) = P(Y_{t+1}=y_{t+1},...,Y_T = y_T| X_t = i, \Theta )$.
+In its forward-backward version, it is necessary to compute first during the forward procedure the coefficients $\alpha_i(t) = P(Y_1=y_1,...,Y_t = y_t, X_t = i | \Theta )$ and then it is necessary to compute the coefficients $\beta_i(t) = P(Y_{t+1}=y_{t+1},...,Y_T = y_T| X_t = i, \Theta )$.
 
-Once those forward and backward coefficients are computed, it is possible to update the initial distribution, transition probability matrix and the emission matries, as shown in \cite{rabiner1989tutorial} or \cite{wiki:BaumWelch_algorithm}.
+Once those forward and backward coefficients are computed, it is possible to update the initial distribution, transition probability matrix and the emission matrices, as shown in \cite{rabiner1989tutorial} or \cite{wiki:BaumWelch_algorithm}.
 
 We have used this forward-backward algorithm as the starting point of our algorithm.
 \subsubsection*{Precise Froward-Backward algorithm}
@@ -182,7 +182,7 @@ The total work needed now to do an update step is with this algorithm $O(T(N^3 +
 The memory complexity of the algorithm increases to $O(TN^2 + NM)$ compared to the $O(TN + NM)$ of the sequential forward backward algorithm.
 
 \subsubsection*{Precise parallel Forward-Backward algorithm performance}
-This algorithm enabled us to process sequences of the order of 500 millions observations on a cluster of a thousands nodes with $N=10$ and $M=5000$, which was not possible on a single machine due to memory and time limitations.
+This algorithm enabled us to process sequences of the order of 500 million observations on a cluster of a thousand nodes with $N=10$ and $M=5000$, which was not possible on a single machine due to memory and time limitations.
 We tried an implementation on GPUs of this algorithm. We were able to have a 10x boost on an AMD HD7870 GPU compared to an Intel Core I7 4510U CPU when doing double precision computations.
 
 \paragraph{Adaptations to our problem}
@@ -190,9 +190,9 @@ As in our problem, we modeled the HMM with very few transitions between states (
 
 \subsection{Viterbi Algorithm and Scoring functions}
 Training is from far the hardest task. Finding the most probable states sequences that generated a given observation sequence is quite straightforward using Viterbi algorithm. A precise description of this algorithm can be found in \cite{rabiner1989tutorial}.
-We followed the algorithm quite closely, nevertheless two things are worth noting. To avoid trouble with double precision when probabilities come to close to zero, all the calculation are done in log-space. And, although sequential by nature our implementation is done on Spark cuting the sequence into blocks in order to prevent from using too much memory at once.
+We followed the algorithm quite closely, nevertheless two things are worth noting. To avoid trouble with double precision when probabilities come to close to zero, all the calculation are done in log-space. And, although sequential by nature our implementation is done on Spark cutting the sequence into blocks in order to prevent from using too much memory at once.
 
-Computing the scores only consists of counting for each day the number of occurences of each themes. We made the choice to keep the results in this form and to perform smoothing only when displaying them.
+Computing the scores only consists of counting for each day the number of occurrences of each themes. We made the choice to keep the results in this form and to perform smoothing only when displaying them.
 
 \subsection{Results}
 
