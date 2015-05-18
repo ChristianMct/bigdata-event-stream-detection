@@ -7,6 +7,9 @@
 	for ($i=0; $i<300; $i++){
 		$theme=array(
 			"i"=>$i,
+			"start"=>"01/01/1808",
+			"end"=>"12/31/1998",
+			"noData"=>rand(0,1)==0?"true":"false",
 			"wl"=>array()
 		);
 		$prob=array();

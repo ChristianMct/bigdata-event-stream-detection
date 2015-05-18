@@ -3,7 +3,7 @@
 <head>
 <meta name="viewport" content="width=1020px" />
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<link rel="shortcut icon" href="images/favicon.ico" />
+<link rel="shortcut icon" href="images/favicon.ico?v=2" />
 <script type="text/javascript" src="jquery-1.9.0.min.js"></script>
 <script type="text/javascript">
 	function load(){
@@ -60,6 +60,7 @@
 		color:#8b1e2b;
 		padding-left:80px;
 		background-color:white;
+		padding-right:0;
 		
 	}
 	#menu.more{
@@ -152,13 +153,14 @@
 		height:17px;
 	}
 </style>
-<title></title>
+<title>Event Stream Detection</title>
 </head>
 <body onload="load();">
 	<div id="menu" class="margin">
 		<a class="menuEntry title" href="./"><img id="home" src="images/home.png"></a>
 		<a class="menuEntry selected"  href="./enter.php">Event Stream Detection</a>
 		<a class="menuEntry" href="./themes.php">Browse themes</a>
+		<a class="menuEntry" href="./graph.php">Explore graph</a>
 		<span class="menuEntry search"><input type="text" value="Search themes"></span>
 	</div>
 	<div id="aboutJumb" class="margin">
@@ -167,48 +169,59 @@
 	</div>
 	<div id="about" class="margin">
 		<p>
-  As part of the 2015 Big Data course, we are leading a project adressing event/topic detection in news streams. We are nine people working on this project. For details about our team composition, please refer <a href="http://wiki.epfl.ch/bd15-esd/team">here</a>.
-</p>
-<p>
-  For everything related to the development environment, please refer <a href="http://wiki.epfl.ch/bd15-esd/dev-env">here</a>.
-</p>
-<h3>Dataset</h3>
-<p>
-  The dataset for this project is provided by the DHLab. It consists of archives from the Swiss newspaper &quot;Le Temps&quot;. This historical database comprises 2 newspapers over 200 years :
-</p>
-<ul style="margin-left: 40px;">
-  <li>&ldquo;Journal de Gen&egrave;ve&rdquo; (JDG) from 1826 to 1998,</li>
-  <li>&ldquo;Gazette de Lausanne&rdquo; (GDL, under different names) from 1798 to 1998.</li>
-</ul>
-<h3>Goal</h3>
-<p>
-  We aim at detecting articles that talk about the same topic over a set of issues contiguous in time, and across the first two newspapers. To do this, we are looking into clustering, hierarchical clustering and correlations detection techniques. One of the main challenges here is the huge amount of data : we are considering articles for almost 200 years, which is why we need the algorithms we implement to be scalable.
-</p>
-<h3>Project calendar and milestones</h3>
-<p>
-  In a first phase, we are looking into various research papers that are tackling similar problems, a discussion of these papers content can be found <a href="http://wiki.epfl.ch/bd15-esd/papers">here</a>. At the end of this first time, the goal is to be able to have a formal definition of what a topic is and to have chosen the two or three methods/algorithms that appear to be the best suited for our project, both in terms of efficiency and scalability. The deadline for the end of this first phase is :
-</p>
-<p style="margin-left: 40px;">
-  <strong>milestone 1 : March 18</strong>
-</p>
-<p>
-  Then we will begin to implement the algorithms. We want to first have a running implementation even if it is running sequentially on a small subset of the whole dataset. This phase is to be finished by :
-</p>
-<p style="margin-left: 40px;">
-  <strong>milestone 2 : April 15</strong>
-</p>
-<p>
-  At milestone 2, we had several pieces of code working independently from each other. We then enter an integrating and optimzing part of our project. This part is to be done by new milestone 2b in order to be able to assess what we should focus on in the last two weeks.
-</p>
-<p style="margin-left: 40px;">
-  <strong>milestone 2b : April 30</strong>
-</p>
-<p>
-  Last, we will work on the scalability of our implementations, run various experiments, extract results, try to interpret these results. The end of this last phase is also the end of the project :
-</p>
-<p style="margin-left: 40px;">
-  <strong>milestone 3 : May 12</strong>
-</p>
+			<h3>Introduction</h3>
+			Nowadays, data sets are so big and technology has lowered the barriers to entry so 
+			we are able to achieve things that people have never imagined before. Today, we 
+			can analyze huge amount of data, collected hundred year before we were born and 
+			make the valuable conclusions that can help us in the future. The ability to do that is powerful.
+			
+			<h3>Goal</h3>
+			The main goal of this project is to distinguish articles that are written 
+			about the same topic over a set of issues contiguous in time. The biggest 
+			challenge in this aim is huge amount of data, as we are considering articles 
+			for almost <b>200 years of archive</b>. In order to accomplish this and overcome 
+			all issues and challenges the algorithms we use should be scalable.
+			
+			<h3>Dataset</h3>
+			The dataset for this project is provided by the DHLab. It consists of 
+			archives from the Swiss newspaper "<b>Le Temps</b>". This historical database 
+			comprises 2 newspapers over 200 years:
+			<ul>
+			<li><i>Journal de Genève</i> (JDG) from 1826 to 1998,</li>
+			<li><i>Gazette de Lausanne</i> (GDL, under different names) from 1798 to 1998.</li>
+			</ul>
+			
+			<h3>Design</h3>
+			After considering many possible implementations the strategy to use 
+			<b>Temporal Text Mining for Discovering Evolutionary Theme Patterns</b> 
+			from Text was the most suitable for this task. The main idea is to use 
+			Expectation–maximization (EM) algorithm in order to extract themes from 
+			a set of documents, then derive an evolution graph and analyze the themes 
+			life cycle. One of the TTM’s tasks is discovering and summarizing the 
+			evolutionary patterns of themes in a text stream. This new text mining 
+			problem could be solved by 
+			<ul>
+			<li>Discovering latent themes from text</li>
+			<li>Constructing an evolution graph of themes</li>
+			<li>Analyzing life cycles of themes</li>
+			</ul>
+			Evaluation of the proposed methods shows that can discover interesting 
+			evolutionary theme patterns effectively.
+			
+			<h3>Browsing themes</h3>
+			In the section <i>Browse Theme</i> you will be able to browse the theme 
+			we were able to extract from the archive. A theme is represented as a list of 
+			word and for each word the probability that it belongs to the theme. From that 
+			you will be able to have a general idea on what a theme correspond to. For instance 
+			a theme about space travel and lunar exploration would contain the words 
+			<i>apollo</i>, <i>lunaire</i>, <i>astronautes</i> and <i>espace</i> for instance.
+			For each theme, we analysed for a given period at wich rate the archive talks about it.
+			By clicking on it you will be able to discover the 15 most important words it 
+			contains and its score per period. For some theme we do not have the score data so 
+			will only be able to see the list of words it contains.
+			
+			<br>
+		</p>
 	</div>
 </body>
 </html>

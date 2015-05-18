@@ -1,2 +1,129 @@
-\subsection{Theme Extraction}
-\label{sec:ThemeExtraction}
+\section{Theme Extraction}
+\label{sec:themeExtraction}
+
+\paragraph{}
+The first part of this big data project is to extract themes from the data collection and which can be done by clustering words that a strongly related.
+
+\paragraph{}
+Because the time span of the collection is too large, we cannot assign a precise time period to a theme and therefore not detect a theme. To overcome this issue, the method in \cite{kdd05-ttm} splits the collection into several sub-collections $C_{i}$ (that we name time partition) where the themes are extracted independently from each other.
+
+\subsection{Probabilistic Model}
+
+\paragraph{}
+Themes are extracted from every time partition $C_{i}$ using a probabilistic mixture model and the expectation-maximization algorithm where the themes are the parameters to estimate. The latent variables of this model are k themes  $\theta_{1}$,...,$\theta_{k}$ and a background model $\theta_{B}$ for the whole collection. The presence of the background model variable is justified by the need to remove non-discriminating and non-informative words to describe a theme. The proportion of the background model is regulated by the mixing weight $\lambda_{B}$.
+
+\paragraph{}
+The goal of the algorithm is to maximize the following log-likelihood in a model:
+
+\begin{center}
+
+$
+\sum_{d\in C_{i}} \sum_{w} [c(w,d)log(\theta_{B}*p(w|\lambda_{B}) + (1-\lambda_{B})\sum_{j=1}^{k} (\pi_{d,j}*p(w|\lambda_{j})))] 
+$
+
+\end{center}
+
+where 
+
+\begin{itemize}
+\item c(w,d) is the count of word w in document d
+\item $p(w|\theta_{j})$ is the probability of having the word w in the theme j $\theta_{j}$
+\item $p(w|\theta_{B})$ is the probability of having w in the background model $\lambda_{B}$
+\item $\pi_{d,j}$ is the probability that document d belongs to theme j
+\end{itemize}
+
+\paragraph{}
+By initializing the $p(w|\theta_{j})$ randomly and the $\pi_{d,j}$ uniformly, we can perform several iterations of the expectation-maximization algorithm in order to maximize the log-likelihood. One iteration is given by the following formulas to update the latent probabilities:
+
+\begin{center}
+$p(z_{d,w} = j) = \frac{\pi_{d,j}p(w|\theta_{j})} {\sum_{j\prime=1}^{k} {\pi_{d,j\prime}p(w|\theta_{j\prime})} }$
+
+$p(z_{d,w} = B) = \frac
+{\lambda_{B}*p(w|\theta_{B})} 
+{\lambda_{B}*p(w|\theta_{B}) + (1-\lambda_{B})
+\sum_{j\prime=1}^{k} {\pi_{d,j\prime}p(w|\theta_{j\prime})}}$
+
+$\pi_{d,j} = \frac
+{\sum_{w}{c(w,d)(1-p(z_{d,w} = B))(p(z_{d,w} = j))}}
+{\sum_{j\prime=1}^{k}{\sum_{w}{c(w,d)(1-p(z_{d,w} = B))(p(z_{d,w} = j\prime))}}}$
+
+$p(w|\theta_{j}) = \frac
+{\sum_{d\in C_{i}}{c(w,d)(1-p(z_{d,w} = B))(p(z_{d,w} = j))}}
+{\sum_{w\prime}{
+\sum_{d \in C_{i}} {c(w\prime,d)(1-p(z_{d,w\prime} = B))(p(z_{d,w\prime} = j))}}}$
+
+\end{center}
+
+\paragraph{}
+Because the convergence of the EM algorithm is not guaranteed, we need to run several times the algorithm with different initial probabilities.
+
+\paragraph{}
+The same model is applied to every sub-collection independently from each other. Only the background model is common but it is not updated during the iterations of the EM algorithm. 
+
+\paragraph{}
+Finally, to each theme, we compute the average probability that documents belong to this theme, this enables us to filter some of them for the future steps.
+
+\subsection{Implementation with Spark}
+
+\paragraph{}
+The fact of having multiple time partitions dividing the whole collection of articles is well suited for parallelization. Indeed, for each time partition (class EmInput), we process one expectation-maximization algorithm to its articles. There is no dependencies between different time partitions during the execution of the algorithm.
+
+\paragraph{}
+The class EmAlgo clones every EmInputs depending on the number of trials we choose and launch the EM algorithm concurrently. All iterations of one EmInput are performed within one map function to avoid time losses between executors or re-computations if Spark drops an output. Then, EmAlgo chooses the EmInput object that has the highest log-likelihood for each time period.
+
+\paragraph{}
+By testing our implementation with different parameters, we could see that it gives nice results with a mixing weight of the background model around 0.92. A higher value removes very important words (such as "war" in war time) and a lower value adds a lot of verbs to the results.
+
+\subsection{Complexity}
+
+\paragraph{}
+Once all the articles are parsed and the time partitions generated, the complexity and computation time of the expectation-maximization algorithm depend mainly on the number of articles, the number of themes and the number of iterations of the EM algorithm.
+The size of the background model has also a non-negligible influence as the algorithm is going through the map multiple times at each iteration. However, this size doesn't grow linearly with the number of articles and we can clean words from every set of probabilities if the appearance doesn't exceed a minimum threshold.
+
+\paragraph{}
+In order to maintain efficient scalability, we choose a period defining the time partition of one week. The choice of this time period is a good trade-off as it is enough precise to locate events and enables to have enough articles to process. It gives us between 100 and 200 articles in each time partition to process which take about one minute to extract 10 themes.
+
+\subsection{Results}
+
+\paragraph{}
+After running the expectation-maximization algorithm on specified time periods, we could extract relevant themes. We could observe that if there was no clear event at this time, it was hard to always guess the meaning of the theme and can be considered as noise. Moreover, most of these theme can be filtered on their score. Fortunately, some themes provided real clear descriptions and we could easily know to which event the theme was referring.
+
+Here are some example of relevant themes at the beginning of the first World War in 1914:
+
+\begin{center}
+\begin{tabular}{|l|l|l|}
+  \hline
+  Jul 26 - Aug 3 & Aug 3 - Aug 10 & Aug 10 - Aug 17 \\
+  \hline
+  juillet & allemagne & allemands \\
+  berlin & france & troupes \\
+  mobilisation & frontière & guerre \\
+  situation & mobilisation & français \\
+  vienne & guerre & allemandes \\
+  belgrade & français & ambassadeur \\
+  guerre & luxembourg & pétersbourg \\
+  russie & neutralité & bruxelles \\
+  \hline
+\end{tabular}
+\end{center}
+
+\paragraph{}
+In addition, when the vocabular changes a lot in some set of articles, themes are well descripted. Here is a theme describing the first landing on the moon which was huge event and a theme describing the Panama Treaty in 1978, which was less covered by the press.
+
+
+\begin{center}
+\begin{tabular}{|l|l|}
+  \hline
+  Jul 17 - Jul 24 1969 & Jan 29 - Feb 5 1978 \\
+  \hline
+  apollo & panama \\
+  lunaire & traités \\
+  armstrong & ratification \\
+  houston & frolinat \\
+  aldrin & rebelles \\
+  espace & carter \\
+  \hline
+\end{tabular}
+\end{center}
+
+

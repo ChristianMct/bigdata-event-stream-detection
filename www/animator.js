@@ -54,6 +54,7 @@ var Animator=new (function(){
 		//jobsToClear.animation.push(key)
 		delete jobs.animation[key];
 	}
+	window.requestAnimationFrame=window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame || function(f){setTimeout(f,1);};
 	var requestNextFrame=function(){
 		var now=Date.now();
 		for (var key in jobs.timeout){
@@ -76,7 +77,7 @@ var Animator=new (function(){
 				self.clearAnimation(key);
 			}
 		}
-		setTimeout(function(){requestNextFrame();},1);
+		requestAnimationFrame(requestNextFrame);
 	}
 	requestNextFrame();
 })();

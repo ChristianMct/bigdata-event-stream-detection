@@ -314,7 +314,7 @@ public class Hmm2 implements Serializable {
           int maxIterations) {
     long sequenceLength = observedSequenceRdd.count();
     long cost = sequenceLength * N * N;
-    if ( cost > 1000L * 1000L * 1000L ) {
+    if ( cost > 1000L * 1000L * 1000L && !Parameters.forceSequentialBW) {
       rawSparkTrain(sc, observedSequenceRdd, piThreshold, aaThreshold, maxIterations);
     } else {
       List<Tuple2<Integer, Integer>> observedSequenceList =
@@ -364,8 +364,6 @@ public class Hmm2 implements Serializable {
     double[] alphasScales = new double[ sequenceLength ];
     double[] alphas = new double[N * sequenceLength];
     double[] betas = new double[N * sequenceLength];
-    double[] gammas = new double[N];
-    double[] gammasSums = new double[N];
     
     // Iterate until convergence of the transition probabilities
     int maxSteps = maxIterations;
@@ -398,8 +396,14 @@ public class Hmm2 implements Serializable {
         double sum = 0.0;
         for (int i = 0; i < N; i++) {
           double res = 0.0;
-          for (int j = 0; j < N; j++) {
-            res += (alphas[(t - 1) * N + j] * a[j][i]);
+          // only compute necessary terms
+          if ( i == 0 ) {
+            for (int j = 0; j < N; j++) {
+              res += (alphas[(t - 1) * N + j] * a[j][i]);
+            }
+          } else {
+            res += (alphas[(t - 1) * N + 0] * a[0][i]);
+            res += (alphas[(t - 1) * N + i] * a[i][i]);
           }
           double value = (res * b[i][observedSequence[t]]);
           alphas[t * N + i] = value;
@@ -425,52 +429,62 @@ public class Hmm2 implements Serializable {
       for (int t = sequenceLength - 1; t >= 1; t--) {
         for (int i = 0; i < N; i++) {
           double res = 0.0;
-          for (int j = 0; j < N; j++) {
-            res += (betas[t * N + j] * a[i][j]
-                   * b[j][observedSequence[t]] * alphasScales[t - 1]);
+          // only compute the necessary terms
+          if ( i == 0 ) {
+            for (int j = 0; j < N; j++) {
+              res += (betas[t * N + j] * a[i][j]
+                     * b[j][observedSequence[t]] * alphasScales[t - 1]);
+            }
+          } else {
+            res += (betas[t * N + 0] * a[i][0]
+                    * b[0][observedSequence[t]] * alphasScales[t - 1]);
+            res += (betas[t * N + i] * a[i][i]
+                    * b[i][observedSequence[t]] * alphasScales[t - 1]);
           }
-
           betas[(t - 1) * N + i] = res;
         }
       }
       
       // reset temporary variables
-      Arrays.fill(gammasSums, 0.0d);
       for ( int stateIndex = 0; stateIndex < N; stateIndex++ ) {
         Arrays.fill(aaStar[stateIndex], 0.0);
       }
       
+      { /* compute and normalize Pi_star */
+        double sum = 0.0;
+        for (int i = 0; i < N; i++) {
+          double gamma = alphas[0 * N + i] * betas[0 * N + i];
+          double tempVal = gamma / alphasScales[0];
+          piStar[i] = tempVal;
+          sum += tempVal;
+        }
+        // renormalize
+        for ( int i = 0; i < N; i++ ) {
+          piStar[i] /= sum;
+        }
+      }
+      
       // as we don't need to update b, we can stop at
       // sequenceLength-1
-      for ( int t = 0; t < sequenceLength - 1; t++ ) {
-        
-        // compute the terms alpha(i,t)*beta(i,t) and incrementally the sum of them
-        for (int i = 0; i < N; i++) {
-          double tempVal = alphas[t * N + i] * betas[t * N + i];
-          gammas[i] = tempVal;
-        }
-
-        // compute gamma(i,t), and incrementally gamma_sums(i)
-        for (int i = 0; i < N; i++) {
-          double tempVal = gammas[i] / alphasScales[t];
-          gammas[i] = tempVal;
-          gammasSums[i] += tempVal;
-        }
-
-        // we have now gamma(i,t) in gammas[], and sum( k, alpha(k, t)*beta(k, t) ) in denGamma */
+      for ( int t = 0; t < sequenceLength - 2; t++ ) {
         /* compute khi(i,j) incrementally, put it in aaStar */
-        if (t != sequenceLength - 1) {
-          for (int i = 0; i < N; i++) {
+        for (int i = 0; i < N; i++) {
+          // only compute necessary terms
+          if ( i == 0 ) {
             for (int j = 0; j < N; j++) {
               double khi = (alphas[t * N + i] * a[i][j] * betas[(t + 1) * N + j])
                       * b[j][observedSequence[t + 1]];
               aaStar[i][j] += khi;
             }
+          } else {
+            double khi0 = (alphas[t * N + i] * a[i][0] * betas[(t + 1) * N + 0])
+                    * b[0][observedSequence[t + 1]];
+            aaStar[i][0] += khi0;
+            
+            double khii = (alphas[t * N + i] * a[i][i] * betas[(t + 1) * N + i])
+                    * b[i][observedSequence[t + 1]];
+            aaStar[i][i] += khii;
           }
-        }
-        /* copy in Pi_star if that's the moment */
-        if (t == 0) {
-          System.arraycopy(gammas, 0, piStar, 0, N);
         }
       }
       
@@ -484,17 +498,6 @@ public class Hmm2 implements Serializable {
           for (int j = 0; j < N; j++) {
             aaStar[i][j] /= sum;
           }
-        }
-      }
-      
-      // Renormalize piStar
-      double sum = 0.0;
-      for (int i = 0; i < N; i++ ) {
-        sum += piStar[i];
-      }
-      if ( sum > 0.0 ) {
-        for ( int i = 0; i < N; i++ ) {
-          piStar[i] /= sum;
         }
       }
       
@@ -586,7 +589,7 @@ public class Hmm2 implements Serializable {
                 return arg0._1();
               }
               
-            });
+            }).repartition(numBlocks);
         
     JavaPairRDD<Integer, int[]> observedBlocksRdd =
             groupedObservedBlocksRdd.mapValues(new Function<Iterable<Tuple3<Integer, Integer, Integer>>, int[]>() {
@@ -630,7 +633,9 @@ public class Hmm2 implements Serializable {
                 return observedBlock;
               }
             });
-    observedBlocksRdd.persist(StorageLevel.MEMORY_AND_DISK());
+
+   //observedBlocksRdd = observedBlocksRdd.persist(StorageLevel.MEMORY_AND_DISK());
+
     // iterate until convergence
     for ( int step = 0; step < maxIterations; step++ ) {
       System.out.println("Spark iter " + step);
@@ -679,6 +684,46 @@ public class Hmm2 implements Serializable {
                               + " norm " + norm + " mat " + ta[bi]);
                     }
                     ta[bi].scalarDivide(norm);
+                    
+                    // also perform partial scan
+                    if ( bi > 0 ) {
+                      SquareMatrix partialResult = new SquareMatrix(N);
+                      double partialResultNorm = 0.0;
+                      
+                      for ( int i = 0; i < N; i++ ) {
+                        if ( i == 0 ) {
+                          for ( int j = 0; j < N; j++ ) {
+                            double el = 0.0;
+                            for (int k = 0; k < N; k++ ) {
+                              el += ta[bi].elements[i * N + k]
+                                      * ta[bi - 1].elements[ k * N + j];
+                            }
+                            partialResultNorm += el;
+                            partialResult.elements[ i * N + j] = el;
+                          }
+                        } else {
+                          // here, only k=0 and k=i only
+                          for ( int j = 0; j < N; j++ ) {
+                            double el = 0.0;
+                            el += ta[bi].elements[i * N + 0]
+                                    * ta[bi - 1].elements[ 0 * N + j];
+                            el += ta[bi].elements[i * N + i]
+                                    * ta[bi - 1].elements[ i * N + j];
+                            partialResultNorm += el;
+                            partialResult.elements[ i * N + j] = el;
+                          }
+                        }
+                      }
+                      
+                      // renormalize
+                      for ( int i = 0; i < N; i++ ) {
+                        for ( int j = 0; j < N; j++ ) {
+                          partialResult.elements[ i * N + j ] /= partialResultNorm;
+                        }
+                      }
+                      
+                      ta[bi] = partialResult;
+                    }
                   }
                   
                   return new Tuple2<Integer, SquareMatrix[]>(blockId, ta);
@@ -686,25 +731,8 @@ public class Hmm2 implements Serializable {
                 
               });
       
-      JavaPairRDD<Integer, SquareMatrix[]> partiallyScannedTaRdd =
-              initializedTaRdd.mapValues(new Function<SquareMatrix[], SquareMatrix[]>() {
-                private static final long serialVersionUID = 6L;
-
-                @Override
-                public SquareMatrix[] call(SquareMatrix[] arg0) throws Exception {
-                  int trueBlockSize = arg0.length;
-                  
-                  SquareMatrix[] outResults = new SquareMatrix[trueBlockSize];
-                  outResults[0] = arg0[0].publicClone();
-                  
-                  for ( int bi = 1; bi < trueBlockSize; bi++ ) {
-                    outResults[bi] = arg0[bi].multiplyOut(outResults[bi - 1], new SquareMatrix(N));
-                    outResults[bi].scalarDivide(outResults[bi].rawNorm1());
-                  }
-                  return outResults;
-                }
-                
-              });
+      // make it persist in memory
+      JavaPairRDD<Integer, SquareMatrix[]> partiallyScannedTaRdd = initializedTaRdd;
       
       JavaPairRDD<Integer, SquareMatrix> lastPartiallyScannedTaRdd =
               partiallyScannedTaRdd.mapValues(new Function<SquareMatrix[], SquareMatrix>() {
@@ -821,7 +849,7 @@ public class Hmm2 implements Serializable {
         }
         
       });
-      alphaHatsRdd.persist(StorageLevel.MEMORY_ONLY());
+      //alphaHatsRdd = alphaHatsRdd.persist(StorageLevel.MEMORY_ONLY());
       JavaPairRDD<Integer, double[]> lastAlphaHatsRdd = alphaHatsRdd.mapValues( new Function<double[], double[]>(){
         private static final long serialVersionUID = 4L;
 
@@ -850,8 +878,8 @@ public class Hmm2 implements Serializable {
       
       JavaPairRDD<Integer, Tuple2<int[], double[]>> observationsWithAlphaHats
               = observedBlocksRdd.join(alphaHatsRdd);
-      observationsWithAlphaHats.persist(StorageLevel.MEMORY_ONLY());
-      alphaHatsRdd.unpersist();
+      //observationsWithAlphaHats.persist(StorageLevel.MEMORY_ONLY());
+      //alphaHatsRdd.unpersist();
       class CtMapper implements PairFunction<Tuple2<Integer, Tuple2<int[], double[]>>, Integer, double[]>{
         private static final long serialVersionUID = 9L;
         
@@ -966,29 +994,41 @@ public class Hmm2 implements Serializable {
                       System.out.println("(TBInit) Block " + blockId + " mat "
                               + bi + " norm " + norm);
                     }
+                    
+                    // also perform partial scan
+                    if ( bi < trueBlockSize - 1 ) {
+                      SquareMatrix partialResult = new SquareMatrix(N);
+                      for ( int i = 0; i < N; i++ ) {
+                        if ( i == 0 ) {
+                          for ( int j = 0; j < N; j++ ) {
+                            double el = 0.0;
+                            for (int k = 0; k < N; k++ ) {
+                              el += tb[bi].elements[i * N + k]
+                                      * tb[bi + 1].elements[ k * N + j];
+                            }
+                            partialResult.elements[ i * N + j] = el;
+                          }
+                        } else {
+                          // here, only k=0 and k=i only
+                          for ( int j = 0; j < N; j++ ) {
+                            double el = 0.0;
+                            el += tb[bi].elements[i * N + 0]
+                                    * tb[bi + 1].elements[ 0 * N + j];
+                            el += tb[bi].elements[i * N + i]
+                                    * tb[bi + 1].elements[ i * N + j];
+                            partialResult.elements[ i * N + j] = el;
+                          }
+                        }
+                      }
+                      
+                      tb[bi] = partialResult;
+                    }
                   }
                   return new Tuple2<Integer, SquareMatrix[]>(blockId, tb);
                 }
               });
       
-      JavaPairRDD<Integer, SquareMatrix[]> partiallyScannedTbRdd =
-              initializedTbRdd.mapValues(new Function<SquareMatrix[], SquareMatrix[]>() {
-                private static final long serialVersionUID = 11L;
-
-                @Override
-                public SquareMatrix[] call(SquareMatrix[] arg0) throws Exception {
-                  int trueBlockSize = arg0.length;
-                  
-                  SquareMatrix[] outResults = new SquareMatrix[trueBlockSize];
-                  outResults[trueBlockSize - 1] = arg0[trueBlockSize - 1].publicClone();
-                  
-                  for ( int bi = trueBlockSize - 2; bi >= 0; bi-- ) {
-                    outResults[bi] = arg0[bi].multiplyOut(outResults[bi + 1], new SquareMatrix(N));
-                  }
-                  return outResults;
-                }
-                
-              });
+      JavaPairRDD<Integer, SquareMatrix[]> partiallyScannedTbRdd = initializedTbRdd;
       
       JavaPairRDD<Integer, SquareMatrix> firstPartiallyScannedTbRdd =
               partiallyScannedTbRdd.mapValues(new Function<SquareMatrix[], SquareMatrix>() {
@@ -1170,7 +1210,7 @@ public class Hmm2 implements Serializable {
       
       JavaPairRDD<Integer, double[]> blockKhisRdd =
               observationsWithAlphaHatsWithBetaHats.mapToPair(new BlockSumKhiMapper(firstBetaHats) );
-      observationsWithAlphaHats.unpersist();
+      //observationsWithAlphaHats.unpersist();
       List<Tuple2<Integer, double[]>> blockKhis = blockKhisRdd.collect();
      
       

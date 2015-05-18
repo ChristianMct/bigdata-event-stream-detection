@@ -23,13 +23,18 @@ import org.epfl.bigdataevs.executables.Parameters;
 
 import scala.Tuple2;
 
-/**Team: Matias and Christian.
-*EmInput: container for the RDDs representing the background
-*model and the word distribution of every article, for all streams.
-*Please note that the two JavaPairRDD attributes are not key-value maps,
-*just lists of tuples.
-*TODO: should the background model be per-stream?
-**/
+/**
+ * Team Antoine & Nina
+ * 
+ * @author Antoine
+ * 
+ * Representation of an input of the EM algorithm within one TimePartition.
+ * 
+ * Contain the background model (common to every EmInput), 
+ * the set of documents within de time partition
+ * and the themes within de time partition. 
+ * 
+ **/
 
 public class EmInput implements Serializable {
   /** Map containing tuples of words and their 
@@ -50,15 +55,15 @@ public class EmInput implements Serializable {
   /** Time period containing all articles**/
   public TimePeriod timePeriod;
   
+  /** Number of iterations that the EM Algorithm processed in this EmInput**/
   public int numberOfIterations = 0;
-  public List<Double> values = new ArrayList<>();
   
   /**
    * EmInput contains at least the background model, 
    * the list of articles and the period delimiting these articles.
-   * @param backgroundModel
-   * @param documents
-   * @param period
+   * @param backgroundModel the background model probabilitic distribution
+   * @param documents the set of articles
+   * @param period the time period containing the articles
    */
   public EmInput(Map<String, Double> backgroundModel,
           Collection<Document> documents, TimePeriod period) {
@@ -71,9 +76,8 @@ public class EmInput implements Serializable {
   
   /**
    * EmInput builds with an instance of TimePartition
-   * @param backgroundModel
-   * @param Documents
-   * @param period
+   * @param backgroundModel the background model probabilitic distribution
+   * @param timePartition the time partition containing time periods and articles
    */ 
   public EmInput(TimePartition timePartition, Map<String, BigFraction> backgroundModel) {
     this.timePeriod = timePartition.timePeriod;
@@ -255,7 +259,12 @@ public class EmInput implements Serializable {
     }
   }
   
-  
+  /**
+   * Remove themes in this EmInput that don't statisfy themesWithScore
+   * @param themesWithScore the proportion the threhold is accroding to 
+   * the naive average of themes (ex: 1/10 if there are 10 themes)
+   * @return a list of themes with their score
+   */
   public List<Tuple2<Theme, Double>> filterTheme(List<Tuple2<Theme, Double>> themesWithScore) {
     double threshold = (1.0 / this.themesOfPartition.size()) * Parameters.themeFilteringThreshold;
     List<Tuple2<Theme, Double>> newThemesWithScores = new ArrayList<Tuple2<Theme,Double>>();

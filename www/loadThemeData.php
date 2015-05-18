@@ -121,8 +121,14 @@
 					$nbEntryInAccumulator++;
 				}
 				else{
-					$finalResult["contentDate"][$finalEntry]=date("m/d/Y",$lastStart);
-					$finalResult["contentData"][$finalEntry]=$accumulator/$nbEntryInAccumulator;
+					if ($nbEntryInAccumulator!=0){
+						$finalResult["contentDate"][]=date("m/d/Y",$lastStart);
+						$finalResult["contentData"][]=$accumulator/$nbEntryInAccumulator;
+					}
+					else{
+						$finalResult["contentDate"][]=date("m/d/Y",$lastStart);
+						$finalResult["contentData"][]=0;
+					}
 					$finalEntry++;
 					$accumulator=0;
 					$nbEntryInAccumulator=0;

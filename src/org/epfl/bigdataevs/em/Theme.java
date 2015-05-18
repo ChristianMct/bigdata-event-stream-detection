@@ -24,6 +24,17 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.TreeMap;
 
+/**
+ * Team : Nina & Antoine
+ * 
+ * Representation of a theme
+ * Contain a probabilistic distribution of word, 
+ * a TimePeriod and articles sorted by their belonging to this theme
+ * 
+ * @author abastien
+ *
+ */
+
 public class Theme implements Serializable {
   public Map<String, Double> wordsProbability;
   public final static int RANDOM_MAX = 1000;
@@ -65,17 +76,12 @@ public class Theme implements Serializable {
       this.wordsProbability.put(wordsOfPartitions.get(i), value);
     }
   }
-    
-   /*
-  public String toString() {
-    String s = "Theme #" + this.partitionIndex;
-    for (String word : this.wordsProbability.keySet()) {
-      s += word + " : " + this.wordsProbability.get(word);
-    }
-    return s;
-  }
-  */
   
+  /**
+   * Sort the map of words describing a theme by its probabilities (value)
+   * @param maxWords
+   * @return the first maxWords words describing a theme with their probabilitites
+   */
   public TreeMap<String, Double> sortString(int maxWords) {
     TreeMap<String, Double> smallSortedMap = new TreeMap<String, Double>(new ValueComparator(wordsProbability));
     TreeMap<String, Double> smallSortedMap2 = new TreeMap<String, Double>(new ValueComparator(wordsProbability));
@@ -87,33 +93,19 @@ public class Theme implements Serializable {
       if (count > maxWords) {
         break;
       }
-      if (word.length() > 5) {
+      if (word.length() >= 4) {
         smallSortedMap2.put(word, this.wordsProbability.get(word));
         count += 1;
       }
     }
     return smallSortedMap2;
   }
-  
-  public Tuple2<Integer, Integer> statistics() {
-    int meaningfulWords = 0;
-    for (String word : this.wordsProbability.keySet()) {
-      if (this.wordsProbability.get(word) > 0.0) {
-        meaningfulWords += 1;
-      }
-    }
-    return new Tuple2<Integer, Integer>(meaningfulWords, this.wordsProbability.size());
-  }
-  
-  public double statistics2() {
-    double meaningfulWordsValue = 0;
-    for (String word : this.wordsProbability.keySet()) {
-      meaningfulWordsValue += this.wordsProbability.get(word);
-    }
-    return meaningfulWordsValue;
-  }
     
-    
+  /**
+   * Comparator used to sort maps by their double values
+   * @author abastien
+   *
+   */
   class ValueComparator implements Comparator<String> {
 
     Map<String, Double> base;
@@ -134,6 +126,7 @@ public class Theme implements Serializable {
   
   /**
    * Get the titles of the articles that have the highest probability to belong to this theme
+   * @return a list of articles
    */
   public String sortTitleString(int maxTitles) {
     String output = "";

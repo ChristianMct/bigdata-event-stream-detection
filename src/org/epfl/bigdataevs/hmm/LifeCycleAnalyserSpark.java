@@ -13,9 +13,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeMap;
 
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -23,6 +26,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
+import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 
 public class LifeCycleAnalyserSpark implements Serializable {
@@ -45,7 +49,7 @@ public class LifeCycleAnalyserSpark implements Serializable {
    * 
    * @param hmmInput
    *          The hmmInput from which is going to be used the background model, the lexicon and the
-   *          wordStream. Themes must be added before any analytics can be done,
+   *          wordStream. Themes must be added before any analytics can be done.
    * 
    */
   public LifeCycleAnalyserSpark(HmmInputFromParser hmmInput) {
@@ -80,7 +84,8 @@ public class LifeCycleAnalyserSpark implements Serializable {
    * @param maxIterations
    *          Max number of iterations
    */
-  public void analyse(JavaSparkContext sc, double piThreshold, double aaThreshold, int maxIterations) {
+  public void analyse(JavaSparkContext sc, double piThreshold,
+          double aaThreshold, int maxIterations) {
     int numberHiddenStates = (int) (numberOfThemes + 1);
 
     int numberObservableOutputSymbols = (int) numberOfWords;
@@ -93,7 +98,8 @@ public class LifeCycleAnalyserSpark implements Serializable {
     }
 
     // setting up state transition probability distribution
-    double[][] stateTransitionProbabilityDistribution = new double[numberHiddenStates][numberObservableOutputSymbols];
+    double[][] stateTransitionProbabilityDistribution =
+            new double[numberHiddenStates][numberObservableOutputSymbols];
     double halfInitialStateDistribution = initialStateDistribution / 2.0;
     for (int i = 0; i < numberHiddenStates; i++) {
       for (int j = 0; j < numberObservableOutputSymbols; j++) {
@@ -116,11 +122,7 @@ public class LifeCycleAnalyserSpark implements Serializable {
       }
     }
 
-    // setting up output probability distribution
-    // TODO change this to retrieve the output of the EM algo
-    // and use addAllThemes instead
-
-    // outputProbabilityDistribution = (double[][]) themes.toArray();
+    // setting the output prob distribution
     outputProbabilityDistribution[0] = bgAsArray;
 
     // setting up and training the hmm
@@ -158,41 +160,39 @@ public class LifeCycleAnalyserSpark implements Serializable {
 
     mostLikelySequenceThemeShifts = hmm.decode(sc, observedSequenceRdd);
     
-    JavaPairRDD<Integer ,Tuple2<Long, Long>> wordStreamZippedWithIndexReversed =
-            wordStreamZippedWithIndex.mapToPair(
-                    new PairFunction<Tuple2<Tuple2<Long, Long>, Long>, 
-                    Integer, Tuple2<Long, Long>>(){
+    JavaPairRDD<Integer, Tuple2<Long, Long>> wordStreamZippedWithIndexReversed = wordStreamZippedWithIndex
+            .mapToPair(new PairFunction<Tuple2<Tuple2<Long, Long>, Long>, Integer, Tuple2<Long, Long>>() {
 
-                      @Override
-                      public Tuple2<Integer, Tuple2<Long, Long>> call(
-                              Tuple2<Tuple2<Long, Long>, Long> arg0) throws Exception {
-                        // TODO Auto-generated method stub
-                        return new Tuple2<Integer, Tuple2<Long, Long>>(arg0._2.intValue(), arg0._1) ;
-                      }
-                      
-                      
-                      
-                    });
+              private static final long serialVersionUID = 1L;
+
+              @Override
+              public Tuple2<Integer, Tuple2<Long, Long>> call(Tuple2<Tuple2<Long, Long>, Long> arg0)
+                      throws Exception {
+                // TODO Auto-generated method stub
+                return new Tuple2<Integer, Tuple2<Long, Long>>(arg0._2.intValue(), arg0._1);
+              }
+
+            });
     
     JavaPairRDD<Integer, Tuple2<Integer, Tuple2<Long, Long>>> zippedDecodedSequence = 
-      mostLikelySequenceThemeShifts.join(wordStreamZippedWithIndexReversed);
+            mostLikelySequenceThemeShifts.join(wordStreamZippedWithIndexReversed);
     
-    JavaRDD<Tuple2<Long,Integer>> nonZeroMostLikelyByTimestamp = zippedDecodedSequence.flatMap(
-            new FlatMapFunction<Tuple2<Integer, Tuple2<Integer, Tuple2<Long, Long>>>, Tuple2<Long, Integer>>(){
+    JavaRDD<Tuple2<Long, Integer>> nonZeroMostLikelyByTimestamp = zippedDecodedSequence
+            .flatMap(new FlatMapFunction<Tuple2<Integer, Tuple2<Integer, Tuple2<Long, Long>>>,
+                    Tuple2<Long, Integer>>() {
 
               @Override
               public Iterable<Tuple2<Long, Integer>> call(
                       Tuple2<Integer, Tuple2<Integer, Tuple2<Long, Long>>> arg0) throws Exception {
                 ArrayList<Tuple2<Long, Integer>> list = new ArrayList<Tuple2<Long, Integer>>(1);
                 if (arg0._2._1 != 0) {
-                  list.add(new Tuple2<Long, Integer>(arg0._2._2._2,arg0._2._1));
+                  list.add(new Tuple2<Long, Integer>(arg0._2._2._2, arg0._2._1));
                 }
-              return list;
+                return list;
               }
-              
+
             });
-    
-    
+
     JavaPairRDD<Long, Iterable<Tuple2<Long, Integer>>> groupedRdd =
             nonZeroMostLikelyByTimestamp.groupBy(new Function<Tuple2<Long, Integer>, Long>(){
 
@@ -202,25 +202,30 @@ public class LifeCycleAnalyserSpark implements Serializable {
       }
       
     });
+    List<Long> timestampsList = groupedRdd.keys().collect();
     
-    JavaPairRDD<Long, Map<Integer,Integer>>  resultByTimestamp = 
-            groupedRdd.mapValues( new Function<Iterable<Tuple2<Long, Integer>>, Map<Integer,Integer>>(){
+    Collections.sort(timestampsList);
+    
+    
+    
+    JavaPairRDD<Long, Map<Integer, Integer>> resultByTimestamp = groupedRdd
+            .mapValues(new Function<Iterable<Tuple2<Long, Integer>>, Map<Integer, Integer>>() {
 
-      @Override
-      public Map<Integer,Integer> call(Iterable<Tuple2<Long, Integer>> arg0) throws Exception {
-        Map<Integer,Integer> countMap = new HashMap<Integer,Integer>();
-        for(Tuple2<Long, Integer> tuple : arg0){
-          if(countMap.containsKey(tuple._2)){
-            countMap.put(tuple._2, countMap.get(tuple._2)+1);
-          }
-          else{
-            countMap.put(tuple._2,1);
-          }
-        }
-        return countMap;
-      }
-      
-    });
+              @Override
+              public Map<Integer, Integer> call(Iterable<Tuple2<Long, Integer>> arg0)
+                      throws Exception {
+                Map<Integer, Integer> countMap = new HashMap<Integer, Integer>();
+                for (Tuple2<Long, Integer> tuple : arg0) {
+                  if (countMap.containsKey(tuple._2)) {
+                    countMap.put(tuple._2, countMap.get(tuple._2) + 1);
+                  } else {
+                    countMap.put(tuple._2, 1);
+                  }
+                }
+                return countMap;
+              }
+
+            });
     
     
     List<Tuple2<Long, Map<Integer, Integer>>> collectedResults = resultByTimestamp.collect();
@@ -233,13 +238,42 @@ public class LifeCycleAnalyserSpark implements Serializable {
       }
     });
     
+    
+    //Printing in the appropriate format for the csv file
+    for (int themeIndex = 1; themeIndex < numberOfThemes; themeIndex++) {
+      System.out.println("Theme " + (themeIndex-1));
+      Iterator<Tuple2<Long, Map<Integer, Integer>>> resultsIterator = collectedResults.iterator();
+      Iterator<Long> timestampsIterator = timestampsList.iterator();
+
+      Tuple2<Long, Map<Integer, Integer>> currentTuple = resultsIterator.next();
+
+      while (timestampsIterator.hasNext()) {
+        long timestamp = timestampsIterator.next();
+        if (currentTuple != null && timestamp == currentTuple._1) {
+          int strength = currentTuple._2().get(themeIndex) == null ? 0:currentTuple._2().get(themeIndex) ;
+          System.out.println(timestamp + "," + strength);
+          if (resultsIterator.hasNext()) {
+            currentTuple = resultsIterator.next();
+          } else {
+            currentTuple = null;
+          }
+          
+        } else {
+          System.out.println(timestamp + ",0");
+        }
+
+      }
+    }
+    
+    
+    //old way to do it
     int timeDuration = collectedResults.size();
     int[][] themesStrengths = new int[(int) numberOfThemes][timeDuration];
     
-    for (int timeIndex = 0 ; timeIndex < timeDuration ; timeIndex++){
+    for (int timeIndex = 0 ; timeIndex < timeDuration ; timeIndex++) {
       Tuple2<Long, Map<Integer, Integer>> tuple = collectedResults.get(timeIndex);
-      for(Entry<Integer,Integer> entry : tuple._2.entrySet()){
-        themesStrengths[entry.getKey()-1][timeIndex] = entry.getValue();        
+      for (Entry<Integer,Integer> entry : tuple._2.entrySet()) {
+        themesStrengths[entry.getKey() - 1][timeIndex] = entry.getValue();        
       }
     }
     
@@ -252,18 +286,6 @@ public class LifeCycleAnalyserSpark implements Serializable {
       System.out.println("];");
     }
     
-    /*
-    System.out.println();
-    System.out.println("Results by timestamps");
-    for(Tuple2<Long, Map<Integer, Integer>> tuple : collectedResults){
-      System.out.println("timestamp : "+tuple._1);
-      for(Entry<Integer, Integer> entry : tuple._2.entrySet()){
-        System.out.println("    theme "+entry.getKey()+" : "+entry.getValue());
-      }
-      
-    }
-    System.out.println();
-    */
   }
 
   public void allAbsoluteStrength(String path, final long startTime, final long endTime,
@@ -442,30 +464,65 @@ public class LifeCycleAnalyserSpark implements Serializable {
    */
   public void addAllThemesFromRdd(JavaPairRDD<Theme, Double> themesRdd) {
     themesWithIndex = themesRdd.zipWithIndex();
+
+    // here is the print of the themes
+    Map<Tuple2<Theme, Double>, Long> emOutputs = themesWithIndex.collectAsMap();
+
+    List<Tuple2<Tuple2<Theme, Double>, Long>> orderedThemesWithIndex = themesWithIndex.collect();
+
+    Collections.sort(orderedThemesWithIndex, new Comparator<Tuple2<Tuple2<Theme, Double>, Long>>() {
+      @Override
+      public int compare(Tuple2<Tuple2<Theme, Double>, Long> index1,
+              Tuple2<Tuple2<Theme, Double>, Long> index2) {
+        return index1._2.compareTo(index2._2);
+      }
+    });
+
     
-    //here is the print of the themes
- Map<Tuple2<Theme, Double>, Long> emOutputs = themesWithIndex.collectAsMap();
- 
- List<Tuple2<Tuple2<Theme, Double>, Long>> orderedThemesWithIndex = themesWithIndex.collect();
- 
- Collections.sort(orderedThemesWithIndex, new Comparator<Tuple2<Tuple2<Theme, Double>, Long>>() {
-   @Override
-   public int compare(Tuple2<Tuple2<Theme, Double>, Long> index1,
-           Tuple2<Tuple2<Theme, Double>, Long> index2) {
-     return index1._2.compareTo(index2._2);
-   }
- });
+    //NOTE : uncomment this if you want to detect and analyse only a specific theme
+    /*
+    final List<Integer> olympicsList = new ArrayList<Integer>();
+    List<String> olympicsWords = new ArrayList<String>();
+    olympicsWords.add("votations");
+    olympicsWords.add("vote");
+    olympicsWords.add("scrutins");
+    olympicsWords.add("fédérales");
+    olympicsWords.add("élections");
+    olympicsWords.add("élection");
+    olympicsWords.add("résultats");
+    olympicsWords.add("cantons");
+    olympicsWords.add("points");
+    olympicsWords.add("peuple");
+    olympicsWords.add("résultats");
+    */
+    
+    
     System.out.println("Printing themes as ordered in the hmm");
     for (Tuple2<Tuple2<Theme, Double>, Long> tuple : orderedThemesWithIndex) {
       Tuple2<Theme, Double> theme = tuple._1;
-      Tuple2<Integer, Integer> t = theme._1.statistics();
       System.out.println("Theme :" + tuple._2);
       System.out.println(theme._1.sortTitleString(3));
       System.out.println(theme._1.sortString(12));
       System.out.println("Score: " + theme._2);
       System.out.println("");
+      /* SEE NOTE ABOVE
+      TreeMap<String, Double> importantWordsMap = theme._1.sortString(12);
+      Set<String> importantWordsSet = importantWordsMap.keySet();
+      importantWordsSet.retainAll(olympicsWords);
+      if (importantWordsSet.size() >= 2) {
+        olympicsList.add(tuple._2.intValue());
+        System.out.println("**********************************************************************");
+        System.out.println("");
+        System.out.println("THEMES DETECTED");
+        System.out.println("");
+        System.out.println("***********************************************************************");
+      }
+      */
     }
     
+    /*SEE NOTE ABOVE
+    final List<Integer> olympicsListFinal = new ArrayList<Integer>(olympicsList);
+     */
     JavaPairRDD<Long, double[]> themesToArray = themesWithIndex
             .mapToPair(new PairFunction<Tuple2<Tuple2<Theme, Double>, Long>, Long, double[]>() {
 
@@ -484,12 +541,34 @@ public class LifeCycleAnalyserSpark implements Serializable {
                 return new Tuple2<Long, double[]>(themeId, b);
               }
             });
+    
+    
+    /*SEE NOTE ABOVE
+    JavaPairRDD<Long, double[]> themesToArray =  themesToArrayAux.flatMapToPair(new PairFlatMapFunction<Tuple2<Long, double[]>, 
+            Long, double[]>(){
+
+              @Override
+              public Iterable<Tuple2<Long, double[]>> call(Tuple2<Long, double[]> arg0)
+                      throws Exception {
+                List<Tuple2<Long, double[]>> list = new ArrayList<Tuple2<Long, double[]>>(1);
+                if(olympicsListFinal.contains(arg0._1.intValue())){
+                  list.add(arg0);
+                }         
+                return list;
+              }
+            });
+            */
+    
+    
     List<Tuple2<Long, double[]>> themesList = themesToArray.collect();
     numberOfThemes = themesList.size();
     outputProbabilityDistribution = new double[(int) numberOfThemes + 1][(int) numberOfWords];
 
+    System.out.println("numberOfThemes : "+numberOfThemes);
+    int i =0;
     for (Tuple2<Long, double[]> tuple : themesList) {
-      outputProbabilityDistribution[1 + tuple._1.intValue()] = tuple._2;
+      outputProbabilityDistribution[1 + i] = tuple._2;
+      i++;
     }
   }
 
