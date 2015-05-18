@@ -55,6 +55,7 @@ To address the meaningless articles problem, we can set two parameters at parse 
 In fact, setting those parameters is very tricky and depends on the \emph{time frame} of interest. Better understanding of written press at this time is in fact needed to accomplish this.
 
 \subsection{Performance}
+\paragraph{}
 Parallelization happens at all stage of the parsing process. The XML stream is parallelized over files, in other words over years. The segmentation into a list of word is done local by the node that read the file. We apply a factor of 4 on the parallelism level for the background model generation so that one node should process a quarter of a year. More parallelism is likely to be useless because further stages never require more than a year or two to be parsed.
 
 \paragraph{}
