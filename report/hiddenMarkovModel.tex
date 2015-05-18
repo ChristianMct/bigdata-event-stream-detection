@@ -37,7 +37,7 @@ The main idea of this life-cycle analysis is to consider that the full text of t
   \node[state] (bg)      {$Background$};
   \node[state]         (t1) [above left of=bg]  {$Theme 1$};
   \node[state]         (t2) [above right of=bg] {$Theme 2$};
-  \node[state]         (t3) [below of=bg] {$theme 3$};
+  \node[state]         (t3) [below of=bg] {$Theme 3$};
 
   \path[->]          (bg)  edge [loop right] node {0.9} (bg);
   \path[->]          (bg)  edge [bend left] node {0.05} (t1);
@@ -56,12 +56,7 @@ The main idea of this life-cycle analysis is to consider that the full text of t
  \caption{Example of a HMM with 4 states (analyzing 3 themes)}
 \end{center}
 \end{figure}
-\begin{figure}[H]
-\begin{center}
-	\includegraphics[width=0.60\textwidth]{images/hmm.png}
-	\caption{Example of a HMM with 4 states (analyzing 3 themes)}
-\end{center}
-\end{figure}
+
 
 \subsection{Parallel Baum-Welch Algorithm}
 The Baum-Welch algorithm is a classic algorithm to train a Hidden Markov Model given an observed sequence. The algorithm is capable of estimating the initial probability distribution, the transition probability distribution, and the emission probability distribution.
@@ -195,7 +190,13 @@ We followed the algorithm quite closely, nevertheless two things are worth notin
 Computing the scores only consists of counting for each day the number of occurrences of each themes. We made the choice to keep the results in this form and to perform smoothing only when displaying them.
 
 \subsection{Results}
+Once these scores are computed, they can be displayed on the interface we developped. Two compelling examples can be found in figure \ref{fig:resStrength}.
 
-
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{images/titanic}
+\caption{Evolution of the theme about the Titanic sinking over 5 months}
+\label{fig:resStrength}
+\end{figure}
 
 
