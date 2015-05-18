@@ -3,7 +3,7 @@
 <head>
 <meta name="viewport" content="width=1020px" />
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<link rel="shortcut icon" href="images/favicon.ico" />
+<link rel="shortcut icon" href="images/favicon.ico?v=2" />
 <script type="text/javascript" src="jquery-2.1.4.min.js"></script>
 <script type="text/javascript" src="masonry.pkgd.min.js"></script>
 <script type="text/javascript" src="Chart.min.js"></script>
@@ -77,9 +77,14 @@
 		$(".theme").not(".full").off("click");
 		$(".theme").not(".full").click(function(){
 			displayFullTheme($(this));
+			//displayNoDataTheme($(this));
 		})
 	}
 	function displayFullTheme(themeElem){
+		if (themeElem.attr("data-no-data")=="true"){
+			displayNoDataTheme(themeElem);
+			return;
+		}
 		themeElem.addClass("full");
 		$("#content").masonry("layout");
 		
@@ -91,7 +96,13 @@
 		
 		var htmlString="";
 		
-		for (var i=defaultNbWordPerTheme; i<maxNbWordPerTheme; i++){
+		var nbWord=Math.min(theme["wl"].length,maxNbWordPerTheme);
+		//alert(theme["wl"].length);
+		//console.log(nbWord);
+		
+		for (var i=defaultNbWordPerTheme; i<nbWord; i++){
+			//console.log(theme["wl"][i]);
+			//console.log(i);
 			htmlString+=wordStringFull(theme["wl"][i],i);
 		}	
 		
@@ -114,15 +125,19 @@
 		})
 		themeElem.append(closeElem);
 		
-		var from="01/01/1800";
-		var to="12/31/1998";
+		var from=theme["start"];
+		var to=theme["end"];
+		
+		var fromYear=from.split("/")[2];
+		var toYear=to.split("/")[2];
 		
 		var startElem=$("<input class='date start fullElem' value='"+from+"'>");
 		startElem.datepicker({
 			onSelect:function(date){
 				from=date;
 				loadData(from, to, themeIndex, themeElem);
-			}
+			},
+			yearRange: fromYear+":"+toYear
 		});
 		themeElem.append(startElem);
 		
@@ -131,7 +146,8 @@
 			onSelect:function(date){
 				to=date;
 				loadData(from, to, themeIndex, themeElem);
-			}
+			},
+			yearRange: fromYear+":"+toYear
 		});
 		themeElem.append(endElem);
 		
@@ -141,6 +157,35 @@
 		//loadChart(chartContainer, themeIndex);
 		loadData(from, to, themeIndex, themeElem);
 		
+	}
+	function displayNoDataTheme(themeElem){
+		themeElem.addClass("full noData");
+		$("#content").masonry("layout");
+		themeElem.off("click");
+		
+		var themeIndex=themeElem.attr("data-theme-index")*1;
+		var theme=themes[themeIndex];
+		
+		var nbWord=Math.min(theme["wl"].length,maxNbWordPerTheme);
+		var htmlString="";
+		for (var i=defaultNbWordPerTheme; i<nbWord; i++){
+			htmlString+=wordStringFull(theme["wl"][i],i);
+		}	
+		$(".themeTable", themeElem).append($(htmlString));
+		
+		var closeElem=$("<div class='close fullElem'>close</div>");
+		closeElem.click(function(){
+			var themeElem=$(this).parent();
+			themeElem.removeClass("full");
+			$(".fullElem", themeElem).remove();
+			$("#content").masonry();
+			setTimeout(function(){
+				themeElem.click(function(){
+					displayFullTheme($(this));
+				});
+			},10);
+		});
+		themeElem.append(closeElem);
 	}
 	function loadData(from, to, themeIndex, themeElem){
 		$.ajax("loadThemeData.php?from="+from+"&to="+to+"&themeIndex="+themeIndex)
@@ -191,8 +236,14 @@
 		chartElem.removeClass("loading");
 	}
 	function getThemeElem(theme){
+		if (theme["noData"]=="true"){
+			var noData="true";
+		}
+		else{
+			var noData="false";
+		}
 		var htmlString=
-			"<div class='theme' data-theme-index='"+theme["i"]+"'>" +
+			"<div class='theme' data-theme-index='"+theme["i"]+"' data-no-data='"+noData+"'>" +
 			"<table class='themeTable'>" +
 				"<tr>" +
 					"<th>#</th>" +
@@ -220,6 +271,7 @@
 			"</tr>";
 	}
 	function wordStringFull(word, index){
+		//console.log(word);
 		return "<tr class='fullElem'>" +
 				"<td>"+(index+1)+"</td>" +
 				"<td>"+word["w"]+"</td>" +
@@ -384,6 +436,12 @@
 		cursor:initial;
 		position:relative;
 	}
+	.theme.full.noData{
+		width:200px;
+		height:330px;
+		cursor:initial;
+		position:relative;
+	}
 	.theme.full .chartContainer{
 		position:absolute;
 		top:10px;
@@ -447,24 +505,26 @@
 		font-weight:bold;
 	}
 	#loadingAjax{
-		background-color:white;
 		text-align:center;
+	}
+	#loadingAjax img{
 		display:none;
 	}
-	#loadingAjax.shown{
-		display:block;
+	#loadingAjax.shown img{
+		display:inline;
 	}
 	#home{
 		height:17px;
 	}
 </style>
-<title></title>
+<title>Event Stream Detection</title>
 </head>
 <body onload="load();">
 	<div id="menu" class="margin">
 		<a class="menuEntry title" href="./"><img id="home" src="images/home.png"></a>
 		<a class="menuEntry"  href="./enter.php">Event Stream Detection</a>
 		<a class="menuEntry selected" href="./themes.php">Browse themes</a>
+		<a class="menuEntry" href="./graph.php">Explore graph</a>
 		<span class="menuEntry search"><input type="text" value="Search themes"></span>
 	</div>
 	<div id="content" class="margin">

@@ -3,7 +3,7 @@
 <head>
 <meta name="viewport" content="width=1020px" />
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<link rel="shortcut icon" href="images/favicon.ico" />
+<link rel="shortcut icon" href="images/favicon.ico?v=2" />
 <script type="text/javascript" src="animator.js"></script>
 <script type="text/javascript" src="jquery-1.9.0.min.js"></script>
 <script type="text/javascript" src="bezier.js"></script>
@@ -88,6 +88,7 @@
 			c.width=c.width;
 			ctx.strokeStyle="#8b1e2b";
 			ctx.strokeStyle="#d0782f";
+			//ctx.lineWidth=(1.5/(nbPath-1))*height;
 			//ctx.strokeStyle="#ff8621";
 			var stop=offset;
 			
@@ -508,7 +509,7 @@
 		filter: blur(30px);
 	}
 </style>
-<title></title>
+<title>Event Stream Detection</title>
 </head>
 <body onload="load();">
 	<canvas id="canvas"></canvas>
