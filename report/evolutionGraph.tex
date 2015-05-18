@@ -1,6 +1,6 @@
 \section{Graph of Evolutionary Transitions}
 \paragraph{}
-In section \ref{sec:themeExtraction} we showed a method to extract themes from the dataset of articles over a given period of time. However we are interested in detecting events that can last for a long time. This is why we studied evolutionary transitions. In section \ref{sec:EvoGraphInterest} we introduce the Kullback divergence which allows to measure the distance between extracted themes and we show how it can be interpreted to detect long lasting events. Then, in section \ref{sec:EvoGraphImplementation} and \ref{sec:EvoGraphPerformance}, we present our implementation in parallel using spark and its performance. Finally in section \ref{sec:EvoGraphResults} we show the results obtained by this method.
+In section \ref{sec:themeExtraction} we showed a method to extract themes from the dataset of articles over a given period of time. However we are interested in detecting events that can last for a long time. This is why we studied evolutionary transitions. In section \ref{sec:EvoGraphInterest} we introduce the Kullback-Leibler divergence which allows to measure the distance between extracted themes and we show how it can be interpreted to detect long lasting events. Then, in section \ref{sec:EvoGraphImplementation} and \ref{sec:EvoGraphPerformance}, we present our implementation in parallel using spark and its performance. Finally in section \ref{sec:EvoGraphResults} we show the results obtained by this method.
 
 \subsection{Interest}
 \label{sec:EvoGraphInterest}
@@ -11,7 +11,7 @@ Since themes are basically probability distributions of words over a given time 
 \paragraph{}
 With this distance, we now consider that there is an Evolutionary Transition between two themes, $T_1$ and $T_2$, if $T_2$ comes after $T_1$ in the time-line and if the divergence is bellow a threshold that we choose. An Evolutionary Transition between two themes shows that they are very likely to come from the same event that last longer than one period of time. The graph of Evolutionary Transitions is then built with themes as vertices and evolutionary transitions as edges. Paths in this graph will reflect how a given theme is slightly transformed from one period of time to another. That grants detection of both the real span of an event and also if new elements appear during it.
 
-\subsection{Comparison of Kullback divergence and Total Variation}
+\subsection{Comparison of Kullback-Leibler divergence and Total Variation}
 
 \paragraph{}
 The main problem raised by the computation of KL divergence with our dataset is that themes quite often do not have exactly the same sets of words. This leads to degenerated cases where the Kullback Divergence will be infinite. However we don't want to penalize these transitions too much because they might still carry interesting links. This issue is discussed in \cite{de2010grammatical} where they suggest to use smoothed probability distributions to avoid null probabilities. Another solution is to use the Total Variation instead of the Kullback divergence because it is more stable in presence of degeneracies.
@@ -31,16 +31,16 @@ As we can see, the distributions seem quite similar with a huge slope at some po
 \subsection{Implementation}
 \label{sec:EvoGraphImplementation}
 \paragraph{}
-The implementation of the evolution graph algorithm is quite straightforward. The algorithm receives an RDD of \emph{Theme} extracted by the EM algorithm that is repartitioned over a number of node usually equal to the number of \emph{time partitions}. The first step is to convert the objects \emph{Theme} into \emph{LightTheme} that contain only the information required by the computation of the distance in order to reduce memory usage and transfer times. The second step is to repartition the RDD of \emph{LightTheme} over large enough number of executor in order for the cartesian product to be efficient. Finally, we apply a \emph{flatMap} over all the pairs to compute the distances and return or not the transitions. The hardest part of the algorithm is the computation of the divergence which requires a loop over all the words probability distribution and the computation of logarithms.
+The implementation of the evolution graph algorithm is quite straightforward. The algorithm receives an RDD of \emph{Theme} extracted by the EM algorithm that is repartitioned over a number of nodes usually equal to the number of \emph{time partitions}. The first step is to convert the objects \emph{Theme} into \emph{LightTheme} that contain only the information required by the computation of the distance in order to reduce memory usage and transfer times. The second step is to repartition the RDD of \emph{LightTheme} over a large enough number of executors in order for the cartesian product to be efficient. Finally, we apply a \emph{flatMap} over all the pairs to compute the distances and return or not the transitions. The hardest part of the algorithm is the computation of the divergence which requires a loop over all the words probability distributions and the computation of logarithms.
 
 
 \subsection{Performance}
 \label{sec:EvoGraphPerformance}
 \paragraph{}
-Even so we parallelize the work efficiently, the evolution graph algorithm does not fit the definition of scalable. Indeed, if we have twice as many periods of time and twice as many executors the running time does not stay the same. It will be in fact multiplied by two. This is due to the inherent quadratic complexity of the algorithm which requires to measure the distance for each pair of themes.
+Even though we parallelize the work efficiently, the evolution graph algorithm does not fit the definition of scalable. Indeed, if we have twice as many periods of time and twice as many executors, then the running time does not stay the same. It will be in fact multiplied by two. This is due to the inherent quadratic complexity of the algorithm which requires to measure the distance for each pair of themes.
 
 \paragraph{}
-We could avoid this quadratic complexity by looking only at similarity between themes that are close to each other in time. For example, if we compute only transition of less than one year for 200 years, the running time of the algorithm will be 200 times the running time for one year. However this simplification would make us lose interesting transitions for recurrent events like the Olympic Games happening every 4 years. 
+We could avoid this quadratic complexity by looking only at similarity between themes that are close to each other in time. For example, if we compute only transitions of less than one year for 200 years, the running time of the algorithm will be 200 times the running time for one year. However this simplification would make us lose interesting transitions for recurrent events like the Olympic Games happening every 4 years. 
 
 \paragraph{}
 We measured the performance of our algorithm over an increasing number of themes. For the test we used one week for the length of a time period and extracted 10 themes per week. This means 500 themes is approximately one year worth of themes.
@@ -54,7 +54,6 @@ Number of Theme & Number of pairs & Number of executors & Execution time \\ \hli
 50 & 1250 & 500 & 5 s \\
 100 & 5000 & 500 & 17 s \\
 500 & 125000 & 500 & 510 s \\
-1000 & 500000 & 500 & Let's try again some time \\
 \end{tabular}
 
 \subsection{Results}
