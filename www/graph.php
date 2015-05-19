@@ -12,7 +12,7 @@
 <script type="text/javascript" src="bezier.js"></script>
 <script type="text/javascript">
 	window.requestAnimationFrame=window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame || function(f){setTimeout(f,1);};
-	var svg='<?php print(str_replace("\n","",file_get_contents("svg/graph.svg"))); ?>';
+	var svg='<?php print(str_replace("\n","",file_get_contents("svg/graph1992.svg"))); ?>';
 	var nodeArray=[];
 	var edgeArray=[];
 	var nodeToAnimate=[];
@@ -22,6 +22,8 @@
 	var minY=Number.MAX_VALUE; 
 	var maxWidth=Number.MIN_VALUE;
 	var minWidth=Number.MAX_VALUE;
+	var maxLength=Number.MIN_VALUE;
+	var minLength=Number.MAX_VALUE;
 	var xml;
 	var c;
 	var ctx;
@@ -37,9 +39,11 @@
 	var windowRatio;
 	var mouseDown=false;
 	var previousDraggingPoint;
+	var globalAlpha=1;
 	var lineWidthCoeff=10;
 	var changes=true;
 	var nbPoint=30;
+	var nbPointSmall=3;
 	var prePreScale;
 	var mouseOverOneNode=false;
 	function load(){
@@ -136,7 +140,7 @@
 					edge.pc=pc;
 					changes=true;
 				}
-			},500,function(){
+			},700,function(){
 				setTimeout(function(){
 					node.animate=false;
 				},400);
@@ -147,36 +151,53 @@
 		var pc=edge.pc;
 		var f=edge.bezier;
 		var pcWidth=(edge.strokeWidth-minWidth)/(maxWidth-minWidth);
-		ctx.globalAlpha=pcWidth*0.75+0.25;
+		//ctx.globalAlpha=pcWidth*0.75+0.25;
+		var defColor=[139,30,43];
+		var bgColor=[240,240,240];
 		ctx.lineWidth=pcWidth*2*lineWidthCoeff/(zoom/2);
-		ctx.strokeStyle="#8b1e2b";
-		ctx.fillStyle="#8b1e2b";
+		//ctx.strokeStyle="#8b1e2b";
+		//ctx.fillStyle="#8b1e2b";
+		var color=colorAlpha(defColor, bgColor, pcWidth*0.75+0.25);
+		ctx.strokeStyle=color;
+		ctx.fillStyle=color;
 		if (mouseOverOneNode){
-			ctx.globalAlpha=0.3;
+			var defColor=[195,149,155];
+			/*ctx.globalAlpha=0.3;
 			ctx.strokeStyle="#c3959b";
-			ctx.fillStyle="#c3959b";
+			ctx.fillStyle="#c3959b";*/
+			var color=colorAlpha(defColor, bgColor, globalAlpha);
+			ctx.strokeStyle=color;
+			ctx.fillStyle=color;
 		}
 		if (edge.parentMouseOver){
-			ctx.globalAlpha=1;
+			var defColor=[180,42,59];
+			//ctx.globalAlpha=1;
 			ctx.lineWidth=pcWidth*3*lineWidthCoeff/(zoom/2);
-			ctx.strokeStyle="#b42a3b";
-			ctx.fillStyle="#b42a3b";
+			//ctx.strokeStyle="#180";
+			//ctx.fillStyle="#b42a3b";
+			var color=colorAlpha(defColor, bgColor, 1);
+			ctx.strokeStyle=color;
+			ctx.fillStyle=color;
 		}
 		ctx.beginPath();
 		var start=f(0);
 		ctx.moveTo(start.x,start.y);
-		for (var i=1; i<=nbPoint; i++){
-			var point=f(i/nbPoint*pc);
+		var nbPoint_=(edge.curveLength-minLength)/(maxLength-minLength)*(nbPoint-nbPointSmall)+nbPointSmall;
+		nbPoint_=Math.round(nbPoint*Math.min(3,zoom));
+		for (var i=1; i<=nbPoint_; i++){
+			var point=f(i/nbPoint_*pc);
 			ctx.lineTo(point.x,point.y);
 		}
 		ctx.stroke();
 		
-		ctx.beginPath();
-		ctx.moveTo(edge.points[0].x,edge.points[0].y);
-		for (var i=0; i<edge.points.length; i++){
-			ctx.lineTo(edge.points[i].x,edge.points[i].y);
+		if (zoom>2 && pc==1){
+			ctx.beginPath();
+			ctx.moveTo(edge.points[0].x,edge.points[0].y);
+			for (var i=0; i<edge.points.length; i++){
+				ctx.lineTo(edge.points[i].x,edge.points[i].y);
+			}
+			ctx.fill();
 		}
-		ctx.fill();
 		
 		
 	}
@@ -255,7 +276,7 @@
 			ctx.translate(preTranslate.x,preTranslate.y);
 			
 			ctx.lineWidth=lineWidthCoeff/(zoom/2);
-			ctx.lineCap="round";
+			//ctx.lineCap="round";
 			
 			for (var i=0; i<edgeArray.length; i++){
 				drawEdge(edgeArray[i]);
@@ -267,6 +288,20 @@
 		
 		requestAnimationFrame(draw);
 	}
+	
+	function colorAlpha(color1, colorBg, alpha){
+		/*var componentToHex=function(c) {
+			var hex = c.toString(16);
+			return hex.length == 1 ? "0" + hex : hex;
+		}*/
+		
+		var r=Math.round(color1[0]*alpha+colorBg[0]*(1-alpha));
+		var g=Math.round(color1[1]*alpha+colorBg[1]*(1-alpha));
+		var b=Math.round(color1[2]*alpha+colorBg[2]*(1-alpha));
+		
+		return "rgb("+r+","+g+","+b+")";
+	}
+	
 	function drawNode(node){
 		var position=node.position.add(preTranslate).scale(preScale).scale(zoom).add(translate);
 		var smallSize=(new V(200,36)).scale(preScale).scale(zoom);
@@ -290,12 +325,19 @@
 			size=singleSize;
 		}
 		
-		node.nodeElem.css({
-			left:Math.round(position.x-size.x/2)+"px",
-			top:Math.round(position.y-size.y/2)+"px",
-			width:Math.round(size.x)+"px",
-			height:Math.round(size.y)+"px"
-		});
+		if (position.x>windowWidth || position.y>windowHeight || 
+			position.x+size.x<0 || position.y+size.y<0){
+				node.nodeElem.addClass("outOfScreen");
+		}
+		else{
+			node.nodeElem.removeClass("outOfScreen");
+			node.nodeElem.css({
+				left:Math.round(position.x-size.x/2)+"px",
+				top:Math.round(position.y-size.y/2)+"px",
+				width:Math.round(size.x)+"px",
+				height:Math.round(size.y)+"px"
+			});
+		}
 	}
 	function cubic(p0,p1,p2,p3){
 		return function(t){
@@ -368,7 +410,11 @@
 				changes=true;
 				node.mouseOver=true;
 				mouseOverOneNode=true;
+				Animator.setAnimation(function(pc){
+					globalAlpha=(1-pc)*0.7+0.3;
+				},500);
 				$("body").addClass("mouseOverOneNode");
+				node.nodeElem.addClass("transitionning");
 				for (var i=0; i<node.leavingEdge.length; i++){
 					edgeArray[node.leavingEdge[i]].parentMouseOver=true;
 				}
@@ -385,6 +431,12 @@
 				changes=true;
 				node.mouseOver=false;
 				mouseOverOneNode=false;
+				Animator.setAnimation(function(pc){
+					globalAlpha=(pc)*0.7+0.3;
+				},500);
+				setTimeout(function(){
+					node.nodeElem.removeClass("transitionning");
+				},500);
 				$("body").removeClass("mouseOverOneNode");
 				for (var i=0; i<node.leavingEdge.length; i++){
 					edgeArray[node.leavingEdge[i]].parentMouseOver=false;
@@ -461,6 +513,9 @@
 				beziersArray.push(f);
 			}
 			var bezier=multipleBezier(beziersArray);
+			var curveLength=lineLength(bezier);
+			maxLength=Math.max(maxLength,curveLength);
+			minLength=Math.min(minLength,curveLength);
 			
 			var strokeWidth=pathNode.attr("stroke-width")*1 || 1;
 			
@@ -480,7 +535,7 @@
 			var start=(new V(firstMove["x"], firstMove["y"])).scaleM(prePreScale);
 			var end=points[0];
 			
-			edgeArray.push(new Edge(start, end, path, points, strokeWidth, bezier));
+			edgeArray.push(new Edge(start, end, path, points, strokeWidth, bezier, curveLength));
 		});
 	}
 	function TextNode(position, text, index, nodeElem){
@@ -522,7 +577,7 @@
 			nodeArray[startNode["index"]].reachedNode.push(endNode["index"]);
 		}
 	}
-	function Edge(start, end, path, points, strokeWidth, bezier){
+	function Edge(start, end, path, points, strokeWidth, bezier, curveLength){
 		this.start=start;
 		this.end=end;
 		this.path=path;
@@ -531,6 +586,7 @@
 		this.bezier=bezier;
 		this.parentMouseOver=false;
 		this.pc=1;
+		this.curveLength=curveLength;
 	}
 	function V(x,y){
 		if (y!=undefined){
@@ -693,16 +749,25 @@
 		z-index:2;
 		background-color:white;
 		border-radius:10px;
-		box-shadow: 0px 0px 5px rgba(0,0,0,0.1);
+		
 		font-size:10px;
 		cursor:default;
 		width:0;
 		height:0;
 		
-		-webkit-transition: width .2s, height .5s, opacity 1s;
-		-moz-transition:  width .2s, height .5s, opacity 1s;
-		-o-transition:  width .2s, height .5s, opacity 1s;
-		transition:  width .2s, height .5s, opacity 1s;
+		-webkit-transition: opacity .5s;
+		-moz-transition: opacity .5s;
+		-o-transition: opacity .5s;
+		transition: opacity .5s;
+	}
+	.node.transitionning{
+		-webkit-transition: width .2s, height .5s;
+		-moz-transition:  width .2s, height .5s;
+		-o-transition:  width .2s, height .5s;
+		transition:  width .2s, height .5s;
+	}
+	.node.outOfScreen{
+		display:none;
 	}
 	.mouseOverOneNode .node{
 		opacity:0.3;
@@ -720,16 +785,17 @@
 		background-color:rgba(255,255,255,0.3);
 		width:75px !important;
 		height:75px !important;
+		box-shadow: 0px 0px 5px rgba(0,0,0,0.1);
 		
 	}
 	.node.full:hover{
 		background-color:rgba(255,255,255,0.9);
 		box-shadow: 0px 0px 5px rgba(0,0,0,0.4);
 		
-		-webkit-transition: left .2s, top .5s, opacity 1s;
+		/*-webkit-transition: left .2s, top .5s, opacity 1s;
 		-moz-transition:  left .2s, top .5s, opacity 1s;
 		-o-transition:  left .2s, top .5s, opacity 1s;
-		transition:  left .2s, top .5s, opacity 1s;
+		transition:  left .2s, top .5s, opacity 1s;*/
 	}
 	.node.parentMouseOver{
 		background-color:rgba(255,255,255,0.7);
