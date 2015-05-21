@@ -12,12 +12,12 @@ import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.storage.StorageLevel;
-import org.epfl.bigdataevs.eminput.EmInputFromParser;
-import org.epfl.bigdataevs.eminput.InputParser;
-import org.epfl.bigdataevs.eminput.ParsedArticle;
-import org.epfl.bigdataevs.eminput.TimePartition;
-import org.epfl.bigdataevs.eminput.TimePeriod;
 import org.epfl.bigdataevs.executables.Parameters;
+import org.epfl.bigdataevs.input.EmInputFromParser;
+import org.epfl.bigdataevs.input.InputParser;
+import org.epfl.bigdataevs.input.ParsedArticle;
+import org.epfl.bigdataevs.input.TimePartition;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import scala.Array;
 import scala.Tuple2;

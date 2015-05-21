@@ -1,4 +1,4 @@
-package org.epfl.bigdataevs.eminput;
+package org.epfl.bigdataevs.input;
 
 import org.apache.commons.math3.fraction.BigFraction;
 import org.apache.spark.api.java.JavaPairRDD;

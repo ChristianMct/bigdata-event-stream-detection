@@ -5,10 +5,10 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.epfl.bigdataevs.em.EmAlgo;
 import org.epfl.bigdataevs.em.Theme;
-import org.epfl.bigdataevs.eminput.EmInputFromParser;
-import org.epfl.bigdataevs.eminput.HmmInputFromParser;
-import org.epfl.bigdataevs.eminput.InputParser;
-import org.epfl.bigdataevs.eminput.TimePeriod;
+import org.epfl.bigdataevs.input.EmInputFromParser;
+import org.epfl.bigdataevs.input.HmmInputFromParser;
+import org.epfl.bigdataevs.input.InputParser;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import java.io.IOException;
 import java.text.DateFormat;

@@ -6,11 +6,11 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
-import org.epfl.bigdataevs.eminput.EmInputFromParser;
-import org.epfl.bigdataevs.eminput.InputParser;
-import org.epfl.bigdataevs.eminput.ParsedArticle;
-import org.epfl.bigdataevs.eminput.TimePartition;
-import org.epfl.bigdataevs.eminput.TimePeriod;
+import org.epfl.bigdataevs.input.EmInputFromParser;
+import org.epfl.bigdataevs.input.InputParser;
+import org.epfl.bigdataevs.input.ParsedArticle;
+import org.epfl.bigdataevs.input.TimePartition;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import scala.Tuple2;
 

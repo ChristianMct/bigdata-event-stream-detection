@@ -6,10 +6,10 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
-import org.epfl.bigdataevs.eminput.BackgroundModel;
-import org.epfl.bigdataevs.eminput.HmmInputFromParser;
-import org.epfl.bigdataevs.eminput.InputParser;
-import org.epfl.bigdataevs.eminput.TimePeriod;
+import org.epfl.bigdataevs.input.BackgroundModel;
+import org.epfl.bigdataevs.input.HmmInputFromParser;
+import org.epfl.bigdataevs.input.InputParser;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import scala.Tuple2;
 

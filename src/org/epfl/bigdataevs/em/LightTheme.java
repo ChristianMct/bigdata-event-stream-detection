@@ -1,7 +1,7 @@
 package org.epfl.bigdataevs.em;
 
 import org.epfl.bigdataevs.em.Theme.ValueComparator;
-import org.epfl.bigdataevs.eminput.TimePeriod;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import java.io.Serializable;
 import java.util.Comparator;

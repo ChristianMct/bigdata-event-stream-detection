@@ -1,4 +1,4 @@
-package org.epfl.bigdataevs.eminput;
+package org.epfl.bigdataevs.input;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.epfl.bigdataevs.em.EmAlgo;

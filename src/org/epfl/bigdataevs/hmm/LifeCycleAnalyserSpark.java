@@ -2,8 +2,8 @@ package org.epfl.bigdataevs.hmm;
 
 import org.apache.commons.math3.fraction.BigFraction;
 import org.epfl.bigdataevs.em.Theme;
-import org.epfl.bigdataevs.eminput.BackgroundModel;
-import org.epfl.bigdataevs.eminput.HmmInputFromParser;
+import org.epfl.bigdataevs.input.BackgroundModel;
+import org.epfl.bigdataevs.input.HmmInputFromParser;
 
 import scala.Tuple2;
 

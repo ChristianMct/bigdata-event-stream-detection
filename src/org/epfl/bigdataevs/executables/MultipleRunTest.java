@@ -13,13 +13,13 @@ import org.epfl.bigdataevs.em.EmAlgo;
 import org.epfl.bigdataevs.em.EmInput;
 import org.epfl.bigdataevs.em.Theme;
 import org.epfl.bigdataevs.em.ThemeFromLargeTimePeriod;
-import org.epfl.bigdataevs.eminput.EmInputFromParser;
-import org.epfl.bigdataevs.eminput.InputParser;
-import org.epfl.bigdataevs.eminput.ParsedArticle;
-import org.epfl.bigdataevs.eminput.TimePartition;
-import org.epfl.bigdataevs.eminput.TimePeriod;
 import org.epfl.bigdataevs.evolutiongraph.EvolutionaryTransition;
 import org.epfl.bigdataevs.evolutiongraph.KLDivergence;
+import org.epfl.bigdataevs.input.EmInputFromParser;
+import org.epfl.bigdataevs.input.InputParser;
+import org.epfl.bigdataevs.input.ParsedArticle;
+import org.epfl.bigdataevs.input.TimePartition;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import scala.Tuple2;
 

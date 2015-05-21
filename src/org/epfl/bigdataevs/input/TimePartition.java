@@ -1,4 +1,4 @@
-package org.epfl.bigdataevs.eminput;
+package org.epfl.bigdataevs.input;
 
 import java.util.Collection;
 

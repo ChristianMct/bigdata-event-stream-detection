@@ -1,7 +1,7 @@
 package org.epfl.bigdataevs.em;
 
 import org.apache.commons.math3.fraction.BigFraction;
-import org.epfl.bigdataevs.eminput.TimePeriod;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import scala.Tuple2;
 

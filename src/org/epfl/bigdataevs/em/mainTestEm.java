@@ -4,7 +4,7 @@ import org.apache.commons.math3.fraction.BigFraction;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.epfl.bigdataevs.eminput.TimePeriod;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

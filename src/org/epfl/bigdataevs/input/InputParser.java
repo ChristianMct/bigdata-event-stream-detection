@@ -1,4 +1,4 @@
-package org.epfl.bigdataevs.eminput;
+package org.epfl.bigdataevs.input;
 
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;

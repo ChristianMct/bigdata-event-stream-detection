@@ -3,8 +3,8 @@ package org.epfl.bigdataevs.em;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.epfl.bigdataevs.em.EmAlgo;
 import org.epfl.bigdataevs.em.Theme;
-import org.epfl.bigdataevs.eminput.ArticleStream;
-import org.epfl.bigdataevs.eminput.ParsedArticle;
+import org.epfl.bigdataevs.input.ArticleStream;
+import org.epfl.bigdataevs.input.ParsedArticle;
 
 import java.io.Serializable;
 import java.math.BigDecimal;

@@ -6,8 +6,8 @@ import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 import org.epfl.bigdataevs.em.LightTheme;
-import org.epfl.bigdataevs.eminput.TimePeriod;
 import org.epfl.bigdataevs.executables.Parameters;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import scala.Tuple2;
 import scala.Tuple3;

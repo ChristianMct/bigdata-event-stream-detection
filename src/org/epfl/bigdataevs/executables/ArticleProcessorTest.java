@@ -3,9 +3,9 @@ package org.epfl.bigdataevs.executables;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.epfl.bigdataevs.eminput.ArticleStream;
-import org.epfl.bigdataevs.eminput.RawArticle;
-import org.epfl.bigdataevs.eminput.TimePeriod;
+import org.epfl.bigdataevs.input.ArticleStream;
+import org.epfl.bigdataevs.input.RawArticle;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import java.util.ArrayList;
 import java.util.Date;

@@ -16,10 +16,10 @@ import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.math3.fraction.BigFraction;
 import org.apache.commons.math3.fraction.Fraction;
-import org.epfl.bigdataevs.eminput.ParsedArticle;
-import org.epfl.bigdataevs.eminput.TimePartition;
-import org.epfl.bigdataevs.eminput.TimePeriod;
 import org.epfl.bigdataevs.executables.Parameters;
+import org.epfl.bigdataevs.input.ParsedArticle;
+import org.epfl.bigdataevs.input.TimePartition;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import scala.Tuple2;
 

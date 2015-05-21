@@ -2,9 +2,9 @@ package org.epfl.bigdataevs.executables;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.epfl.bigdataevs.eminput.RawArticle;
-import org.epfl.bigdataevs.eminput.RawArticleInputStream;
-import org.epfl.bigdataevs.eminput.TimePeriod;
+import org.epfl.bigdataevs.input.RawArticle;
+import org.epfl.bigdataevs.input.RawArticleInputStream;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import java.io.IOException;
 import java.text.DateFormat;

@@ -1,7 +1,7 @@
 package org.epfl.bigdataevs.hmm;
 
 import org.apache.spark.api.java.JavaPairRDD;
-import org.epfl.bigdataevs.eminput.TimePeriod;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import java.sql.Time;
 import java.util.List;

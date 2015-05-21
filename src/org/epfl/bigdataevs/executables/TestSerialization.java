@@ -4,9 +4,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.epfl.bigdataevs.eminput.InputParser;
-import org.epfl.bigdataevs.eminput.RawArticleInputStream;
-import org.epfl.bigdataevs.eminput.TimePeriod;
+import org.epfl.bigdataevs.input.InputParser;
+import org.epfl.bigdataevs.input.RawArticleInputStream;
+import org.epfl.bigdataevs.input.TimePeriod;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
